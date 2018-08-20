@@ -5,7 +5,7 @@ The Data Broker (DBR) is a distributed, in-memory container of key-value stores 
 applications in a workflow to exchange data through one or more shared namespaces. Thanks
 to a small set of primitives, applications in a workflow deployed in a (possibly) shared
 nothing distributed cluster, can easily share and exchange data and messages with a minimum
-effort. In- spired by the Linda coordination and communication model, the Data Broker
+effort. Inspired by the Linda coordination and communication model, the Data Broker
 provides a unified shared namespace to applications, which is independent from
 applications’ programming and communication model.
 
@@ -20,21 +20,26 @@ cmake uses out-of-source build tree and in order to build it, it's
 best to:
 
 a) create a build directory
-     mkdir build
+
+`mkdir build`
 
 b) switch to that dir
-     cd build
+
+`cd build`
 
 c) run cmake:
-     cmake <source_dir> [options]
+
+`cmake <source_dir> [options]`
      
    with options:
+   
      -DCMAKE_INSTALL_PREFIX=<path>     set the install path (default: /usr/local)
      -DAPPLE                           when building for MAC OS
      
    example:
-     when run from the created 'build' dir and to prepare installation in /opt/databroker:
-         cmake ../ -DCMAKE_INSTALL_PREFIX=/opt/databroker
+     when run from the created 'build' dir and to prepare installation in `/opt/databroker`:
+       
+       cmake ../ -DCMAKE_INSTALL_PREFIX=/opt/databroker
 
 d) run make
      make
@@ -48,7 +53,7 @@ e) install
 
 A Redis out-of-the box will almost do the trick.  What's needed in
 addition to the basic config is to enable password authorization. Edit
-the redis.conf
+the `redis.conf`
 
 requirepass <areallylongandcrypticpassphrase>
 
@@ -69,7 +74,7 @@ configuration to the config file of each instance and restart.
 Newer versions of redis-trib (since version 4.0.6) allow to provide
 the password via command line so there's no need for this workaround. 
 
-Further details are beyond the scope of this README and can be found
+Further details are beyond the scope of this `README` and can be found
 here:  https://redis.io/topics/cluster-tutorial
 
 Recommendation for the debugging phase: use a shorter passphrase if you
@@ -83,7 +88,7 @@ too.
 
 After running make install in the databroker build directory, you
 should have a directory with include file and libraries located in
-the place you specified with the cmake command (or under /usr/local).
+the place you specified with the `cmake` command (or under `/usr/local`).
 
 
 
@@ -94,23 +99,23 @@ variables:
 
 DBR_SERVER
       Points to one of the Redis instances that are part of the
-      backend.  If not set, it defaults to 'localhost'.
+      backend.  If not set, it defaults to `localhost`.
 
 DBR_PORT
       Points to the TCP port of the Redis instance specified by
-      DBR_SERVER.  If not set, it defaults to '6379'.
+      `DBR_SERVER`.  If not set, it defaults to `6379`.
 
 DBR_AUTHFILE
       Point the library to the location of the file that contains the
       Redis passphrase. Make sure to restrict the access to that file
       to the intended group of people who need access to Redis.  If
-      not set, it defaults to '.redis.auth' (note this is pointing to
+      not set, it defaults to `.redis.auth` (note this is pointing to
       the current work dir). For better security, it is suggested to
       specify an absolute path.
 
 DBR_TIMEOUT
       Specifies the timeout in seconds for blocking get and read API
-      calls. If not set, it defaults to 5 seconds.
+      calls. If not set, it defaults to `5` seconds.
 
 
 
