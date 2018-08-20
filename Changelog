@@ -1,0 +1,56 @@
+version 0.5.0
+ * opensourced under Apache License 2.0
+
+version 0.4.2
+ * return DBR_ERR_NOCONNECT if a backend server fails
+ * fixed MacOS build
+ * documentation update
+
+version 0.4.1
+ * new API to test for existence of a key
+ * extended read/get API with flags
+ * python API provides extended error description function
+ * python updated dbr and cffi modules import
+
+version 0.4.0
+ * Tags use their own typedef, apps should not rely on internal representation
+ * Errorcodes revised and extended; dbrGetError provides brief explanation
+ * dbrTest and dbrCancel API changed: only tag required
+ * dbrQuery API changed to return errorcode; name space info retrieved
+   via output parameter  
+ * reworked back-end API to support additional back-ends
+ * several bug fixes and improvements
+ * C-API moved to C/bindings
+ * Starting Doxygen documentation
+
+version 0.3.2
+ * added scripts and readme for execution via LSF (requires adjustment to your
+   env/paths) and to instructions to run redis BE in cluster mode
+ * fix: python API return code fix
+ * fix: several namespace deletion problems with multiple namespaces
+ 
+version 0.3.1
+ * fix: string termination bug that appeared with large msgs
+ * project-based directory references to allow build as a submodule
+ * cmakelists dependencies for python binding have been added and
+   the Readme has been updated with instructions for building
+
+version 0.3
+ * namespace delete clears remaining keys of that namespace
+ * crc16-based pre-selection of Redis server to avoid redirects
+ * cluster/multi-node Redis access and redirect handling
+ * connection and initialization to all cluster nodes
+ * libevent-based handling of multi-connections requires
+   libevent to be installed
+ * fix: parsing of partially received responses 
+ * several bug fixes and code improvements 
+ 
+version 0.2
+ * installation mechanism added
+ * Python bindings added
+ * compiling/linking to C++ clients 
+ 
+ version 0.1
+  * initial function including authorization
+  * first official version with redesigned backend..
+  * ... and expected final API 

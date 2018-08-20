@@ -1,0 +1,566 @@
+\input{conf}
+\newcommand{\ilist}[1]{\lstinline[style=myinlinestyle,basicstyle=\ttfamily,]{#1}}
+
+\title{Databroker User Guide}
+\date{v0.4.1}
+
+\begin{document}
+\maketitle
+\section{Databroker}
+\label{sec:interface}
+
+The Data Broker (DBR) is a distributed, in-memory container of key-value stores enabling applications in a workflow to exchange data through one or more shared namespaces.
+Thanks to a small set of primitives, applications in a workflow deployed in a (possibly) shared nothing distributed cluster, can easily share and exchange data and messages with a minimum effort. Inspired by the Linda coordination and communication model, the Data Broker provides a unified shared namespace to applications, which is independent from applications' programming and communication model.
+
+
+
+The DBR is in charge of creating  and managing  the underlying namespaces and providing access to them from the user applications.
+Basically, the DBR  acts as a middleware between the effective instantiation of each namespace and the applications at the user level (i.e., applications in the workflow).
+The instantiation of the namespace is done at the backend level and it depends on the runtime chosen for that purpose. It can be any key-value store as well as software-based global address space (see \ref{sec:arch}). This implementation provides Redis\footnote{https://redis.io/} as backend.
+
+\subsection{Architecture}
+\label{sec:arch}
+\begin{figure}[!htb]
+	\centering
+	\includegraphics[width=0.7\linewidth]{fig/architecture}
+	\caption{Architecture stack of the Data Broker.}
+	\label{fig:architecture}
+\end{figure}
+
+
+Figure~\ref{fig:architecture} shows a representation of the DBR architecture stack.
+We can identify three main layers acting:  application, middleware and runtime.
+At the higher level, the application represents the software or workflow that will use the DBR to communicate with other applications or the ones within the workflow itself. 
+The middleware layer is composed by two parts: the User Library and the System Library.
+Both are exposed to the user for different purposes. The User Library provides primitives for accessing the Data Broker and, hence, the namespaces. The System Library can be used as an interface to implement a new backend.
+
+
+\section{Databroker API Overview}
+
+A data item that is stored in the Databroker, is called a \emph{tuple}.
+A tuple has a name or a key and the tuple data\footnote{currently the
+ tuple data is limited to a single contiguous region of memory}.
+Data is organized in so called \emph{namespaces}. That means the same
+tuple can be added to different name spaces without any interference.
+
+\begin{figure}[!htb]
+	\centering
+	\includegraphics[width=\linewidth]{fig/dbrworkflow}
+	\caption{Communication pattern with the Data Broker.}
+	\label{fig:dbrworkflow}
+\end{figure}
+
+Figure~\ref{fig:dbrworkflow} shows the communication pattern among the three players described: a set of applications send data to the Data Broker, which is in charge of storing such data into the namespace associated with requests done by applications.
+
+
+The same tuple (name) can also be added to the same namespace multiple
+times, either with the same data or with different data. 
+In this case, tuples are pushed into a queue and the insertion order depends on tuples arrival to the Redis server.
+Hence, there is no guarantee about the insertion order, which might be different with respect to the order tuples are sent if two different processes are pushing data to the same queue. The only ordering guarantee is on the tuples within the queue.
+The effect of this is that retrieval functions will return any of the stored
+tuples. There is no guarantee of the retrieval order\footnote{The Redis
+  back-end returns the tuples in the order they were stored, however,
+  a portable application should not rely on this behavior.}.
+
+
+
+
+\subsection{Data Access}
+\label{sec:interface:access}
+\paragraph{Namespace creation} Every access (read or write) to a tuple
+requires a valid namespace.  A valid namespace can be either created
+(\texttt{dbrCreate()}, code listing~\ref{code:create}) or a process can attach (\texttt{dbrAttach()}, code listing~\ref{code:attach}) to an
+existing namespace.  Namespaces have to be unique, i.\,e.\@ a
+namespace creation will fail if there's already an existing namespace
+with the same name.
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Creation of a namespace, label=code:create]
+int main( int argc, char ** argv )
+{
+	DBR_Name_t name = strdup("mynamespace");
+	DBR_Tuple_persist_level_t level = DBR_PERST_VOLATILE_SIMPLE;
+	DBR_GroupList_t groups = 0;
+	// create a test name space
+	DBR_Handle_t ns_hdl =  dbrCreate(name, level, groups);
+	// ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Attach to a namespace, label=code:attach]
+int main( int argc, char ** argv ) 
+{
+	DBR_Tuple_persist_level_t level = DBR_PERST_VOLATILE_SIMPLE;
+	DBR_GroupList_t groups = 0;
+	DBR_Name_t name = strdup("mynamespace");
+	
+	DBR_State_t ns_state;
+	DBR_Handle_t ns_hdl = NULL;
+	
+	// Check existence of the namespace with the specified name
+	DBR_Errorcode_t ret = dbrQuery(ns_hdl, &ns_state, DBR_STATE_MASK_ALL);
+	if (ret == DBR_ERR_INVALID) {
+		// Namespace not existing, create one 
+		ns_hdl = dbrCreate (name, level, groups);
+	}  else if (ret == DBR_SUCCESS)
+		ns_hdl = dbrAttach( name );
+		
+	// ...
+}
+\end{lstlisting}
+
+\paragraph{Data insertion} The \texttt{dbrPut} (blocking, listing~\ref{code:put}) and \texttt{dbrPutA}
+(non blocking, listing~\ref{code:putA}), allow the user to insert new data to a namespace.  This
+requires a valid namespace handle, a tuple name and the pointer and
+size of a contiguous memory region containing the tuple data.  The
+tuple will be added to the existing namespace and if there's already a
+tuple with the same name, the tuple data will be added to that tuple
+as a kind of new version of data.
+Return values are the following  for \texttt{dbrPut} and \texttt{dbrPutA} respectively:
+\begin{itemize}
+	\item \texttt{DBR\_Errorcode\_t}: \texttt{ DBR\_SUCCESS} if the put is successful, a \texttt{DBR\_Errorcode\_t} code otherwise (see Table\ref{table:errorcodes}) 
+	\item \texttt{DBR\_Tag\_t}: an id of the asynchronous call. It is used to check its completion via \texttt{dbrTest(DBR\_Tag\_t tag)}
+\end{itemize}
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Put data into the namespace (blocking), label=code:put]
+int main( int argc, char ** argv )
+{
+	// create or attach to a namespace
+	// ...
+	
+    // Function signature
+    // DBR_Errorcode_t dbrPut( DBR_Handle_t ns_handle: handler to the namespace
+    // void *va_ptr: buffer containing the data
+    // int64_t size: size of the buffer
+    // DBR_Tuple_name_t tuple_name: name/key of the value
+    // DBR_Group_t group: collection of units of backing memory (not applicable to Redis backend)
+    // );
+    
+    char *in = strdup("Hello World!");
+    int64_t in_size = strlen(in);
+    DBR_Group_t group = '0';
+    
+    DBR_Errorcode_t ret = dbrPut(ns_hdl, in, in_size, "testTup", group);
+	
+	// ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Push data to the namespace (non-blocking), label=code:putA]
+int main( int argc, char ** argv )
+{
+	// create or attach to a namespace
+	// ...
+	
+	// Function signature
+    //DBR_Tag_t dbrPutA( DBR_Handle_t ns_handle: handler to the namespace
+    // void *va_ptr: buffer containing the data
+    // int64_t size: size of the buffer
+    // DBR_Tuple_name_t tuple_name: name/key of the value
+    // DBR_Group_t group: collection of units of backing memory (not applicable to Redis backend)
+    // );
+    
+    char *in = strdup("Hello World!");
+    int64_t in_size = strlen(in);	
+    DBR_Group_t group = '0';
+    
+    DBR_Tag_t tag = dbrPutA(ns_hdl, in, in_size, "tuple_key", group);
+    if(tag != DBR_TAG_ERROR)
+		dbrTest(tag);
+		
+	// ...
+}
+\end{lstlisting}
+
+\paragraph{Data retrieval} There are 2 types of retrieval functions:
+\begin{enumerate}
+\item Read without consuming the tuple: the \texttt{dbrRead} (listing~\ref{code:read}) and
+  \texttt{dbrReadA} (listing~\ref{code:readA}) APIs retrieve a copy of a tuple of the given name from the
+  namespace and will not touch or consume the data.  A read can be
+  repeated multiple times without changing the content of the
+  namespace.
+  The blocking read \texttt{dbrRead} can be customized with two different flags based on the behavior the user prefers:
+  \begin{itemize}
+  	\item \texttt{DBR\_FLAGS\_NONE}: the call blocks until a certain timeout is reached;
+  	\item \texttt{DBR\_FLAGS\_NOWAIT}: the call checks wheter the tuple exists or not and returns immediately if the tuple is not in the namespace.
+  \end{itemize}
+
+Return values are the following  for \texttt{dbrRead} and \texttt{dbrReadA} respectively:
+\begin{itemize}
+	\item \texttt{DBR\_Errorcode\_t}: \texttt{ DBR\_SUCCESS} if the read is successful, a \texttt{DBR\_Errorcode\_t} code otherwise (see Table~\ref{table:errorcodes}) 
+	\item \texttt{DBR\_Tag\_t}: an id of the asynchronous call. It is used to check its completion via \texttt{dbrTest(DBR\_Tag\_t tag)}
+\end{itemize}
+
+Furthermore, given the possibility to define the flag to just check wether a tuple exists or not, there will be the possible error codes:
+\begin{itemize}
+	\item[-] \texttt{DBR\_ERR\_TIMEOUT} if the tuple does not exist \textbf{and} the flag is set to \texttt{DBR\_FLAGS\_NONE} (hence, blocking behaviour);
+	\item [-] \texttt{DBR\_ERR\_UNAVAIL} if the tuple does not exist \textbf{and} the flag is set to \texttt{DBR\_FLAGS\_NOWAIT} (hence, immediate return in any case)
+\end{itemize}
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Read data from the namespace (blocking), label=code:read]
+int main( int argc, char ** argv )
+{
+	// create or attach to a namespace
+	// ...
+	
+	// Function signature
+	// DBR_Errorcode_t dbrRead( DBR_Handle_t ns_handle: handler to the namespace
+    //    void *va_ptr: buffer to store received data
+    //    int64_t *size: current size of the buffer, this value will be set with the size of received data 
+    //    DBR_Tuple_name_t tuple_name: name/key for the tuple to be searched
+    //    DBR_Tuple_template_t match_template: template to match for tuple name/key
+    //    DBR_Group_t group: collection of units of backing memory (not applicable to Redis backend)
+    //    int flags: DBR_FLAGS_NONE, DBR_FLAGS_NOWAIT
+    // );
+	
+	char *recv_buffer = (char*)malloc(1024);
+	int64_t buf_size = 1024;
+	DBR_Group_t group = '0';
+	DBR_Tuple_template_t match_template = "";
+    
+    memset(recv_buffer, 0, buf_size);
+	DBR_Tuple_name_t tuple_key = "some_key";
+	DBR_Errorcode_t ret = dbrRead(ns_hdl, recv_buffer, &buf_size, tuple_key, match_template, group, DBR_FLAGS_NONE);
+	
+	// ...
+}
+\end{lstlisting}
+  
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Read data from the namespace (non-blocking), label=code:readA]
+int main( int argc, char ** argv )
+{
+	// create or attach to a namespace
+	// ...
+
+    // Function signature
+    //DBR_Tag_t  dbrReadA( DBR_Handle_t ns_handle: handler to the namespace 
+    //    void *va_ptr: buffer to store received data
+    //    int64_t *size: current size of the buffer, this value will be set with the size of received data 
+    //    DBR_Tuple_name_t tuple_name: name/key for the tuple to be searched
+    //    DBR_Tuple_template_t match_template: template to match for tuple name/key
+    //    DBR_Group_t group: collection of units of backing memory (not applicable to Redis backend)
+    // );
+
+	char *recv_buffer = (char*)malloc()1024);
+	int64_t buf_size = 1024;
+	DBR_Group_t group = '0';
+	DBR_Tuple_template_t match_template = "";
+	
+	memset(recv_buffer, 0, buf_size);
+	DBR_Tuple_name_t tuple_key = "some_key";
+	DBR_Tag_t tag = dbrReadA(ns_hdl, recv_buffer, &buf_size, tuple_key, match_template, group);
+	DBR_Errorcode_t state = 0;
+	if( tag != DBR_ERR_TAGERROR) {
+		do {
+			state = dbrTest( tag );
+		} while(state ==  DBR_ERR_INPROGRESS);
+	}
+	
+	// ...
+}
+\end{lstlisting}
+
+
+\item Get and consume the tuple: the \texttt{dbrGet} (listing~\ref{code:get}) and \texttt{dbrGetA} (listing~\ref{code:getA}) commands will retrieve and consume a tuple. This means that after a
+  get, the tuple will be deleted. Note that only one version of the
+  tuple will be removed by a single get call. If there have been
+  multiple tuples added with the same name, then the number of
+  versions of that tuple is reduced by 1.
+The blocking get \texttt{dbrGet} can be customized with two different flags based on the behavior the user prefers:
+\begin{itemize}
+	\item \texttt{DBR\_FLAGS\_NONE}: the call blocks until a certain timeout is reached;
+	\item \texttt{DBR\_FLAGS\_NOWAIT}: the call checks wheter the tuple exists or not and returns immediately if the tuple is not in the namespace.
+\end{itemize}
+
+Return values are the following  for \texttt{dbrGet} and \texttt{dbrGetA} respectively:
+\begin{itemize}
+	\item \texttt{DBR\_Errorcode\_t}: \texttt{ DBR\_SUCCESS} if the read is successful, a \texttt{DBR\_Errorcode\_t} code otherwise (see Table~\ref{table:errorcodes}) 
+	\item \texttt{DBR\_Tag\_t}: an id of the asynchronous call. It is used to check its completion via \texttt{dbrTest(DBR\_Tag\_t tag)}
+\end{itemize}
+
+Furthermore, given the possibility to define the flag to just check wether a tuple exists or not, there will be the possible error codes:
+\begin{itemize}
+	\item[-] \texttt{DBR\_ERR\_TIMEOUT} if the tuple does not exist \textbf{and} the flag is set to \texttt{DBR\_FLAGS\_NONE} (hence, blocking behaviour);
+	\item [-] \texttt{DBR\_ERR\_UNAVAIL} if the tuple does not exist \textbf{and} the flag is set to \texttt{DBR\_FLAGS\_NOWAIT} (hence, immediate return in any case)
+\end{itemize}
+
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Get data from the namespace (blocking), label=code:get]
+int main( int argc, char ** argv )
+{
+	// create or attach to a namespace
+	// ...
+
+    // Function signature
+    // DBR_Errorcode_t dbrGet( DBR_Handle_t ns_handle: handler to the namespace
+    //    void *va_ptr: buffer to store received data
+    //    int64_t *size: current size of the buffer, this value will be set with the size of received data 
+    //    DBR_Tuple_name_t tuple_name: name/key for the tuple to be searched
+    //    DBR_Tuple_template_t match_template: template to match for tuple name/key
+    //    DBR_Group_t group: collections of unit of backing memory (not applicable to Redis backend)
+    //    int flags: DBR_FLAGS_NONE, DBR_FLAGS_NOWAIT
+    // );
+
+	char *recv_buffer = (char*)malloc(1024);
+	int64_t buf_size = 1024;
+	DBR_Group_t group = '0';
+	DBR_Tuple_template_t match_template = "";
+	
+	memset(recv_buffer, 0, buf_size);
+	DBR_Tuple_name_t tuple_key = "some_key";
+	DBR_Errorcode_t ret = dbrGet(ns_hdl, recv_buffer, &buf_size, tuple_key, match_template, group, DBR_FLAGS_NOWAIT);
+	
+	// ...
+}
+\end{lstlisting}
+
+  \begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Get data from the namespace (non-blocking), label=code:getA]
+int main( int argc, char ** argv )
+{
+	// create or attach to a namespace
+	// ...
+
+    // Function signature
+    //DBR_Tag_t  dbrGetA( DBR_Handle_t ns_handle: handler to the namespace 
+    //    void *va_ptr: buffer to store received data
+    //    int64_t *size: current size of the buffer, this value will be set with the size of received data 
+    //    DBR_Tuple_name_t tuple_name: name/key for the tuple to be searched
+    //    DBR_Tuple_template_t match_template: template to match for tuple name/key
+    //    DBR_Group_t group: collections of unit of backing memory (not applicable to Redis backend)
+    // );
+	
+	char *recv_buffer = (char*)malloc(1024);
+	int64_t buf_size = 1024;
+	DBR_Group_t group = '0';
+	DBR_Tuple_template_t match_template = "";
+
+	memset(recv_buffer, 0, buf_size);
+	DBR_Tuple_name_t tuple_key = "some_key";
+	DBR_Tag_t tag = dbrReadA( ns_hdl, recv_buffer, &buf_size, tuple_key, match_template, group);
+	DBR_Errorcode_t state = 0; 
+
+	if(tag != DBR_ERR_TAGERROR) {
+		do {
+			state = dbrTest(tag);
+			if(state == DBR_ERR_INPROGRESS )
+				usleep( 100000 );
+		} while(state ==  DBR_ERR_INPROGRESS);
+	}
+	
+	// ...
+}
+\end{lstlisting}
+Both, read and get will return one version of a stored tuple in case
+there are more versions available.  If there's no tuple with the
+requested name available in the namespace, read (\texttt{dbrRead}) and get (\texttt{dbrGet}) will block
+(until a configurable timeout is hit). 
+\end{enumerate}
+
+
+\paragraph{Check existence of a tuple} It is possible to check whether a tuple is present in a namespace or not with the \texttt{dbrTestKey} function (listing~\ref{code:testKey}). It will not return any tuple and does not modify the namespace.
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Check for the existence of a tuple in the Data Broker, label=code:testKey]
+int main( int argc, char ** argv )
+{
+// create or attach to a namespace
+// ...
+// Function signature
+// DBR_Errorcode_t dbrTestKey( DBR_Handle_t dbr_handle, DBR_Tuple_name_t tuple_name );
+//   DBR_Handle_t dbr_handle: handle to the namespace
+//   DBR_Tuple_name_t tuple_name: name/key for the tuple to be searched
+// );
+
+	DBR_Errorcode_t ret = dbrTestKey( cs_hdl, "tuple_key" );
+// ...
+}
+\end{lstlisting}
+
+The function will return:
+\begin{itemize}
+	\item[-] DBR\_SUCCESS if the tuple is present;
+	\item[-] DBR\_ERR\_UNAVAIL if the tuple is unavailable;
+	\item[-] An error code identifying the issue, otherwise
+\end{itemize}
+
+
+
+\paragraph{Namespace deletion} Any process that is attached to a
+namespace needs to detach \texttt{dbrDetach} (\ilist{dbrDetach(ns\_hdl);}). The databroker uses a
+reference counter to check how many processes are attached to a
+namespace.  Calling \texttt{dbrDelete} (\ilist{dbrDelete(name);}), will check this reference counter
+and if it's 0, then the deletion will proceed and clean up all
+remaining data of that namespace.
+
+
+
+
+\subsection{Example Sequence}
+\label{sec:interface:example}
+We now show two different scenarios.
+If no namespace exists, then:
+\begin{enumerate}
+\item A process would \texttt{dbrCreate} a new namespace (which
+  automatically attaches the process to that namespace too, there's no
+  need to do an additional \texttt{dbrAttach})
+\item Then the process can put and get data to and from that namespace.
+\item At the end, it would call \texttt{dbrDelete} to clean up.
+\end{enumerate}
+
+\noindent If a namespace already exists, then:
+\begin{enumerate}
+\item A process would \texttt{dbrAttach} to an existing namespace.
+\item Then the process can put and get data to and from that namespace.
+\item At the end, it would call \texttt{dbrDetach} to tell the databroker
+  that no more access to that namespace will occur.
+\end{enumerate}
+
+Please see \ref{sec:interface:limits} for current limitations and
+problems.
+
+
+\subsection{Configuration}
+\label{sec:interface:config}
+There are a few environment variables that can be set by the user to
+adjust the behavior of the databroker library.
+\begin{itemize}
+\item \texttt{DBR\_SERVER} points to one Redis server of the Redis
+  cluster. The coordinates of the other servers will be automatically
+  obtained when the library initializes.
+\item \texttt{DBR\_PORT} points to the port of the Redis server identified
+  by \texttt{DBR\_SERVER}.
+\item \texttt{DBR\_AUTHFILE} points to a file that contains the Redis
+  authentication password.  The password needs to be in the first line
+  of that file. Any further content of that file is ignored. It is
+  recommended to use the absolute path when referencing the filename:\\
+  \centerline{ \tt export DBR\_AUTHFILE=/path/to/the/authfile.txt}
+\item \texttt{DBR\_TIMEOUT} determines the approximate time to wait in
+  read or get calls before they fail with a timeout error.
+\end{itemize}
+
+
+
+\subsection{Current Limitations and Problems}
+\label{sec:interface:limits}
+\begin{enumerate}
+\item Delete and detach reference counting of the Redis back-end, is
+  not fully implemented.  That means that any application has to make
+  sure that all processes have been detached before attempting to
+  delete a namespace. Otherwise, the delete will not perform proper
+  cleanup of the name space data.
+\item The reference counting is currently not tracked on a per-client
+  basis. That means, a misbehaving process can repeatedly detach and
+  decrease the reference count.
+\item The max size of the tuple data can be 128MB with the Redis
+  back-end. The limitation is caused by a shortcut in the
+  implementation and will be fixed soon. The Redis servers themselves
+  have a limit of 512MB per data item. So with this back-end there's a
+  hard limit on the data size.
+\end{enumerate}
+
+
+
+\section{Troubleshooting}
+\label{sec:interface:troubleshoot}
+\subsection{Checking Redis via redis-cli}
+\label{sec:interface:troubleshoot:checkredis}
+In case things go wrong, Redis comes with a command line client {\tt
+  redis-cli}. It's a powerful tool to check the Redis server is
+running as expected and also allows to browse and change the content
+of the databroker storage.
+
+The following output is generated by running the commandline client
+connecting to a Redis server on localhost, then authorizing the access
+using the {\tt AUTH} command, and then listing all existing keys on
+that server using {\tt KEYS} (showing that there are no keys stored yet:
+\begin{lstlisting}[style=mystyle,language=bash,basicstyle=\scriptsize\ttfamily,caption=Redis
+  check via command line tool, label=code:rediscli]
+> redis-cli -p 6379 -h localhost
+localhost:6379> AUTH mysecretpassword
+OK
+localhost:6379> KEYS *
+(empty list or set)
+localhost:6379>
+\end{lstlisting}
+
+If the server is configured without a password, the {\tt AUTH} command
+will return {\tt (error) No authorization required} or a similar
+error.
+If you enter the wrong password (or the password in the config file
+contains unsupported characters like quotes), you'll get an error too.
+
+In case you skip the {\tt AUTH} command and go straight to {\tt KEYS},
+you should get an error msg similar to: {\tt (error) NOAUTH
+  Authentication required}.
+
+\subsection{Cleaning Up}
+In case data got stuck in Redis, the commandline client {\tt
+  redis-cli} can be used to clean up the data. Before doing that, make
+sure all clients that use the databroker library are detached from any
+namespace. Otherwise, it might cause inconsistencies between the lib
+and the Redis storage.
+Start the {\tt redis-cli} and authorize the access (see
+\ref{sec:interface:troubleshoot:checkredis}) followed by calling the
+Redis command {\tt FLUSHALL}.
+
+\subsection{Connection to Redis failed}
+It is important to specify the configuration file when starting a Redis server with the following command \texttt{redis-server <path/to/conf/file>}.
+If not specified, the following error will occurr at the application level: 
+\begin{lstlisting}[style=mystyle,language=bash,basicstyle=\scriptsize\ttfamily,caption=Connection failed error, label=code:connerr]
+dbBE_Redis_context_t::initialize: Failed to connect to Redis.
+libdatabroker: failed to create/connect backend.
+\end{lstlisting}
+
+
+\section{Appendix}
+\begin {table}[h]
+\begin{tabular}{l|p{10cm}}
+	\toprule
+	\textbf{Error Code} & \textbf{Detailed Message} \\
+	\toprule
+	DBR\_SUCCESS &  No error, clean result, operation successful\\ 
+    \midrule
+	DBR\_ERR\_GENERIC & A general or unknown error has occurred \\ 
+	\midrule
+	DBR\_ERR\_INVALID & An invalid parameter was passed into a function or other general error \\ 
+	\midrule
+	DBR\_ERR\_HANDLE  & An invalid handle was encountered \\
+	\midrule
+	DBR\_ERR\_INPROGRESS & A request is still in progress, check again later  \\ 
+	\midrule
+	DBR\_ERR\_TIMEOUT & A timeout occurred  \\ 
+	\midrule
+	DBR\_ERR\_UBUFFER & Provided user buffer problem (too small, not available)  \\ 
+	\midrule
+	DBR\_ERR\_UNAVAIL & The requested tuple or namespace is not available in the backing storage \\ 
+	\midrule
+	DBR\_ERR\_EXISTS & Entry already exists \\ 
+	\midrule
+	DBR\_ERR\_NSBUSY & There are still clients attached to a namespace \\ 
+	\midrule
+	DBR\_ERR\_NSINVAL & Invalid name space\\ 
+	\midrule
+	DBR\_ERR\_NOMEMORY & The amount of memory or storage was insufficient \\ 
+	\midrule
+	DBR\_ERR\_TAGERROR & The returned tag is an error\\ 
+	\midrule
+	DBR\_ERR\_NOFILE & A file was not found \\ 
+	\midrule
+	DBR\_ERR\_NOAUTH & Access authorization required or failed\\ 
+	\midrule
+	DBR\_ERR\_NOCONNECT & Connection to a storage backend failed  \\ 
+	\midrule
+	DBR\_ERR\_CANCELLED & Operation was cancelled  \\ 
+	\midrule
+	DBR\_ERR\_NOTIMPL & Operation not implemented \\ 
+	\midrule
+	DBR\_ERR\_INVALIDOP & Invalid operation  \\ 
+	\midrule
+	 DBR\_ERR\_BE\_POST & Posting request to back-end failed  \\ 
+	\midrule
+	DBR\_ERR\_BE\_GENERAL & Unspecified back-end error \\ 
+	\bottomrule
+\end{tabular} 
+\caption {List of error codes} 
+\label{table:errorcodes} 
+\end{table}
+
+\end{document}

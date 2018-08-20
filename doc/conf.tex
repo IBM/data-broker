@@ -1,0 +1,61 @@
+\documentclass[12pt]{article}
+
+%figure
+\usepackage{booktabs}
+\usepackage{graphicx}
+\graphicspath{ {fig/} }
+\usepackage{caption}
+
+%colors
+\usepackage{xcolor}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+%listings
+\usepackage{listings}
+\lstloadlanguages{[11]C++}
+\lstset{defaultdialect=[11]C++}
+\lstset{escapeinside={(*@}{@*)}}
+
+\lstdefinestyle{mystyle}{
+    language=C++,
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                
+    numbers=left,                    
+    numbersep=5pt, %3pt
+    numberstyle=\tiny,
+    showlines=true,               
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    columns=flexible,
+    mathescape=true,
+    morekeywords={}
+}
+
+\lstdefinestyle{myinlinestyle}{
+  language=C++,
+  backgroundcolor=\color{backcolour},  
+  commentstyle=\color{codegreen},
+  keywordstyle=\color{magenta},
+  stringstyle=\color{codepurple},
+  breakatwhitespace=false,         
+  keepspaces=true,                
+  showspaces=false,                
+  showstringspaces=false,
+  showtabs=false,                  
+  tabsize=2,
+  columns=flexible,
+  mathescape=true,
+  morekeywords={}
+}

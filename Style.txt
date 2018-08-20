@@ -1,0 +1,56 @@
+C-Code Styleguide
+
+  tbd.
+  I know it's late anyway, but better late than never...
+
+
+
+Doxygen Styleguide
+
+ * Use the example type of comments to annotate.
+   Every line should contain the *
+   Align the first *
+
+   /**
+    *   put the doxygen text here
+    */
+    
+   Use the @-style version of doxygen commands
+    
+    
+* Regular documentation with brief and detailed description:
+   /**
+    * @brief This is the short description
+    *        and you might do multiline
+    *
+    * The details follow after an empty line with just the aligned asterisk
+    */
+    
+* Variables 
+    For short descriptions of variables append to the end of a line:
+      int myVar;   /**< description of myVar */
+   
+    For long description, use the regular block 
+
+
+* Parameters, return values:
+
+   /**
+    * ...
+    * @param [in]  myVarIn   description with multiline
+    *                        text aligned like this one
+    * @param [out] myVarOut  description of variable ...
+    *
+    * @return description of return value(s)
+    */
+    
+    
+* Grouping. Let's try to create document groups for the
+  client lib and the system lib. Available groups (incomplete):
+    api        - for anything in the client/user library
+    be_common  - for anything generic to the back end
+    be_redis   - for the Redis backend
+    
+  @defgroup/@addtogroup  to define/redefine groups
+  @ingroup               to add an item to a group
+
