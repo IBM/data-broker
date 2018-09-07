@@ -40,3 +40,13 @@ Then, the `run.sh` script in `lsf/` folder must be updated with the following in
 2. `PW` variable must be updated with the preferred password
 3. `WORK_DIR` and `-cwd` must be updated with the preferred directory where to put logs and conf file generate during the Redis cluster deployment. The default path is the `lsf` directory. To change the path, both `WORK_DIR` variable and the `-cwd` bsub option should be updated accordingly.
 
+## Save/Restore Redis RDB files
+1.  Install the redis-rdb-tools
+$ pip install git+https://github.com/lesandr/redis-rdb-tools@1f7bcf366073adf5510ad18f1efe0bf46ae5e0c1
+
+2. lsf/run.sh will create a redis-save.sh script in the directory you execute from
+The script will save the data in the redis rdb files into a directory
+
+3. lsf/run.sh will create a redis-import.sh script in the directory you execute from
+The script can be used to import the saved redis rdb files from step #2 into a new redis cluster
+At this time the new cluster must be the same size as previous cluster for the import to work correctly
