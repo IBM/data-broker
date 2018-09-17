@@ -24,6 +24,7 @@
 
 
 #include <inttypes.h>
+#include <stddef.h>
 #include "errorcodes.h"
 
 #define DBR_TIMEOUT_ENV "DBR_TIMEOUT"
