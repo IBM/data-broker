@@ -201,8 +201,8 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
    * DeleteNS ( multi-stage !! )
    * - HINCRBY ns_name refcnt -1
    * -   check return for refcnt == 0
-   * - SCAN 0 ns_name::*          start the scan on all connections
-   * - SCAN <cursor> ns_name::*   repeat until return from server is 0, delete each returned key
+   * - SCAN 0 MATCH ns_name::*          start the scan on all connections
+   * - SCAN <cursor> MATCH ns_name::*   repeat until return from server is 0, delete each returned key
    */
   op = DBBE_OPCODE_NSDELETE;
   stage = DBBE_REDIS_NSDELETE_STAGE_DETACH;

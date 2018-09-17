@@ -20,6 +20,7 @@
 
 #include <inttypes.h>
 #include <string.h>
+#include <errno.h>
 
 #include "sr_buffer.h"
 #include "protocol.h"
@@ -219,7 +220,7 @@ int dbBE_Redis_command_hmgetall_create( dbBE_Redis_command_stage_spec_t *stage,
   int len = 0;
   dbBE_Redis_data_t data;
 
-  dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
 
   data._string._data = name_space;
   data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
@@ -234,7 +235,7 @@ int dbBE_Redis_command_exists_create( dbBE_Redis_command_stage_spec_t *stage,
 {
   int len = 0;
   dbBE_Redis_data_t data;
-  dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
 
   data._string._data = name_space;
   data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
@@ -251,7 +252,7 @@ int dbBE_Redis_command_hincrby_create( dbBE_Redis_command_stage_spec_t *stage,
   int len = 0;
   dbBE_Redis_data_t data;
 
-  dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
   data._string._data = keybuffer;
   data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
   len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
@@ -279,7 +280,7 @@ int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
   char *startcursor = "0";
   char *command = "MATCH";
 
-  dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
 
   // create and insert the scan cursor
   data._string._data = startcursor;

@@ -1,5 +1,6 @@
 # build files
 *.o
+*.pyc
 
 # backup files from editing
 *.*~
