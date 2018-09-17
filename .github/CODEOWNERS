@@ -1,0 +1,16 @@
+# code owners are currently just an initial hint
+# feel free to add yourself to any part of the code
+# if you think you want to become a reviewer of
+# pull requests for that part
+
+# anything unspecified
+* @lasch @cmisale
+
+# everything python
+/bindings/python    @cmisale
+
+# everything about the core or C bindings
+/src/               @lasch
+/backend/           @lasch
+/bindings/C         @lasch
+/test/              @lasch

@@ -1,0 +1,12 @@
+# build files
+*.o
+
+# backup files from editing
+*.*~
+*.bak
+
+# suggested build directory (according to README)
+build
+
+# default generated doxygen directory
+DBR_Doxydoc
