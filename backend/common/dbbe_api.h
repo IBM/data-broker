@@ -72,6 +72,7 @@ typedef enum
   DBBE_OPCODE_MOVE,  /**< MOVE operation to migrate data from one namespace to another  */
   DBBE_OPCODE_REMOVE,  /**< REMOVE operation to delete data from the back-end  */
   DBBE_OPCODE_CANCEL,  /**< CANCEL operation to interrupt/stop cancel an pending or incomplete request  */
+  DBBE_OPCODE_DIRECTORY, /**< DIRECTORY operation to retrieve a (filtered) list of existing keys */
   DBBE_OPCODE_NSCREATE,  /**< Namespace creation operation  */
   DBBE_OPCODE_NSATTACH,  /**< Namespace attach operation  */
   DBBE_OPCODE_NSDETACH,  /**< Namespace detach operation  */

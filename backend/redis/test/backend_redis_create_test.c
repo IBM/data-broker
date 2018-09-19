@@ -113,6 +113,40 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
   dbBE_Redis_request_destroy( req );
 
+  // create a directory (meta stage)
+  ureq->_opcode = DBBE_OPCODE_DIRECTORY;
+  ureq->_sge_count = 1;
+  ureq->_match = strdup( "*" );
+  ureq->_key = NULL;
+
+  req = dbBE_Redis_request_allocate( ureq );
+  rc += TEST_NOT( req, NULL );
+
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*2\r\n$7\r\nHGETALL\r\n$6\r\nTestNS\r\n",
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  // transition to scan stage
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*4\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n",
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  free( ureq->_match ); ureq->_match = NULL;
+  ureq->_key = "bla";
+  dbBE_Redis_request_destroy( req );
+
   // create an nscreate
   ureq->_opcode = DBBE_OPCODE_NSCREATE;
   ureq->_sge_count = 1;

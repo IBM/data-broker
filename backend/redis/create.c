@@ -215,6 +215,30 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       fprintf(stderr, "%s:%s(): ERROR: ToDo not implemented\n", __FILE__, __FUNCTION__);
       break;
     }
+    case DBBE_OPCODE_DIRECTORY:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_DIRECTORY_STAGE_META:
+          len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
+          break;
+        case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
+          snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN,
+                    "%s%s%s",
+                    request->_user->_ns_name,
+                    DBBE_REDIS_NAMESPACE_SEPARATOR,
+                    request->_user->_match );
+          len += dbBE_Redis_command_scan_create( stage,
+                                                 sr_buf,
+                                                 keybuffer,
+                                                 request->_user->_key );
+          break;
+        default:
+          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
+          return -EINVAL;
+      }
+      break;
+    }
     case DBBE_OPCODE_NSCREATE:
     {
       switch( stage->_stage )
