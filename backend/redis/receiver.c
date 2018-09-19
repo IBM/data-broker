@@ -197,6 +197,11 @@ process_next_item:
             rc = dbBE_Redis_process_get( request, &result, input->_backend->_transport );
             break;
 
+          case DBBE_OPCODE_DIRECTORY:
+            rc = dbBE_Redis_process_directory( &request, &result,
+                                               input->_backend->_transport,
+                                               input->_backend->_retry_q,
+                                               input->_backend->_conn_mgr );
           case DBBE_OPCODE_NSCREATE:
             rc = dbBE_Redis_process_nscreate( request, &result );
             break;

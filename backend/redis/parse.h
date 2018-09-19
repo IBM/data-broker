@@ -94,6 +94,15 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
                             dbBE_Data_transport_t *transport );
 
 /*
+ * process the response data of a directory request
+ */
+int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
+                                  dbBE_Redis_result_t *result,
+                                  dbBE_Data_transport_t *transport,
+                                  dbBE_Redis_s2r_queue_t *post_queue,
+                                  dbBE_Redis_connection_mgr_t *conn_mgr );
+
+/*
  * process the response data of a name space create request
  */
 int dbBE_Redis_process_nscreate( dbBE_Redis_request_t *request,
