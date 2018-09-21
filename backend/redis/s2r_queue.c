@@ -54,7 +54,7 @@ int dbBE_Redis_s2r_queue_destroy( dbBE_Redis_s2r_queue_t *queue )
   }
 
   // drain the queue
-  while( dbBE_Redis_s2r_queue_pop( queue ) );
+  dbBE_Redis_s2r_queue_flush( queue );
 
   memset( queue, 0, sizeof( dbBE_Redis_s2r_queue_t ) );
   free( queue );
@@ -118,3 +118,17 @@ dbBE_Redis_request_t* dbBE_Redis_s2r_queue_pop( dbBE_Redis_s2r_queue_t *queue )
   return ret;
 }
 
+/*
+ * wipe all entries from the queue
+ */
+int dbBE_Redis_s2r_queue_flush( dbBE_Redis_s2r_queue_t *queue )
+{
+  if( queue == NULL )
+    return EINVAL;
+
+  dbBE_Redis_request_t *req;
+  while( (req = dbBE_Redis_s2r_queue_pop( queue )) != NULL )
+    dbBE_Redis_request_destroy( req );
+
+  return 0;
+}
