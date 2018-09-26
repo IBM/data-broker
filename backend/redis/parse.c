@@ -544,9 +544,9 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
       {
         char* b = (char*)request->_user->_sge[0]._data;
         b[0] = '\0';
-        if( result->_data._integer < 0 )
+        if(( result->_type != dbBE_REDIS_TYPE_ARRAY ) || ( result->_data._array._len <= 0 ))
         {
-          rc = -EOVERFLOW;
+          rc = -ENOENT;
           result->_data._integer = rc;
         }
         else
@@ -614,7 +614,7 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
           key[0] = '\n';
         }
         ssize_t remaining = request->_user->_sge[0]._size - current_len;
-        char *startloc = (char*)request->_user->_sge[0]._data + current_len;
+        char *startloc = (char*)(request->_user->_sge[0]._data) + current_len;
         snprintf( startloc, remaining, "%s", key ); // append to the key list
       }
       // if cursor is not "0", then create another match request
@@ -643,7 +643,6 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         else
         {
           // completed: time to clean up the allocated mem structures
-          // transition 2x to get to DELNS stage (second time done by caller)
           dbBE_Redis_request_stage_transition( request );
         }
       }
@@ -910,6 +909,9 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
             dbBE_Refcounter_up( request->_status.reference );
           }
           result->_data._integer = 0;
+
+          // TODO: corner case issue: if scan_list is empty (no connections), then we need to create completion instead of = NULL
+          // TODO: check: is this a memleak, shouldn't we delete the inbound request here?
           *in_out_request = NULL;
         }
       }
