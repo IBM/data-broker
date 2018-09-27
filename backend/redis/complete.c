@@ -75,6 +75,7 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       break;
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_DIRECTORY:
       if( spec->_result != 0 )
       {
         switch( completion->_rc )

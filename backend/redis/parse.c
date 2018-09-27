@@ -643,7 +643,10 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         else
         {
           // completed: time to clean up the allocated mem structures
-          dbBE_Redis_request_stage_transition( request );
+          dbBE_Redis_result_cleanup( result, 0 );  // clean up and set transferred size
+          result->_type = dbBE_REDIS_TYPE_INT;
+          result->_data._integer = strnlen( (char*)request->_user->_sge[0]._data, request->_user->_sge[0]._size );
+          rc = 0;
         }
       }
 
