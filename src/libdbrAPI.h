@@ -130,9 +130,9 @@ libdbrDirectory( DBR_Handle_t cs_handle,
                  DBR_Tuple_template_t match_template,
                  DBR_Group_t group,
                  const unsigned count,
-                 DBR_Tuple_name_t *result_buffer,
+                 char *result_buffer,
                  const size_t size,
-                 size_t *ret_size );
+                 int64_t *ret_size );
 
 /*
  * data broker request handling functions

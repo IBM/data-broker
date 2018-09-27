@@ -392,6 +392,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
       fprintf(stderr, "%s:%s(): ERROR: ToDo not implemented\n", __FILE__, __FUNCTION__);
       break;
     }
+    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDETACH:
