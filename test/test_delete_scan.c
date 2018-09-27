@@ -95,6 +95,18 @@ int main( int argc, char ** argv )
   rc += insertValue( cs_hdl, "5" );
   rc += insertValue( cs_hdl, "6" );
 
+  // test the directory command and list all tuple names/keys
+  char *tbuf = (char*)calloc( 1024, sizeof( char ) );
+  ssize_t rsize = 0;
+  rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_LIST_EMPTY, 1000, tbuf, 1024, &rsize ), DBR_SUCCESS );
+  rc += TEST_NOT( strchr( tbuf, '1' ), NULL );
+  rc += TEST_NOT( strchr( tbuf, '2' ), NULL );
+  rc += TEST_NOT( strchr( tbuf, '3' ), NULL );
+  rc += TEST_NOT( strchr( tbuf, '4' ), NULL );
+  rc += TEST_NOT( strchr( tbuf, '5' ), NULL );
+  rc += TEST_NOT( strchr( tbuf, '6' ), NULL );
+  rc += TEST( rsize, 11 );
+
 
   // delete the name space
   ret = dbrDelete( name );

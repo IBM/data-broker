@@ -69,6 +69,21 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
         rc = cpl->_status;
       break;
 
+    case DBBE_OPCODE_DIRECTORY:
+      // good if the completion rc bytes is less or equal the size in SGEs
+      if( rsize < cpl->_rc )
+        rc = DBR_ERR_UBUFFER;
+      if( cpl->_status == DBR_SUCCESS )
+      {
+        if( cpl->_rc < 0 )
+          rc = DBR_ERR_INVALID;
+        else if( rctx->_rc )
+          *rctx->_rc = cpl->_rc;
+      }
+      else
+        rc = cpl->_status;
+      break;
+
     case DBBE_OPCODE_MOVE:
       fprintf(stderr, "ERR: not yet supported!\n");
       break;

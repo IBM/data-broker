@@ -622,6 +622,38 @@ DBR_Errorcode_t dbrTestKey( DBR_Handle_t dbr_handle,
 
 
 /**
+ * @brief Retrieve a list of available tuple names/keys
+ *
+ * The function returns a list of available tuple names of a namespace
+ * filtered by the user-provided pattern. The number of returned
+ * items can be limited to a given maximum. The returned tuple names
+ * are returned as a newline-separated list of char*
+ *
+ * @param [in] dbr_handle Handle to the namespace.
+ * @param [in] pattern    A pattern that tuple names need to match.
+ * @param [in] group      Group where tulpe is stored
+ * @param [in] count      Maximum number of returned items (no limit if set to 0)
+ * @param [in] result_buffer  user-provided space for the result
+ * @param [in] size           amount of space in the user buffer
+ * @param [out] ret_size  number of bytes in the result buffer
+ *
+ * @return
+ *    - DBR_SUCCESS if the list of tuple names is returned successfully.
+ *    - DBR_ERR_UBUFFER if the user buffer is too small, the data will be truncated
+ *    - And other error codes identifying the issue, otherwise.
+ *
+ *  @see DBR_Errorcode_t
+ */
+DBR_Errorcode_t dbrDirectory( DBR_Handle_t cs_handle,
+                              DBR_Tuple_template_t match_template,
+                              DBR_Group_t group,
+                              const unsigned count,
+                              DBR_Tuple_name_t *result_buffer,
+                              const size_t size,
+                              size_t *ret_size );
+
+
+/**
  * @brief Move a tuple from a source to a destination namespace.
  *
  * This function is used to move a tuple (or a set of tuples matching a name template) from a source
