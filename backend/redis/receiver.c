@@ -202,6 +202,7 @@ process_next_item:
                                                input->_backend->_transport,
                                                input->_backend->_retry_q,
                                                input->_backend->_conn_mgr );
+            break;
           case DBBE_OPCODE_NSCREATE:
             rc = dbBE_Redis_process_nscreate( request, &result );
             break;

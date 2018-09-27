@@ -54,7 +54,7 @@ int dbBE_Redis_s2r_queue_destroy( dbBE_Redis_s2r_queue_t *queue )
   }
 
   // drain the queue
-  dbBE_Redis_s2r_queue_flush( queue );
+  while( dbBE_Redis_s2r_queue_pop( queue ) );
 
   memset( queue, 0, sizeof( dbBE_Redis_s2r_queue_t ) );
   free( queue );
