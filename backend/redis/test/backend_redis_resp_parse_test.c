@@ -51,6 +51,7 @@ int TestNSCreate( const char *namespace,
   // create return data struct to test result of stage one (HSETNX)
   // returns number of created keys (integer)
   dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Redis_sr_buffer_reset( sr_buf );
@@ -101,6 +102,7 @@ int TestNSAttach( const char *namespace,
   // create return data struct to test result of stage one (EXISTS)
   // returns number of found keys (integer)
   dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Redis_sr_buffer_reset( sr_buf );
@@ -152,6 +154,7 @@ int TestNSDetach( const char *namespace,
   rc += TEST_NOT( req, NULL );
   TEST_BREAK( rc, "NULL-ptr request in TestNSCreate()." );
   dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   // create return data struct to test result of stage one (EXISTS)
   // returns number of found keys (integer)
@@ -204,6 +207,7 @@ int TestNSDelete( const char *namespace,
   rc += TEST_NOT( req_io, NULL );
   TEST_BREAK( rc, "NULL-ptr request in TestNSCreate()." );
   dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   // create a dummy connection mgr (for scan)
   dbBE_Redis_connection_mgr_t *cmr = dbBE_Redis_connection_mgr_init();
@@ -322,6 +326,7 @@ int TestPut( const char *namespace,
   // create return data struct to test result (RPUSH)
   // returns number of entries in list (integer)
   dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Redis_sr_buffer_reset( sr_buf );
@@ -353,6 +358,7 @@ int TestRead( const char *namespace,
   // create return data struct to test result (LINDEX/LPOP)
   // returns number of entries in list (integer)
   dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Redis_sr_buffer_reset( sr_buf );
@@ -380,6 +386,7 @@ int TestDirectory( const char *namespace,
   TEST_BREAK( rc, "NULL-ptr request in TestNSCreate()." );
 
   dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   // make a copy of the request because delete processing messes around with the redis request
   dbBE_Redis_request_t *req_io = dbBE_Redis_request_allocate( req->_user );
@@ -433,6 +440,16 @@ int TestDirectory( const char *namespace,
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
   rc += TEST( dbBE_Redis_process_directory( &req_io, &result, transport, post_queue, cmr ), 0 );
   rc += TEST( strncmp( (char*)req_io->_user->_sge[0]._data, "bla\nhi\nfasel\nfoob\ngnartz", 1024 ), 0 );
+
+
+  dbBE_Redis_s2r_queue_destroy( post_queue );
+
+
+  // create a fake valid connection to allow the delete scan to start
+  dbBE_Redis_connection_mgr_rm( cmr, conn );
+  dbBE_Redis_connection_destroy( conn );
+  dbBE_Redis_connection_mgr_exit( cmr );
+  dbBE_Redis_request_destroy( req_io );
 
   return rc;
 }
@@ -540,6 +557,13 @@ int main( int argc, char ** argv )
   dbBE_Redis_request_destroy( req );
 
 
+  free( ureq->_key );
+  free( ureq );
+
+  dbBE_Redis_sr_buffer_free( sr_buf );
+  dbBE_Redis_sr_buffer_free( data_buf );
+
+  dbBE_Redis_command_stages_spec_destroy( stage_specs );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
