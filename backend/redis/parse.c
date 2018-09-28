@@ -552,8 +552,8 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         else
         {
           // allocate a memory area to count inflight scans to know when the request is complete
-          request->_status.reference = dbBE_Refcounter_allocate();
-          if( request->_status.reference == NULL )
+          request->_status.directory.reference = dbBE_Refcounter_allocate();
+          if( request->_status.directory.reference == NULL )
           {
             return_error_clean_result( -ENOMEM, result );
             break;
@@ -572,15 +572,19 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
               return_error_clean_result( rc, result );
               break;
             }
-            dbBE_Refcounter_up( request->_status.reference );
+            dbBE_Refcounter_up( request->_status.directory.reference );
           }
           result->_data._integer = 0;
+          // if we created scan requests, we can safely delete the BE request because the state is carried within the new requests
+          // actually have to delete it request because it would be a memleak otherwise
+          if( dbBE_Refcounter_get( request->_status.directory.reference ) > 0 )
+            dbBE_Redis_request_destroy( *in_out_request );
           *in_out_request = NULL;
         }
       }
       break;
     case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
-      dbBE_Refcounter_down( request->_status.reference );  // decrease the inflight count
+      dbBE_Refcounter_down( request->_status.directory.reference );  // decrease the inflight count
       if( conn_mgr == NULL )
       {
         return_error_clean_result( -EINVAL, result );
@@ -628,22 +632,24 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         request->_user->_key = strdup( subresult->_data._string._data );
         // do not transition - this request needs to repeat, just with a new cursor
         dbBE_Redis_s2r_queue_push( post_queue, request );
-        dbBE_Refcounter_up( request->_status.reference );
+        dbBE_Refcounter_up( request->_status.directory.reference );
 
         *in_out_request = NULL;
       }
       else
       {
         // if there are other requests in flight, we can drop this one
-        if( dbBE_Refcounter_get( request->_status.reference ) != 0 )
+        if( dbBE_Refcounter_get( request->_status.directory.reference ) != 0 )
         {
-          *in_out_request = NULL;
           dbBE_Redis_request_destroy( request );
+          *in_out_request = NULL;
         }
         else
         {
           // completed: time to clean up the allocated mem structures
           dbBE_Redis_result_cleanup( result, 0 );  // clean up and set transferred size
+          dbBE_Refcounter_destroy( request->_status.directory.reference );
+          request->_status.directory.reference = NULL;
           result->_type = dbBE_REDIS_TYPE_INT;
           result->_data._integer = strnlen( (char*)request->_user->_sge[0]._data, request->_user->_sge[0]._size );
           rc = 0;
@@ -889,8 +895,8 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
         else
         {
           // allocate a memory area to count inflight deletes and scans to know when the request is complete
-          request->_status.reference = dbBE_Refcounter_allocate();
-          if( request->_status.reference == NULL )
+          request->_status.nsdelete.reference = dbBE_Refcounter_allocate();
+          if( request->_status.nsdelete.reference == NULL )
           {
             return_error_clean_result( -ENOMEM, result );
             break;
@@ -900,6 +906,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
           {
             dbBE_Redis_request_t *scan = scan_list;
             scan_list = scan_list->_next;
+            scan->_status.nsdelete.scankey = strdup( "0" );
 
             dbBE_Redis_request_stage_transition( scan );
             rc = dbBE_Redis_s2r_queue_push( post_queue, scan );
@@ -909,12 +916,13 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
               return_error_clean_result( rc, result );
               break;
             }
-            dbBE_Refcounter_up( request->_status.reference );
+            dbBE_Refcounter_up( request->_status.nsdelete.reference );
           }
           result->_data._integer = 0;
 
           // TODO: corner case issue: if scan_list is empty (no connections), then we need to create completion instead of = NULL
-          // TODO: check: is this a memleak, shouldn't we delete the inbound request here?
+          if( dbBE_Refcounter_get( request->_status.nsdelete.reference ) > 0 )
+            dbBE_Redis_request_destroy( *in_out_request );
           *in_out_request = NULL;
         }
       }
@@ -922,7 +930,15 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
 
       //
     case DBBE_REDIS_NSDELETE_STAGE_SCAN:
-      dbBE_Refcounter_down( request->_status.reference );  // decrease the inflight count
+      dbBE_Refcounter_down( request->_status.nsdelete.reference );  // decrease the inflight count
+
+      // cleanup the scan key entry (if any) to prevent memleak
+      if( request->_status.nsdelete.scankey )
+      {
+        free( request->_status.nsdelete.scankey );
+        request->_status.nsdelete.scankey = NULL;
+      }
+
       if( conn_mgr == NULL )
       {
         return_error_clean_result( -EINVAL, result );
@@ -935,62 +951,47 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
         break;
       }
 
-      // todo: must not touch the user->key entry regardless of it being NULL for deletes or not
-      if( request->_user->_key != NULL )
-      {
-        free( request->_user->_key );
-        request->_user->_key = NULL;
-      }
-
       // parse the result array and create key delete requests
       dbBE_Redis_result_t *subresult = &result->_data._array._data[1];
       int n;
       for( n=0; n<subresult->_data._array._len; ++n )
       {
-        // create a new copy of the user request with the cursor-scanned data as the key
-        dbBE_Request_t *delrequest = (dbBE_Request_t*)malloc( sizeof( dbBE_Request_t ) + request->_user->_sge_count * sizeof(dbBE_sge_t) );
-        if( !delrequest )
-          continue;
-        memcpy( delrequest, request->_user, sizeof( dbBE_Request_t ) + request->_user->_sge_count * sizeof(dbBE_sge_t) );
-        delrequest->_key = strdup( subresult->_data._array._data[ n ]._data._string._data );
-
         // place that user request into the deletion
-        dbBE_Redis_request_t *delkey = dbBE_Redis_request_allocate( delrequest );
+        dbBE_Redis_request_t *delkey = dbBE_Redis_request_allocate( request->_user );
         if( ! delkey )
           continue;
         delkey->_conn_index = request->_conn_index;
         delkey->_next = request->_next;
         delkey->_step = request->_step;
-        delkey->_status = request->_status;
+        delkey->_status.nsdelete.reference = request->_status.nsdelete.reference;
+        delkey->_status.nsdelete.scankey = strdup( subresult->_data._array._data[ n ]._data._string._data );
 
         dbBE_Redis_request_stage_transition( delkey );
         rc = dbBE_Redis_s2r_queue_push( post_queue, delkey );
         if( rc != 0 )
           continue;
-        dbBE_Refcounter_up( request->_status.reference );
+        dbBE_Refcounter_up( request->_status.nsdelete.reference );
       }
       // if cursor is not "0", then create another match request
       subresult = &result->_data._array._data[0];
-      if(( subresult->_data._string._size != 1 ) ||
-          ( subresult->_data._string._data[0] != '0' ))
+      if( subresult->_data._string._data[0] != '0' )
       {
         // it returned a valid cursor, so we have to send another scan request
-        // todo: this is invalid behavior/hack... don't touch the user data
-        // assign a user key because user key of user request is not use
-        request->_user->_key = strdup( subresult->_data._string._data );
+        request->_status.nsdelete.scankey = strdup( subresult->_data._string._data );
         // do not transition - this request needs to repeat, just with a new cursor
         dbBE_Redis_s2r_queue_push( post_queue, request );
-        dbBE_Refcounter_up( request->_status.reference );
+        dbBE_Refcounter_up( request->_status.nsdelete.reference );
 
+        // all new requests are pushed to s2r queue, we need to clean up the inbound request to prevent memleak
         *in_out_request = NULL;
       }
       else
       {
         // if there are other requests in flight, we can drop this one
-        if( dbBE_Refcounter_get( request->_status.reference ) != 0 )
+        if( dbBE_Refcounter_get( request->_status.nsdelete.reference ) != 0 )
         {
-          *in_out_request = NULL;
           dbBE_Redis_request_destroy( request );
+          *in_out_request = NULL;
         }
         else
         {
@@ -1004,7 +1005,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
 
     case DBBE_REDIS_NSDELETE_STAGE_DELKEYS:
     {
-      uint64_t ref = dbBE_Refcounter_down( request->_status.reference );
+      uint64_t ref = dbBE_Refcounter_down( request->_status.nsdelete.reference );
       if( rc == 0 )
       {
         if( result->_data._integer != 1 )
@@ -1012,24 +1013,31 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
         result->_data._integer = rc; // set the result/return code for upper layers
       }
 
+      // cleanup the scan key entry (if any) to prevent memleak
+      if( request->_status.nsdelete.scankey )
+      {
+        free( request->_status.nsdelete.scankey );
+        request->_status.nsdelete.scankey = NULL;
+      }
+
       // if there are other requests in flight, we can drop this one
       if( ref != 0 )
       {
-        *in_out_request = NULL;
         dbBE_Redis_request_destroy( request );
+        *in_out_request = NULL;
       }
       break;
     }
 
     case DBBE_REDIS_NSDELETE_STAGE_DELNS:
     {
-      uint64_t ref = dbBE_Refcounter_get( request->_status.reference );
+      uint64_t ref = dbBE_Refcounter_get( request->_status.nsdelete.reference );
       if( ref != 0 )
         // this is a bug: we must not reach this state with a refcount>0
         return -EFAULT;
 
-      dbBE_Refcounter_destroy( request->_status.reference );
-      request->_status.reference = NULL;
+      dbBE_Refcounter_destroy( request->_status.nsdelete.reference );
+      request->_status.nsdelete.reference = NULL;
 
       if( rc == 0 )
       {

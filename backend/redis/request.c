@@ -42,10 +42,7 @@ dbBE_Redis_request_t* dbBE_Redis_request_allocate( dbBE_Request_t *user )
 
   memset( request, 0, sizeof( dbBE_Redis_request_t ) );
 
-  request->_status.generic = NULL;
   request->_user = user;
-  request->_next = NULL;
-  request->_conn_index = 0;
   request->_step = &gRedis_command_spec[ user->_opcode * DBBE_REDIS_COMMAND_STAGE_MAX ];
 
   return request;

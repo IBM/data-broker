@@ -265,6 +265,7 @@ int main( int argc, char ** argv )
   ureq->_key = NULL;
 
   req = dbBE_Redis_request_allocate( ureq );
+  req->_status.nsdelete.scankey = strdup( "0" );
   rc += TEST_NOT( req, NULL );
 
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_DETACH );
@@ -290,7 +291,9 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
 
-  ureq->_key = "bla";
+  if( req->_status.nsdelete.scankey != NULL )
+    free( req->_status.nsdelete.scankey );
+  req->_status.nsdelete.scankey = strdup( "bla" );
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_DELKEYS );
@@ -303,7 +306,9 @@ int main( int argc, char ** argv )
               0 );
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
 
-  ureq->_key = NULL;
+  if( req->_status.nsdelete.scankey != NULL )
+    free( req->_status.nsdelete.scankey );
+  req->_status.nsdelete.scankey = NULL;
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_DELNS );
