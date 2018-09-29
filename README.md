@@ -5,7 +5,7 @@ The Data Broker (DBR) is a distributed, in-memory container of key-value stores 
 applications in a workflow to exchange data through one or more shared namespaces. Thanks
 to a small set of primitives, applications in a workflow deployed in a (possibly) shared
 nothing distributed cluster, can easily share and exchange data and messages with a minimum
-effort. In- spired by the Linda coordination and communication model, the Data Broker
+effort. Inspired by the Linda coordination and communication model, the Data Broker
 provides a unified shared namespace to applications, which is independent from
 applications’ programming and communication model.
 
@@ -83,7 +83,7 @@ too.
 
 After running make install in the databroker build directory, you
 should have a directory with include file and libraries located in
-the place you specified with the cmake command (or under /usr/local).
+the place you specified with the cmake command (or under `/usr/local`).
 
 
 
@@ -147,5 +147,5 @@ see the issue tracking.
 
 ## 5 Bindings:
 
-The databroker provides a Python interface located into the bindings folder.
+The databroker provides a Python interface located into the `bindings` folder.
 For further informations, please refer to its [README](bindings/python).
