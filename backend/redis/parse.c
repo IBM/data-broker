@@ -634,6 +634,7 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
         // invoke the transport to copy the data to the user buffer
         int64_t transferred = transport->scatter( (dbBE_Data_transport_device_t*)res_str, total_len,
                                                   request->_user->_sge_count, request->_user->_sge );
+        free( res_str );
         if( transferred != (int64_t)total_len )
         {
           rc = -EBADMSG;
