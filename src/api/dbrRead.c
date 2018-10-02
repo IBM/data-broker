@@ -17,8 +17,37 @@
 #include "util/lock_tools.h"
 #include "libdatabroker.h"
 #include "libdatabroker_int.h"
+#include "libdbrAPI.h"
 
 #include <stdio.h>
+
+DBR_Errorcode_t
+libdbrTestKey( DBR_Handle_t cs_handle,
+               DBR_Tuple_name_t tuple_name,
+               DBR_Tuple_template_t match_template,
+               DBR_Group_t group )
+{
+  if( cs_handle == NULL )
+    return DBR_ERR_INVALID;
+
+  dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
+  if(( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ))
+    return DBR_ERR_NSINVAL;
+
+  int64_t retsize;
+
+  return libdbrRead( cs_handle,
+                     cs->_reverse->_tmp_testkey_buf,
+                     DBR_TMP_BUFFER_LEN,
+                     &retsize,
+                     tuple_name,
+                     match_template,
+                     group,
+                     0 );
+}
+
+
+
 
 DBR_Errorcode_t
 libdbrRead(DBR_Handle_t cs_handle,
