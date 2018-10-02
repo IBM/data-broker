@@ -167,3 +167,10 @@ DBR_Errorcode_t dbrValidateTag( dbrRequestContext_t *rctx, DBR_Tag_t req_tag )
   else
     return DBR_ERR_TAGERROR;
 }
+
+
+void __attribute__ ((destructor)) unload( void )
+{
+  LOG( DBG_INFO, stdout, "Unloading library\n");
+  dbrMain_exit();
+}
