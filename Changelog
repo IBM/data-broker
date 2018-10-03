@@ -1,3 +1,6 @@
+version 0.5.2
+ * memleak review/fixes
+
 version 0.5.1
  * fix python build
  * added initial gitignore and code-owners
