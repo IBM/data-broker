@@ -761,6 +761,12 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
             break;
           }
           dbBE_Redis_request_t *scan_list = dbBE_Redis_connection_mgr_request_each( conn_mgr, request );
+
+          // if we created new requests, we need to destroy the old one
+          if( scan_list != NULL )
+            dbBE_Redis_request_destroy( request );
+
+          // now iterate the new requests for each connection
           while( scan_list != NULL )
           {
             dbBE_Redis_request_t *scan = scan_list;
@@ -774,7 +780,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
               return_error_clean_result( rc, result );
               break;
             }
-            dbBE_Refcounter_up( request->_status.reference );
+            dbBE_Refcounter_up( scan->_status.reference );
           }
           result->_data._integer = 0;
           *in_out_request = NULL;
