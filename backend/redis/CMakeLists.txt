@@ -45,3 +45,5 @@ install( TARGETS dbbe_redis
 	LIBRARY
 	DESTINATION lib
 )
+
+add_subdirectory(test)

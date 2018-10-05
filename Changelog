@@ -1,4 +1,5 @@
 version 0.5.1
+ * more flexible backend build process
  * fix python build
  * added initial gitignore and code-owners
 

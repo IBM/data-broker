@@ -14,8 +14,24 @@
  # limitations under the License.
  #
 
-add_subdirectory(redis)
-add_subdirectory(transports)
-
 add_subdirectory(common/test)
-add_subdirectory(redis/test)
+
+# accummulate the list of available backend directories
+# note this uses GLOB - if a backend dir is added or removed, it will require
+# a rerun of cmake
+file( GLOB dirlist RELATIVE ${PROJECT_SOURCE_DIR}/backend/ "*" )
+
+# filter and add subdirectories
+foreach( subdir ${dirlist} )
+  if( IS_DIRECTORY ${PROJECT_SOURCE_DIR}/backend/${subdir} )
+    if( NOT ${subdir}  MATCHES "common$" )
+      add_subdirectory( ${subdir} )
+    endif( NOT ${subdir}  MATCHES "common$" )
+  endif(  IS_DIRECTORY ${PROJECT_SOURCE_DIR}/backend/${subdir} )
+endforeach( subdir ${dirlist})
+
+
+
+
+# any new back-end library needs to provide everything in a single to-link library
+# with the name formated as: dbbe_<subdir>
