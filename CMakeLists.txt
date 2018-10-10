@@ -23,7 +23,7 @@ if (APPLE)
 endif()
 
 project (DataBroker NONE)
-enable_language( C ) # limit cmake to only use the C toolchain
+enable_language( C CXX )
 
 if(NOT DEFINED APPLE)
   add_definitions(-Werror)
@@ -63,20 +63,20 @@ foreach( subdir ${dirlist} )
     message("Checking: " ${subdir} " BE: " ${CURRENT_BE} )
 
     # set the back-end to build according to DEFAULT_BE settings
-    if( EXISTS ${subdir}/CMakeLists.txt )
+    if( EXISTS ${subdir}/settings.cmake )
       if( ${CURRENT_BE} STREQUAL ${DEFAULT_BE} )
         message( "FOUND BE: " ${DEFAULT_BE} )
-        set( BACKEND_LIBS dbbe_${CURRENT_BE} )
+        include( ${subdir}/settings.cmake )
       endif( ${CURRENT_BE} STREQUAL ${DEFAULT_BE} )
-    endif( EXISTS ${subdir}/CMakeLists.txt )
+    endif( EXISTS ${subdir}/settings.cmake )
 
   endif( IS_DIRECTORY ${subdir} )
 
 endforeach( subdir ${dirlist})
 
-if( ${BACKEND_LIBS} STREQUAL "" )
+if( "${BACKEND_LIBS}" STREQUAL "" )
   message( FATAL_ERROR "No BACKEND LIBS found/defined. Was looking for " ${DEFAULT_BE} )
-endif( ${BACKEND_LIBS} STREQUAL "" )
+endif( "${BACKEND_LIBS}" STREQUAL "" )
 
 
 set(TRANSPORT_LIBS dbbe_transport )
