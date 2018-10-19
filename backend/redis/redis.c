@@ -172,6 +172,7 @@ int Redis_exit( dbBE_Handle_t be )
     dbBE_Redis_command_stages_spec_destroy( context->_spec );
     memset( context, 0, sizeof( dbBE_Redis_context_t ) );
     free( context );
+    context = NULL;
   }
 
   return rc;

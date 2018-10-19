@@ -90,6 +90,7 @@ int dbrMain_exit(void)
   int rc = dbrlib_backend_delete( gMain_context->_be_ctx );
 
   pthread_mutex_destroy( &gMain_context->_biglock );
+  memset( gMain_context, 0, sizeof( gMain_context ) );
   free( gMain_context );
   gMain_context = NULL;
 
