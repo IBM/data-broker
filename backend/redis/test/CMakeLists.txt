@@ -37,6 +37,7 @@ set(DB_BACKEND_TEST_SOURCES
 	backend_redis_test.c
 	libevent_test.c
 	backend_redis_event_mgr_test.c
+	backend_redis_resp_parse_test.c
 )
 
 foreach(_test ${DB_BACKEND_TEST_SOURCES})

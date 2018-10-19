@@ -40,6 +40,15 @@
 
 
 /*
+ * enumeration of the directory scan stages
+ */
+typedef enum
+{
+  DBBE_REDIS_DIRECTORY_STAGE_META = 0,
+  DBBE_REDIS_DIRECTORY_STAGE_SCAN = 1
+} dbBE_Redis_directory_stages_t;
+
+/*
  * enumeration of the name space delete stages
  */
 typedef enum

@@ -263,7 +263,7 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
         continue;
       req->_conn_index = conn_mgr->_connections[ i ]->_index;
       req->_step = template_request->_step;
-      req->_status = template_request->_status;
+      memcpy( &req->_status, &template_request->_status, sizeof( dbBE_Redis_intern_data_t ));
       req->_next = queue;
       queue = req;
     }

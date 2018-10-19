@@ -215,6 +215,30 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       fprintf(stderr, "%s:%s(): ERROR: ToDo not implemented\n", __FILE__, __FUNCTION__);
       break;
     }
+    case DBBE_OPCODE_DIRECTORY:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_DIRECTORY_STAGE_META:
+          len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
+          break;
+        case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
+          snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN,
+                    "%s%s%s",
+                    request->_user->_ns_name,
+                    DBBE_REDIS_NAMESPACE_SEPARATOR,
+                    request->_user->_match );
+          len += dbBE_Redis_command_scan_create( stage,
+                                                 sr_buf,
+                                                 keybuffer,
+                                                 request->_user->_key );
+          break;
+        default:
+          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
+          return -EINVAL;
+      }
+      break;
+    }
     case DBBE_OPCODE_NSCREATE:
     {
       switch( stage->_stage )
@@ -254,16 +278,18 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
           len += dbBE_Redis_command_scan_create( stage,
                                                  sr_buf,
                                                  keybuffer,
-                                                 request->_user->_key );
+                                                 request->_status.nsdelete.scankey );
           break;
 
-        case DBBE_REDIS_NSDELETE_STAGE_DELKEYS: // SCAN <cursor> MATCH ns_name%sep;*
+        case DBBE_REDIS_NSDELETE_STAGE_DELKEYS: // DEL ns_name%sep;key
+          if( request->_status.nsdelete.scankey == NULL )
+            return -EINVAL;
+
           len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
           if( len < 0 )
             break;
-          data._string._data = request->_user->_key;
-          if( request->_user->_key )
-            data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
+          data._string._data = request->_status.nsdelete.scankey;
+          data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
           len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
           break;
 
@@ -368,6 +394,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
       fprintf(stderr, "%s:%s(): ERROR: ToDo not implemented\n", __FILE__, __FUNCTION__);
       break;
     }
+    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDETACH:

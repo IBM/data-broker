@@ -56,5 +56,10 @@ int dbBE_Redis_s2r_queue_push( dbBE_Redis_s2r_queue_t *queue,
 dbBE_Redis_request_t* dbBE_Redis_s2r_queue_pop( dbBE_Redis_s2r_queue_t *queue );
 
 
+/*
+ * wipe all entries from the queue
+ */
+int dbBE_Redis_s2r_queue_flush( dbBE_Redis_s2r_queue_t *queue );
+
 
 #endif /* BACKEND_REDIS_S2R_QUEUE_H_ */

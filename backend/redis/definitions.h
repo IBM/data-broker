@@ -116,6 +116,6 @@ typedef struct dbBE_Redis_result {
  * namespace separator string to put between namespace and key
  */
 #define DBBE_REDIS_NAMESPACE_SEPARATOR "::"
-
+#define DBBE_REDIS_NAMESPACE_SEPARATOR_LEN ( 2 )
 
 #endif /* BACKEND_REDIS_DEFINITIONS_H_ */

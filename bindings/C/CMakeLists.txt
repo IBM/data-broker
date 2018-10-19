@@ -27,6 +27,7 @@ set( LIBDB_FILES
 	src/dbrGetA.c
 	src/dbrRead.c
 	src/dbrReadA.c
+	src/dbrDirectory.c
 	src/dbrTest.c
 	src/dbrCancel.c
 	src/dbrMove.c

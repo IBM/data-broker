@@ -23,13 +23,24 @@
 #include "protocol.h"
 #include "refcounter.h"
 
+typedef struct dbBE_Redis_intern_delete_data
+{
+  dbBE_Refcounter_t *reference;
+  char *scankey;
+} dbBE_Redis_intern_delete_data_t;
+
+typedef struct dbBE_Redis_intern_directory_data
+{
+  dbBE_Refcounter_t *reference;
+} dbBE_Redis_intern_directory_data_t;
+
+
 typedef union dbBE_Redis_intern_data
 {
-  void *generic;
-  int64_t number;
-  dbBE_Refcounter_t *reference;
-  char *string;
+  dbBE_Redis_intern_delete_data_t  nsdelete;
+  dbBE_Redis_intern_directory_data_t directory;
 } dbBE_Redis_intern_data_t;
+
 
 typedef struct dbBE_Redis_request
 {
