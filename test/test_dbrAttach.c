@@ -79,6 +79,10 @@ int main( int argc, char ** argv )
   cs_hdl = dbrAttach( name );
   rc += TEST( NULL, cs_hdl );
 
+  dbrDetach( cs_hdl );
+
+  free( name );
+
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
 }

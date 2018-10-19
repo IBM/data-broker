@@ -1,3 +1,6 @@
+version 0.5.2
+ * memleak review/fixes
+
 version 0.5.1
  * more flexible backend build process
  * fix python build

@@ -27,6 +27,8 @@
 #define dbrMAX_TAGS ( 1024 )
 #define dbrNUM_DB_MAX ( 1024 )
 #define dbrERROR_INDEX ( (uint32_t)-1)
+#define DBR_TMP_BUFFER_LEN ( 128 * 1024 * 1024 )
+
 
 #include "lib/sge.h"
 
@@ -118,6 +120,7 @@ typedef struct dbrMain_context
   uint64_t _tag_head;                     ///< tag for the next request
   uint64_t _tag_tail;                     ///< tag of the next expected completion
   pthread_mutex_t _biglock;               ///< initial step to thread-safe lib; starting with big lock in main context
+  void* _tmp_testkey_buf;                 ///< a tmp buffer that holds return values for testkey command
 } dbrMain_context_t;
 
 dbrMain_context_t* dbrCheckCreateMainCTX();

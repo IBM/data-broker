@@ -142,6 +142,8 @@ void* dbBE_Redis_sender( void *args )
     // clean the RedisBE request struct
     dbBE_Redis_request_destroy( request );
     request = NULL;
+    rc = 0;
+    goto skip_sending;
   }
 
 
@@ -154,6 +156,9 @@ void* dbBE_Redis_sender( void *args )
   if( conn == NULL )
   {
     fprintf( stderr, "Failed to get back-end connection %d.\n", request->_conn_index );
+
+    // todo: might have to create completion (unless there are more sub-tasks in flight)
+    rc = -ENOMSG;
     goto skip_sending;
   }
 
@@ -164,6 +169,9 @@ void* dbBE_Redis_sender( void *args )
   if( rc != 0 )
   {
     fprintf( stderr, "Failed to create command.\n" );
+
+    // todo: might have to create completion (unless there are more sub-tasks in flight)
+    rc = -ENOMSG;
     goto skip_sending;
   }
 
@@ -172,15 +180,27 @@ void* dbBE_Redis_sender( void *args )
   if( rc < 0 )
   {
     fprintf( stderr, "Failed to send command.\n" );
+
+    // todo: might have to create completion (unless there are more sub-tasks in flight)
+    rc = -ENOMSG;
     goto skip_sending;
   }
 
   // store request to posted requests queue
   rc = dbBE_Redis_s2r_queue_push( conn->_posted_q, request );
-
+  if( rc != 0 )
+  {
+    rc = -ENOMSG;
+    goto skip_sending;
+  }
 
 
 skip_sending:
+  if(( rc < 0 ) && ( user_req != NULL ))
+  {
+    dbBE_Redis_request_destroy( request );
+    request = NULL;
+  }
   dbBE_Redis_receiver_trigger( input->_backend );
 
   // complete the request with an error

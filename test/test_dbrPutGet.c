@@ -159,6 +159,7 @@ int main( int argc, char ** argv )
   char *keystr = (char*)malloc( DBR_MAX_KEY_LEN + 16);
   rc += TEST_NOT( keystr, NULL );
   TEST_BREAK( rc, "Allocate keystring" );
+  memset( keystr, 0, DBR_MAX_KEY_LEN + 16 );
   for( n=1; n<DBR_MAX_KEY_LEN; ++n )
   {
     for( c=0; c<n; ++c ) keystr[c] = random() % 26 + 97;
@@ -229,6 +230,8 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( GetTest( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
 
   TEST_LOG( rc, " error case put/read/get tests" );
+
+  free( name );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

@@ -147,6 +147,7 @@ libdbrAttach (DBR_Name_t db_name)
     }
   }
 
+  dbrRemove_request( cs, rctx );
   BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)cs );
 
 error:
