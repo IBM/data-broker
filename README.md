@@ -1,22 +1,24 @@
 
-# data-broker
+# Data Broker
 
-The Data Broker (DBR) is a distributed, in-memory container of key-value stores enabling
-applications in a workflow to exchange data through one or more shared namespaces. Thanks
-to a small set of primitives, applications in a workflow deployed in a (possibly) shared
-nothing distributed cluster, can easily share and exchange data and messages with a minimum
-effort. In- spired by the Linda coordination and communication model, the Data Broker
-provides a unified shared namespace to applications, which is independent from
-applications’ programming and communication model.
+The Data Broker (DBR) is a distributed, in-memory container for named
+tuples enabling applications in a workflow to exchange data through
+one or more shared namespaces.  The API is inspired by the Linda
+coordination and communication model and provides blocking or
+non-blocking semantics.  The architecture is split into client and
+system library to enable easy adoption of new backing storages via
+additional system libraries.  The default Data Broker system library
+(or backend) shipped with this version uses Redis (single node or
+cluster mode) as the backing store.
 
 
 ## 1 Build of lib and test requires cmake 2.8+.
 
-The Databroker library uses libevent2 to manage network connections to the nodes of a Redis cluster.
-To build, you'll need the development package with the header and the libevent2 library.
-To run, you'll only need the libevent2 library.
+The Data Broker library (Redis backend) uses libevent2 to manage network connections
+to the nodes of a Redis cluster. To build, you'll need the development package with the
+header and the libevent2 library. To run, you'll only need the libevent2 library.
 
-cmake uses out-of-source build tree and in order to build it, it's
+cmake uses an out-of-source build tree and in order to build it, it's
 best to:
 
 a) create a build directory
@@ -31,6 +33,7 @@ c) run cmake:
    with options:
      -DCMAKE_INSTALL_PREFIX=<path>     set the install path (default: /usr/local)
      -DAPPLE                           when building for MAC OS
+     -DDEFAULT_BE=<backend-path-name>  what backend to link by default (default: redis)
      
    example:
      when run from the created 'build' dir and to prepare installation in /opt/databroker:
@@ -60,14 +63,14 @@ When setting up Redis, it is suggested to follow general
 recommendations to harden and secure a Redis service.
 
 Setting up Redis cluster is more tricky with authorization enabled.
-Most important to make it as easy as possible: all instances need
-to use the same password.
-One way (not the only) to create the cluster is to omit the password
-in the beginning, then use the recommended redis-trib to create and
-configure the cluster. After it's set up, you'd add the password
-configuration to the config file of each instance and restart. 
-Newer versions of redis-trib (since version 4.0.6) allow to provide
-the password via command line so there's no need for this workaround. 
+Most important to make it as easy as possible: all instances need to
+use the same password.  One way (not the only) to create the cluster
+is to omit the password in the beginning, then use the recommended
+redis-trib.rb script to create and configure the cluster. After it's
+set up, you'd add the password configuration to the config file of
+each instance and restart.  Newer versions of redis-trib (since
+version 4.0.6) allow to provide the password via command line so
+there's likely no need for this workaround.
 
 Further details are beyond the scope of this README and can be found
 here:  https://redis.io/topics/cluster-tutorial
@@ -81,7 +84,7 @@ too.
 
 ### 3.1 Building your client
 
-After running make install in the databroker build directory, you
+After running make install in the Data Broker build directory, you
 should have a directory with include file and libraries located in
 the place you specified with the cmake command (or under /usr/local).
 
@@ -89,7 +92,7 @@ the place you specified with the cmake command (or under /usr/local).
 
 ### 3.2 Running your client
 
-The databroker library is controlled by a number of environment
+The Data Broker library is controlled by a number of environment
 variables:
 
 DBR_SERVER
@@ -117,7 +120,7 @@ DBR_TIMEOUT
 
 ## 4 Limitations:
 
-Note: this is a very early development version of the databroker
+Note: this is a very early development version of the Data Broker
 library and it comes with many limitations that will be improved over
 time. Here's a brief list of current limits. For a more complete list,
 see the issue tracking.
@@ -139,7 +142,7 @@ see the issue tracking.
   For now you should consider attach-detach and create-delete pairs as
   opening and closing brackets with create-delete being the outermost bracket.
 
-- The size for tuplenames or keys is limited to 1024 characters
+- The size for tuple names or keys is limited to 1024 characters
 - The size for namespace names is limited to 1023 characters
 - The number of namespaces that can be attached to a single process
   at a time is limited to 1024
@@ -147,5 +150,5 @@ see the issue tracking.
 
 ## 5 Bindings:
 
-The databroker provides a Python interface located into the bindings folder.
-For further informations, please refer to its [README](bindings/python).
+The Data Broker provides a Python interface located into the bindings folder.
+For more information, please refer to its [README](bindings/python).
