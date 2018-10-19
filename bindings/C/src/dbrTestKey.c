@@ -18,37 +18,25 @@
 #include "libdatabroker.h"
 #include "libdbrAPI.h"
 
-
 #ifdef __APPLE__
 #include <stdlib.h>
 #else
 #include <malloc.h>
 #endif
 
-#define DBR_TMP_BUFFER_LEN ( 128 * 1024 * 1024 )
-static void *dbr_tmp_buffer = NULL;
-
-
 DBR_Errorcode_t
 dbrTestKey(DBR_Handle_t cs_handle,
            DBR_Tuple_name_t tuple_name )
 {
-  if( dbr_tmp_buffer == NULL )
-    dbr_tmp_buffer = malloc( DBR_TMP_BUFFER_LEN );
-
   DBR_Tuple_template_t match_template = "";
   DBR_Group_t group = DBR_GROUP_LIST_EMPTY;
 
-  int64_t len = DBR_TMP_BUFFER_LEN;
-
   /* for now, we just map this to a read that doesn't wait for timeouts and ignores the returned value */
-  return libdbrRead( cs_handle,
-                     dbr_tmp_buffer,
-                     len,
-                     &len,
-                     tuple_name,
-                     match_template,
-                     group,
-                     0 );
+  DBR_Errorcode_t rc = libdbrTestKey( cs_handle,
+                                      tuple_name,
+                                      match_template,
+                                      group );
+
+  return rc;
 }
 

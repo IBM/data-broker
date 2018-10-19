@@ -37,5 +37,7 @@ int dbrlib_backend_delete( dbBE_Handle_t* handle )
   if( handle == NULL )
     return -EINVAL;
 
-  return g_dbBE.exit( handle );
+  int rc = g_dbBE.exit( handle );
+  gBE_Context = NULL;
+  return rc;
 }

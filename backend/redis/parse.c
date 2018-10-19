@@ -776,6 +776,7 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
         // invoke the transport to copy the data to the user buffer
         int64_t transferred = transport->scatter( (dbBE_Data_transport_device_t*)res_str, total_len,
                                                   request->_user->_sge_count, request->_user->_sge );
+        free( res_str );
         if( transferred != (int64_t)total_len )
         {
           rc = -EBADMSG;
@@ -902,6 +903,12 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
             break;
           }
           dbBE_Redis_request_t *scan_list = dbBE_Redis_connection_mgr_request_each( conn_mgr, request );
+
+          // if we created new requests, we need to destroy the old one
+          if( scan_list != NULL )
+            dbBE_Redis_request_destroy( request );
+
+          // now iterate the new requests for each connection
           while( scan_list != NULL )
           {
             dbBE_Redis_request_t *scan = scan_list;
@@ -916,7 +923,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
               return_error_clean_result( rc, result );
               break;
             }
-            dbBE_Refcounter_up( request->_status.nsdelete.reference );
+            dbBE_Refcounter_up( scan->_status.nsdelete.reference );
           }
           result->_data._integer = 0;
 

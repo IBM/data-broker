@@ -23,7 +23,7 @@ if (APPLE)
 endif()
 
 project (DataBroker NONE)
-enable_language( C ) # limit cmake to only use the C toolchain
+enable_language( C CXX )
 
 if(NOT DEFINED APPLE)
   add_definitions(-Werror)
@@ -44,6 +44,41 @@ else( DEFINED VOIDTAG )
   add_definitions( -DDBR_INTTAG )
 endif( DEFINED VOIDTAG )
 
+if( NOT DEFINED DEFAULT_BE )
+  set(DEFAULT_BE redis )
+endif( NOT DEFINED DEFAULT_BE )
+
+set( BACKEND_LIBS "" )
+# accummulate the list of available backend directories
+# note this uses GLOB - if a backend dir is added or removed, it will require
+# a rerun of cmake
+file( GLOB dirlist "${PROJECT_SOURCE_DIR}/backend/*" )
+
+# filter and add subdirectories
+foreach( subdir ${dirlist} )
+
+  if( IS_DIRECTORY ${subdir} )
+    # extract the last compontent of the path to get the back-end name
+    get_filename_component( CURRENT_BE ${subdir} NAME )
+    message("Checking: " ${subdir} " BE: " ${CURRENT_BE} )
+
+    # set the back-end to build according to DEFAULT_BE settings
+    if( EXISTS ${subdir}/settings.cmake )
+      if( ${CURRENT_BE} STREQUAL ${DEFAULT_BE} )
+        message( "FOUND BE: " ${DEFAULT_BE} )
+        include( ${subdir}/settings.cmake )
+      endif( ${CURRENT_BE} STREQUAL ${DEFAULT_BE} )
+    endif( EXISTS ${subdir}/settings.cmake )
+
+  endif( IS_DIRECTORY ${subdir} )
+
+endforeach( subdir ${dirlist})
+
+if( "${BACKEND_LIBS}" STREQUAL "" )
+  message( FATAL_ERROR "No BACKEND LIBS found/defined. Was looking for " ${DEFAULT_BE} )
+endif( "${BACKEND_LIBS}" STREQUAL "" )
+
+
 set(TRANSPORT_LIBS dbbe_transport )
 set(DATABROKER_LIB databroker databroker_int)
 
@@ -54,8 +89,7 @@ include_directories(backend)
 add_subdirectory(bindings)
 add_subdirectory(backend)
 
-
-set(BACKEND_LIBS dbbe_redis )
+message( "BACKEND LIBRARY:" ${BACKEND_LIBS} )
 set(TEST_BACKEND ${BACKEND_LIBS} )
 set(BACKEND_LIST ${BACKEND_LIBS} )
 
@@ -64,5 +98,5 @@ add_subdirectory(test)
 
 install(FILES include/libdatabroker.h
     include/errorcodes.h
-	DESTINATION include
+    DESTINATION include
 )

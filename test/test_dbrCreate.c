@@ -61,6 +61,7 @@ int main( int argc, char ** argv )
   ret = dbrQuery( cs_hdl, &cs_state, DBR_STATE_MASK_ALL );
   rc += TEST_NOT( DBR_SUCCESS, ret );
 
+  free( name );
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
 }

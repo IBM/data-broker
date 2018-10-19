@@ -21,7 +21,6 @@
 #include "libdatabroker.h"
 #include "../backend/common/dbbe_api.h"
 
-
 DBR_Handle_t
 libdbrCreate( DBR_Name_t db_name,
               DBR_Tuple_persist_level_t level,
@@ -110,6 +109,12 @@ libdbrReadA( DBR_Handle_t cs_handle,
              DBR_Tuple_name_t tuple_name,
              DBR_Tuple_template_t match_template,
              DBR_Group_t group );
+
+DBR_Errorcode_t
+libdbrTestKey( DBR_Handle_t cs_handle,
+               DBR_Tuple_name_t tuple_name,
+               DBR_Tuple_template_t match_template,
+               DBR_Group_t group );
 
 DBR_Errorcode_t
 libdbrMove( DBR_Handle_t src_cs_handle,

@@ -17,6 +17,7 @@
 #include "logutil.h"
 #include "libdatabroker.h"
 #include "libdatabroker_int.h"
+#include "libdbrAPI.h"
 
 #include "lib/sge.h"
 #include "lib/backend.h"
@@ -63,10 +64,20 @@ dbrMain_context_t* dbrCheckCreateMainCTX(void)
     if( gMain_context->_config._timeout_sec == 0 )
       gMain_context->_config._timeout_sec = INT_MAX;
 
+    gMain_context->_tmp_testkey_buf = malloc( DBR_TMP_BUFFER_LEN );
+    if( gMain_context->_tmp_testkey_buf == NULL )
+    {
+      LOG( DBG_ERR, stderr, "libdatabroker: failed to allocate tmp key buffer.\n" );
+      free( gMain_context );
+      gMain_context = NULL;
+      pthread_mutex_unlock( &gMain_creation_lock );
+      return NULL;
+    }
+
     gMain_context->_be_ctx = dbrlib_backend_get_handle();
     if( gMain_context->_be_ctx == NULL )
     {
-      fprintf( stderr, "libdatabroker: failed to create/connect backend.\n" );
+      LOG( DBG_ERR, stderr, "libdatabroker: failed to create/connect backend.\n" );
       free( gMain_context );
       gMain_context = NULL;
       pthread_mutex_unlock( &gMain_creation_lock );
@@ -74,6 +85,7 @@ dbrMain_context_t* dbrCheckCreateMainCTX(void)
     }
     pthread_mutex_init( &gMain_context->_biglock, NULL );
   }
+
   pthread_mutex_unlock( &gMain_creation_lock );
   return gMain_context;
 }
@@ -89,7 +101,16 @@ int dbrMain_exit(void)
 
   int rc = dbrlib_backend_delete( gMain_context->_be_ctx );
 
+  if( gMain_context->_tmp_testkey_buf != NULL )
+  {
+    LOG( DBG_INFO, stdout, "Cleaning up temporary buffer\n");
+    memset( gMain_context->_tmp_testkey_buf, 0, DBR_TMP_BUFFER_LEN );
+    free( gMain_context->_tmp_testkey_buf );
+    gMain_context->_tmp_testkey_buf = NULL;
+  }
+
   pthread_mutex_destroy( &gMain_context->_biglock );
+  memset( gMain_context, 0, sizeof( dbrMain_context_t ) );
   free( gMain_context );
   gMain_context = NULL;
 
@@ -145,4 +166,11 @@ DBR_Errorcode_t dbrValidateTag( dbrRequestContext_t *rctx, DBR_Tag_t req_tag )
     return DBR_SUCCESS;
   else
     return DBR_ERR_TAGERROR;
+}
+
+
+void __attribute__ ((destructor)) unload( void )
+{
+  LOG( DBG_INFO, stdout, "Unloading library\n");
+  dbrMain_exit();
 }
