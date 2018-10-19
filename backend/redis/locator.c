@@ -56,6 +56,7 @@ int dbBE_Redis_locator_destroy( dbBE_Redis_locator_t *locator )
 
   memset( locator, 0, sizeof( dbBE_Redis_locator_t ) );
   free( locator );
+  locator = NULL;
   return 0;
 }
 
