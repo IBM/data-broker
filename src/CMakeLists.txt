@@ -19,7 +19,7 @@ set( LIBDBINT_FILES
 	lib/namespace.c
 	lib/request.c
 	lib/completion.c
-	dbrUtils.c
+	util/dbrUtils.c
 	api/dbrCreate.c
 	api/dbrDelete.c
 	api/dbrAttach.c
