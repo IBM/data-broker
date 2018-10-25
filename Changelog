@@ -1,4 +1,6 @@
 version 0.5.2
+ * directory command introduced
+ * automated multi-backend build enabled
  * memleak review/fixes
 
 version 0.5.1
