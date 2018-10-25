@@ -279,6 +279,7 @@ int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
   dbBE_Redis_data_t data;
   char *startcursor = "0";
   char *command = "MATCH";
+  char *count_cmd = "COUNT";
 
   len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
 
@@ -295,6 +296,14 @@ int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
 
   data._string._data = keybuffer;
   data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+
+  data._string._data = count_cmd;
+  data._string._size = 5;
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+
+  data._string._data = "1000";
+  data._string._size = 4;
   len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
 
   return len;
