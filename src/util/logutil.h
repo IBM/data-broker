@@ -19,6 +19,7 @@
 #define SRC_LOGUTIL_H_
 
 #include <stdio.h>
+#include <sys/time.h>
 
 #define DBG_ALL 0
 #define DBG_ERR 1
@@ -31,6 +32,6 @@
 #define DEBUG_LEVEL DBG_INFO
 #endif
 
-#define LOG( level, stream, logging... ) { if( ( level ) <= DEBUG_LEVEL ) fprintf( (stream), logging ); }
+#define LOG( level, stream, logging... ) { if( ( level ) <= DEBUG_LEVEL ) { struct timeval tv; gettimeofday( &tv, NULL ); fprintf( (stream), "%ld.%ld : ", tv.tv_sec, tv.tv_usec ); fprintf( (stream), logging ); }}
 
 #endif /* SRC_LOGUTIL_H_ */
