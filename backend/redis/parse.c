@@ -906,7 +906,15 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
 
           // if we created new requests, we need to destroy the old one
           if( scan_list != NULL )
+          {
             dbBE_Redis_request_destroy( request );
+            request = NULL;
+          }
+          else // TODO: if the scan list is empty, we need to complete (with error) (no connections available)
+          {
+            dbBE_Redis_request_stage_transition( request );
+            dbBE_Redis_request_stage_transition( request );
+          }
 
           // now iterate the new requests for each connection
           while( scan_list != NULL )
@@ -927,10 +935,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
           }
           result->_data._integer = 0;
 
-          // TODO: corner case issue: if scan_list is empty (no connections), then we need to create completion instead of = NULL
-          if( dbBE_Refcounter_get( request->_status.nsdelete.reference ) > 0 )
-            dbBE_Redis_request_destroy( *in_out_request );
-          *in_out_request = NULL;
+          *in_out_request = request; // could be NULL if there was a scan list
         }
       }
       break;
@@ -989,6 +994,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request,
         dbBE_Redis_s2r_queue_push( post_queue, request );
         dbBE_Refcounter_up( request->_status.nsdelete.reference );
 
+        LOG( DBG_TRACE, stdout, "Creating next scan cursor %s for conn %d\n", request->_status.nsdelete.scankey, request->_conn_index );
         // all new requests are pushed to s2r queue, we need to clean up the inbound request to prevent memleak
         *in_out_request = NULL;
       }
