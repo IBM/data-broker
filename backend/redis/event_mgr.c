@@ -15,6 +15,10 @@
  *
  */
 
+#include "logutil.h"
+#include "event_mgr.h"
+
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -22,9 +26,7 @@
 #ifndef __APPLE__
 #include <malloc.h>  // malloc
 #endif
-
-#include "logutil.h"
-#include "event_mgr.h"
+#include <event2/event.h>
 
 void dbBE_Redis_event_mgr_callback( evutil_socket_t socket, short ev_type, void *arg );
 
@@ -267,9 +269,9 @@ void dbBE_Redis_event_mgr_callback( evutil_socket_t socket, short ev_type, void 
   LOG( DBG_TRACE, stderr,
        "Triggered callback for connection=%p, socket=%d, index=%d, ev_type=%d\n",
        conn, conn->_socket, conn->_index, ev_type );
-  if( ( ev_type & EV_TIMEOUT ) != 0 )
+  if((( ev_type & EV_TIMEOUT ) != 0 ) && (( ev_type & EV_READ ) == 0 ))
   {
-    LOG( DBG_VERBOSE, stderr, "Connection timeout detected.\n" );
+    LOG( DBG_INFO, stderr, "Connection timeout detected (idx=%d).\n", conn->_index );
   }
   else if( ( ev_type & EV_READ ) != 0 )
   {
@@ -295,11 +297,11 @@ dbBE_Redis_connection_t* dbBE_Redis_event_mgr_next( dbBE_Redis_event_mgr_t *ev_m
 
   dbBE_Redis_connection_t *next = dbBE_Redis_connection_queue_pop( ev_mgr->_active_queue );
   LOG( DBG_VERBOSE, stderr, "event_mgr_next: active connection in queue: conn=%p\n", next );
-  if( next == NULL )
-  {
-    LOG( DBG_TRACE, stderr, "event_mgr_next: starting loop\n" );
-    event_base_loop( ev_mgr->_evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
-  }
+  if( next != NULL )
+    return next;
+
+  LOG( DBG_TRACE, stderr, "event_mgr_next: starting loop\n" );
+  event_base_loop( ev_mgr->_evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
   next = dbBE_Redis_connection_queue_pop( ev_mgr->_active_queue );
   LOG( DBG_VERBOSE, stderr, "event_mgr_next: new active connection: conn=%p\n", next );
 
