@@ -143,7 +143,7 @@ int dbrMain_detach( dbrMain_context_t *libctx, dbrName_space_t *cs )
 
 int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
 {
-  if( cs == NULL )
+  if(( cs == NULL ) || ( libctx == NULL ))
     return -EINVAL;
 
   // only delete id there are no other references
@@ -153,8 +153,15 @@ int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
 
     uint32_t idx = cs->_idx;
     memset( cs->_db_name, 0, strlen( cs->_db_name ) );
+    if( cs->_db_name[0] != 0 )
+      return -EFAULT;
+
     free( cs->_db_name );
     memset( cs, 0, sizeof( dbrName_space_t ) );
+    cs->_be_ctx = NULL;
+    if( ((uintptr_t*)cs) != 0 )
+      return -EFAULT;
+
     free( cs );
     libctx->_cs_list[ idx ] = NULL;
 
