@@ -29,6 +29,7 @@ set(DBR_TEST_SOURCES
 	test_dbrPutGetA.c
 	test_delete_scan.c
 	test_errorcodes.c
+	test_dbrUtils.c
 )
 
 foreach(_test ${DBR_TEST_SOURCES})
