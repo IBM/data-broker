@@ -30,6 +30,9 @@ libdbrQuery (DBR_Handle_t cs_handle,
   if( cs_handle == NULL )
     return DBR_ERR_INVALID;
 
+  if( cs_state == NULL )
+    return DBR_ERR_UBUFFER;
+
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
   // if there's no handle or no back-end (gets deleted after the last detach/delete)
   // the cs-hdl points to an invalid name space
