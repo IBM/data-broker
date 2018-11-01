@@ -121,6 +121,9 @@ int dbrMain_exit(void)
 
 DBR_Tag_t dbrTag_get( dbrMain_context_t *ctx )
 {
+  if( ctx == NULL )
+    return DB_TAG_ERROR;
+
   typeof(ctx->_tag_head) t = ctx->_tag_head;
 
   // hop through the work entries to check for available tags

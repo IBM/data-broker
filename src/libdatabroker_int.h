@@ -124,6 +124,8 @@ typedef struct dbrMain_context
 } dbrMain_context_t;
 
 dbrMain_context_t* dbrCheckCreateMainCTX();
+int dbrMain_exit(void);
+
 
 //////////////////////////////////////////////////////////////////////
 // local in-mem name space maintenance

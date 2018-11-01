@@ -370,6 +370,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
       {
         rc = -EAGAIN;
       }
+      dbBE_Redis_result_cleanup( &result, 0 );
       rc = dbBE_Redis_parse_sr_buffer( active->_recvbuf, &result );
     }
 
@@ -411,7 +412,11 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
           dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, ip, port );
 
         if( dest == NULL )
-          return -ENOTCONN;
+        {
+          rc = -ENOTCONN;
+          dbBE_Redis_result_cleanup( &result, 0 );
+          goto exit_connect;
+        }
 
         // update locator
         int slot;
@@ -420,6 +425,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
                                                 dest->_index,
                                                 slot );
       }
+      dbBE_Redis_result_cleanup( &result, 0 );
     }
     else
     {

@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include <libdatabroker.h>
+#include "logutil.h"
 #include "../completion_queue.h"
 #include "test_utils.h"
 
