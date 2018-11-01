@@ -118,7 +118,7 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
 
   DBR_Tag_t tag = rctx->_tag;
 
-  #ifdef DBR_INTTAG
+#ifdef DBR_INTTAG
   if( dbrValidateTag( rctx, tag ) != DBR_SUCCESS )
     return DBR_ERR_TAGERROR;
 
