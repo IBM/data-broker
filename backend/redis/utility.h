@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "logutil.h"
 
 /*
  * retrieve an environment variable
@@ -34,7 +35,7 @@ char* dbBE_Redis_extract_env( const char *env_var, const char *env_default )
   if( envstr == NULL )
   {
     env = strdup(env_default);
-    printf("%s environment variable not set/found. Using default: %s\n", env_var, env );
+    LOG( DBG_VERBOSE, stdout, "%s environment variable not set/found. Using default: %s\n", env_var, env );
   }
   else
     env = strdup( envstr );
