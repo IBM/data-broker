@@ -53,7 +53,7 @@ extern "C"
  */
 #define DBR_MAJOR_VERSION ( 0 )
 #define DBR_MINOR_VERSION ( 5 )
-#define DBR_PATCH_VERSION ( 2 )
+#define DBR_PATCH_VERSION ( 1 )
 
 /**
  * @addtogroup api
