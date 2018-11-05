@@ -36,6 +36,7 @@
 #include "definitions.h"
 #include "utility.h"
 #include "redis.h"
+#include "result.h"
 
 const dbBE_api_t g_dbBE =
     { .initialize = Redis_initialize,
