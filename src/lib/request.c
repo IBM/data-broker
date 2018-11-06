@@ -133,6 +133,7 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
   unsigned int tag_idx = p_rctx - cs_wq;
 #endif
 
+  DBR_Errorcode_t rc = DBR_ERR_HANDLE; // assume the rctx-handle is not in the WQ-list until we actually find it
   while( cs_wq[ tag_idx ] != NULL )
   {
     dbrRequestContext_t *chain = cs_wq[ tag_idx ]->_next;
@@ -145,13 +146,17 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
     if( cs_wq[ tag_idx ]->_be_request_hdl != NULL )
       LOG( DBG_VERBOSE, stderr, "TODO: cleanup backend handle?\n" );
 
+    if( rctx == cs_wq[ tag_idx ] )
+      rc = DBR_SUCCESS;
+
+    // todo: to prevent request deletion caused by an invalid rctx, move the requests to tmp deletion queue instead until we're sure the correct stuff is deleted
     memset( cs_wq[ tag_idx ], 0, sizeof( dbrRequestContext_t ) + cs_wq[ tag_idx ]->_req._sge_count * sizeof(dbBE_sge_t) );
     free( cs_wq[ tag_idx ] );
     cs_wq[ tag_idx ] = chain;
   }
 
   cs_wq[ tag_idx ] = NULL;
-  return DBR_SUCCESS;
+  return rc;
 }
 
 DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
