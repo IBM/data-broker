@@ -23,6 +23,7 @@
 
 set(DBR_TEST_SOURCES
 	test_sge.c
+	test_request.c
 )
 
 foreach(_test ${DBR_TEST_SOURCES})

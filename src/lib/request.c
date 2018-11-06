@@ -147,7 +147,10 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
       LOG( DBG_VERBOSE, stderr, "TODO: cleanup backend handle?\n" );
 
     if( rctx == cs_wq[ tag_idx ] )
+    {
+      LOG( DBG_VERBOSE, stdout, "Found the requested context\n" );
       rc = DBR_SUCCESS;
+    }
 
     // todo: to prevent request deletion caused by an invalid rctx, move the requests to tmp deletion queue instead until we're sure the correct stuff is deleted
     memset( cs_wq[ tag_idx ], 0, sizeof( dbrRequestContext_t ) + cs_wq[ tag_idx ]->_req._sge_count * sizeof(dbBE_sge_t) );
