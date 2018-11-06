@@ -1,9 +1,8 @@
-version 0.5.2
- * directory command introduced
- * automated multi-backend build enabled
- * memleak review/fixes
-
 version 0.5.1
+ * directory command introduced (initial version only, count argument has no effect yet)
+ * automated multi-backend build enabled
+ * fix tag handling bug
+ * memleak review/fixes
  * more flexible backend build process
  * fix python build
  * added initial gitignore and code-owners

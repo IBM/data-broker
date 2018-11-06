@@ -22,14 +22,8 @@
 # set of API tests
 
 set(DBR_TEST_SOURCES
-	test_dbrCreate.c
-	test_dbrAttach.c
-	test_dbrDelete.c
-	test_dbrPutGet.c
-	test_dbrPutGetA.c
-	test_delete_scan.c
-	test_errorcodes.c
-	test_dbrUtils.c
+	test_sge.c
+	test_request.c
 )
 
 foreach(_test ${DBR_TEST_SOURCES})
@@ -38,7 +32,7 @@ foreach(_test ${DBR_TEST_SOURCES})
   add_dependencies(${TEST_NAME} ${DATABROKER_LIB} ${TEST_BACKEND} ${TRANSPORT_LIBS})
   target_link_libraries(${TEST_NAME} ${DATABROKER_LIB} ${TEST_BACKEND} ${TRANSPORT_LIBS} -lm ${BACKEND_DEPS} )
   target_include_directories(${TEST_NAME} PRIVATE ${LIBEVENT_INCLUDE_DIR})
-  add_test(DBR_${TEST_NAME} ${TEST_NAME} )
+  add_test(DBRLIB_${TEST_NAME} ${TEST_NAME} )
   install(TARGETS ${TEST_NAME} RUNTIME
           DESTINATION test )
 endforeach()

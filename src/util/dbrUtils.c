@@ -103,7 +103,7 @@ int dbrMain_exit(void)
 
   if( gMain_context->_tmp_testkey_buf != NULL )
   {
-    LOG( DBG_INFO, stdout, "Cleaning up temporary buffer\n");
+    LOG( DBG_VERBOSE, stdout, "Cleaning up temporary buffer\n");
     memset( gMain_context->_tmp_testkey_buf, 0, DBR_TMP_BUFFER_LEN );
     free( gMain_context->_tmp_testkey_buf );
     gMain_context->_tmp_testkey_buf = NULL;
@@ -174,6 +174,6 @@ DBR_Errorcode_t dbrValidateTag( dbrRequestContext_t *rctx, DBR_Tag_t req_tag )
 
 void __attribute__ ((destructor)) unload( void )
 {
-  LOG( DBG_INFO, stdout, "Unloading library\n");
+  LOG( DBG_VERBOSE, stdout, "Unloading library\n");
   dbrMain_exit();
 }

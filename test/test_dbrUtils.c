@@ -39,11 +39,15 @@ int dbrTag_get_test( dbrMain_context_t *mc )
   while(( tag = dbrTag_get( mc ) ) != DB_TAG_ERROR )
   {
     ++n;
-    mc->_cs_wq[ tag ] = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) );
+    dbrRequestContext_t *r = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) + 5 * sizeof(dbBE_sge_t)  );
+    memset( r, 0, sizeof( dbrRequestContext_t ) + 5 * sizeof(dbBE_sge_t) );
+    mc->_cs_wq[ tag ] = r;
+
     rc += TEST_NOT( mc->_cs_wq[ tag ], NULL );
+    LOG( DBG_INFO, stdout, "Freeing %p\n", mc->_cs_wq[ tag ] );
     TEST_BREAK( rc, "Allocation failure" );
     mc->_cs_wq[ tag ]->_status = dbrSTATUS_PENDING;
-    LOG( DBG_INFO, stdout, "Allocated tag: %lld\n", tag );
+    LOG( DBG_INFO, stdout, "Allocated tag: %"PRId64"\n", tag );
   }
   rc += TEST( n < dbrMAX_TAGS, 0 );
 
@@ -53,15 +57,20 @@ int dbrTag_get_test( dbrMain_context_t *mc )
   for( n = 0; n<TAG_TEST_COUNT; ++n )
   {
     int p = random() % dbrMAX_TAGS;
-    mc->_cs_wq[ p ]->_status = dbrSTATUS_CLOSED;
+    LOG( DBG_INFO, stdout, "Testing tag %d; wqe[]=%p\n", p, mc->_cs_wq[ p ] );
+    rc += TEST( dbrValidateTag( NULL, p ), DBR_SUCCESS );
+    if( mc->_cs_wq[ p ] != NULL )
+      mc->_cs_wq[ p ]->_status = dbrSTATUS_CLOSED;
     tag = dbrTag_get( mc );
     rc += TEST( tag, p );
 
-    mc->_cs_wq[ tag ] = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) );
+    dbrRequestContext_t *r = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) + 5 * sizeof(dbBE_sge_t)  );
+    memset( r, 0, sizeof( dbrRequestContext_t ) + 5 * sizeof(dbBE_sge_t) );
+    mc->_cs_wq[ tag ] = r;
     rc += TEST_NOT( mc->_cs_wq[ tag ], NULL );
     TEST_BREAK( rc, "Allocation failure" );
     mc->_cs_wq[ tag ]->_status = dbrSTATUS_PENDING;
-    LOG( DBG_INFO, stdout, "Allocated tag: %lld\n", tag );
+    LOG( DBG_INFO, stdout, "Allocated tag: %"PRId64"\n", tag );
 
   }
 
@@ -73,6 +82,18 @@ int dbrTag_get_test( dbrMain_context_t *mc )
 
   rc += TEST_NOT( dbrTag_get( mc ), DB_TAG_ERROR );
 
+  dbrRequestContext_t rctx;
+  rc += TEST( dbrValidateTag( NULL, 0 ), DBR_SUCCESS );
+
+#ifdef DBR_INTTAG
+  rc += TEST( dbrValidateTag( &rctx, 0 ), DBR_SUCCESS );
+  rc += TEST( dbrValidateTag( &rctx, DB_TAG_ERROR ), DBR_ERR_TAGERROR );
+  rc += TEST( dbrValidateTag( &rctx, dbrMAX_TAGS - 1 ), DBR_SUCCESS );
+  rc += TEST( dbrValidateTag( &rctx, dbrMAX_TAGS ), DBR_ERR_TAGERROR );
+#else
+  rc += TEST( dbrValidateTag( &rctx, NULL ), DBR_ERR_TAGERROR );
+  rc += TEST( dbrValidateTag( &rctx, DB_TAG_ERROR ), DBR_ERR_TAGERROR );
+#endif
   return rc;
 }
 

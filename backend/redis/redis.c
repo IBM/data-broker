@@ -36,6 +36,7 @@
 #include "definitions.h"
 #include "utility.h"
 #include "redis.h"
+#include "result.h"
 
 const dbBE_api_t g_dbBE =
     { .initialize = Redis_initialize,
@@ -54,7 +55,7 @@ dbBE_Handle_t Redis_initialize(void)
   dbBE_Redis_context_t *context = (dbBE_Redis_context_t*)malloc( sizeof( dbBE_Redis_context_t ) );
   if( context == NULL )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to allocate backend context.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate backend context.\n" );
     return NULL;
   }
 
@@ -64,7 +65,7 @@ dbBE_Handle_t Redis_initialize(void)
   dbBE_Redis_command_stage_spec_t *spec = dbBE_Redis_command_stages_spec_init();
   if( spec == NULL )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to allocate protocol spec.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate protocol spec.\n" );
     Redis_exit( context );
     return NULL;
   }
@@ -75,7 +76,7 @@ dbBE_Handle_t Redis_initialize(void)
   dbBE_Redis_locator_t *locator = dbBE_Redis_locator_create();
   if( locator == NULL )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to allocate locator.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate locator.\n" );
     Redis_exit( context );
     return NULL;
   }
@@ -85,7 +86,7 @@ dbBE_Handle_t Redis_initialize(void)
   dbBE_Request_queue_t *work_q = dbBE_Request_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
   if( work_q == NULL )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to allocate work queue.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate work queue.\n" );
     Redis_exit( context );
     return NULL;
   }
@@ -95,7 +96,7 @@ dbBE_Handle_t Redis_initialize(void)
   dbBE_Completion_queue_t *compl_q = dbBE_Completion_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
   if( compl_q == NULL )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to allocate completion queue.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate completion queue.\n" );
     Redis_exit( context );
     return NULL;
   }
@@ -106,7 +107,7 @@ dbBE_Handle_t Redis_initialize(void)
   dbBE_Redis_s2r_queue_t *retry_q = dbBE_Redis_s2r_queue_create( 1 );
   if( retry_q == NULL )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to allocate retry-queue.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate retry-queue.\n" );
     Redis_exit( context );
     return NULL;
   }
@@ -127,7 +128,7 @@ dbBE_Handle_t Redis_initialize(void)
   dbBE_Redis_connection_mgr_t *conn_mgr = dbBE_Redis_connection_mgr_init();
   if( conn_mgr == NULL )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to initialize connection mgr.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to initialize connection mgr.\n" );
     Redis_exit( context );
     return NULL;
   }
@@ -140,7 +141,7 @@ dbBE_Handle_t Redis_initialize(void)
 
   if( dbBE_Redis_connect_initial( context ) != 0 )
   {
-    fprintf( stderr, "dbBE_Redis_context_t::initialize: Failed to connect to Redis.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to connect to Redis.\n" );
     Redis_exit( context );
     return NULL;
   }
