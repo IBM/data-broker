@@ -53,3 +53,4 @@ install( TARGETS databroker_int
 	DESTINATION lib
 )
 
+add_subdirectory( test )
