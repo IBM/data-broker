@@ -39,8 +39,12 @@ int dbrTag_get_test( dbrMain_context_t *mc )
   while(( tag = dbrTag_get( mc ) ) != DB_TAG_ERROR )
   {
     ++n;
-    mc->_cs_wq[ tag ] = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) );
+    dbrRequestContext_t *r = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) + 5 * sizeof(dbBE_sge_t)  );
+    memset( r, 0, sizeof( dbrRequestContext_t ) + 5 * sizeof(dbBE_sge_t) );
+    mc->_cs_wq[ tag ] = r;
+
     rc += TEST_NOT( mc->_cs_wq[ tag ], NULL );
+    LOG( DBG_INFO, stdout, "Freeing %p\n", mc->_cs_wq[ tag ] );
     TEST_BREAK( rc, "Allocation failure" );
     mc->_cs_wq[ tag ]->_status = dbrSTATUS_PENDING;
     LOG( DBG_INFO, stdout, "Allocated tag: %"PRId64"\n", tag );
@@ -53,12 +57,16 @@ int dbrTag_get_test( dbrMain_context_t *mc )
   for( n = 0; n<TAG_TEST_COUNT; ++n )
   {
     int p = random() % dbrMAX_TAGS;
+    LOG( DBG_INFO, stdout, "Testing tag %"PRId64"; wqe[]=%p\n", p, mc->_cs_wq[ p ] );
     rc += TEST( dbrValidateTag( NULL, p ), DBR_SUCCESS );
-    mc->_cs_wq[ p ]->_status = dbrSTATUS_CLOSED;
+    if( mc->_cs_wq[ p ] != NULL )
+      mc->_cs_wq[ p ]->_status = dbrSTATUS_CLOSED;
     tag = dbrTag_get( mc );
     rc += TEST( tag, p );
 
-    mc->_cs_wq[ tag ] = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) );
+    dbrRequestContext_t *r = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) + 5 * sizeof(dbBE_sge_t)  );
+    memset( r, 0, sizeof( dbrRequestContext_t ) + 5 * sizeof(dbBE_sge_t) );
+    mc->_cs_wq[ tag ] = r;
     rc += TEST_NOT( mc->_cs_wq[ tag ], NULL );
     TEST_BREAK( rc, "Allocation failure" );
     mc->_cs_wq[ tag ]->_status = dbrSTATUS_PENDING;
