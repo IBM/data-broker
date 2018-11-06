@@ -55,8 +55,8 @@ dbrName_space_t* dbrMain_create_local( DBR_Name_t db_name )
   // initialize the cs data
   cs->_db_name = strdup( db_name );
   cs->_ref_count = 1;
-  cs->_be_ctx = dbrlib_backend_get_handle();
   cs->_reverse = dbrCheckCreateMainCTX();
+  cs->_be_ctx = dbrlib_backend_get_handle();
   cs->_status = dbrNS_STATUS_CREATED;
 
   return cs;
