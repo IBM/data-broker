@@ -57,7 +57,7 @@ int dbrTag_get_test( dbrMain_context_t *mc )
   for( n = 0; n<TAG_TEST_COUNT; ++n )
   {
     int p = random() % dbrMAX_TAGS;
-    LOG( DBG_INFO, stdout, "Testing tag %"PRId64"; wqe[]=%p\n", p, mc->_cs_wq[ p ] );
+    LOG( DBG_INFO, stdout, "Testing tag %d; wqe[]=%p\n", p, mc->_cs_wq[ p ] );
     rc += TEST( dbrValidateTag( NULL, p ), DBR_SUCCESS );
     if( mc->_cs_wq[ p ] != NULL )
       mc->_cs_wq[ p ]->_status = dbrSTATUS_CLOSED;
