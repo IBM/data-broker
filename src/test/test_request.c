@@ -32,10 +32,9 @@
 #define TEST_SGE_MAX (1024)
 
 
-int main( int argc, char ** argv )
+int Request_create_test()
 {
   int rc = 0;
-
   dbrRequestContext_t *rctx = NULL;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
@@ -53,7 +52,7 @@ int main( int argc, char ** argv )
                                 DB_TAG_ERROR );
   rc += TEST( rctx, NULL );
 
-
+  // request creation with error tag:
   rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET,
                                 ns,
                                 DBR_GROUP_LIST_EMPTY,
@@ -65,10 +64,10 @@ int main( int argc, char ** argv )
                                 NULL,
                                 NULL,
                                 DB_TAG_ERROR );
-  rc += TEST_NOT( rctx, NULL );
+  rc += TEST( rctx, NULL );
 
   // trying to clean rctx with tag == TAG_ERROR, will not work
-  rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_TAGERROR );
+  rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_INVALID );
 
   rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET,
                                 ns,
@@ -88,7 +87,15 @@ int main( int argc, char ** argv )
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_SUCCESS );
 
 
+  rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+  return rc;
+}
 
+int main( int argc, char ** argv )
+{
+  int rc = 0;
+
+  rc += Request_create_test();
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
