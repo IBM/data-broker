@@ -113,9 +113,12 @@ libdbrDelete (DBR_Name_t db_name)
     goto error;
 
   dbrRemove_request( cs, rctx );
-  dbrMain_delete( ctx, cs );
+  if( dbrMain_delete( ctx, cs ) != 0 )
+    rc = DBR_ERR_NSINVAL;
+  else
+    rc = DBR_SUCCESS;
 
-  BIGLOCK_UNLOCKRETURN( ctx, DBR_SUCCESS );
+  BIGLOCK_UNLOCKRETURN( ctx, rc );
 
 error:
   dbrRemove_request( cs, rctx );
