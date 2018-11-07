@@ -42,17 +42,22 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
                                            DBR_Tuple_template_t match_template,
                                            DBR_Tag_t tag )
 {
-  if( cs == NULL )
+  if(( cs == NULL )||(cs->_db_name == NULL))
     return NULL;
 
   if( tag == DB_TAG_ERROR )
+    return NULL;
+
+  if(( sge_count < 0 ) ||
+      (( sge_count>0 ) && ( sge == NULL )) ||
+      (( sge_count==0 ) && ( sge != NULL )) )
     return NULL;
 
   dbrRequestContext_t *req = (dbrRequestContext_t*)calloc( 1, sizeof( dbrRequestContext_t ) + sge_count * sizeof(dbBE_sge_t) );
   if( req == NULL )
     return NULL;
 
-  req->_req._ns_name = cs->_db_name;
+  req->_req._ns_name = cs->_db_name;  // just reference the name of the given namespace
   req->_req._group = group;
   req->_req._key = tuple_name;
   req->_req._match = match_template;
