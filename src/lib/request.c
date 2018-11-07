@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "logutil.h"
+#include "libdatabroker.h"
 #include "libdatabroker_int.h"
 
 
@@ -42,6 +43,9 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
                                            DBR_Tag_t tag )
 {
   if( cs == NULL )
+    return NULL;
+
+  if( tag == DB_TAG_ERROR )
     return NULL;
 
   dbrRequestContext_t *req = (dbrRequestContext_t*)calloc( 1, sizeof( dbrRequestContext_t ) + sge_count * sizeof(dbBE_sge_t) );
