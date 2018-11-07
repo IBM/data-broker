@@ -15,6 +15,10 @@
  *
  */
 
+#include "logutil.h"
+#include "libdatabroker_int.h"
+#include "lib/backend.h"
+
 #include <stddef.h>
 #include <errno.h>
 #ifdef __APPLE__
@@ -23,9 +27,6 @@
 #include <malloc.h>
 #endif
 #include <string.h>
-
-#include "libdatabroker_int.h"
-#include "lib/backend.h"
 
 uint32_t dbrMain_find( dbrMain_context_t *libctx, DBR_Name_t name )
 {
@@ -159,7 +160,7 @@ int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
     free( cs->_db_name );
     memset( cs, 0, sizeof( dbrName_space_t ) );
     cs->_be_ctx = NULL;
-    if( ((uintptr_t*)cs) != 0 )
+    if( (*(uintptr_t*)cs) != 0 )
       return -EFAULT;
 
     free( cs );
@@ -167,7 +168,6 @@ int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
 
     if( ref_cnt < 1 )
       return -EOVERFLOW;
-
   }
   else // if there are othere refs, then mark as deleted for the last detach to remove the name space
   {
