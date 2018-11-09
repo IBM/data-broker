@@ -53,6 +53,9 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
       (( sge_count==0 ) && ( sge != NULL )) )
     return NULL;
 
+  if( op >= DBBE_OPCODE_MAX )
+    return NULL;
+
   dbrRequestContext_t *req = (dbrRequestContext_t*)calloc( 1, sizeof( dbrRequestContext_t ) + sge_count * sizeof(dbBE_sge_t) );
   if( req == NULL )
     return NULL;
