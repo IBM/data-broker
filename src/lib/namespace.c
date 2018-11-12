@@ -15,6 +15,10 @@
  *
  */
 
+#include "logutil.h"
+#include "libdatabroker_int.h"
+#include "lib/backend.h"
+
 #include <stddef.h>
 #include <errno.h>
 #ifdef __APPLE__
@@ -24,8 +28,11 @@
 #endif
 #include <string.h>
 
-#include "libdatabroker_int.h"
-#include "lib/backend.h"
+#ifdef __clang__
+void *(* volatile memset_s)(void *s, int c, size_t n) = memset;
+#else
+#define memset_s memset
+#endif
 
 uint32_t dbrMain_find( dbrMain_context_t *libctx, DBR_Name_t name )
 {
@@ -152,14 +159,13 @@ int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
     int ref_cnt = cs->_ref_count; // store for use after cleaning cs
 
     uint32_t idx = cs->_idx;
-    memset( cs->_db_name, 0, strlen( cs->_db_name ) );
+    memset_s( cs->_db_name, 0, strlen( cs->_db_name ) );
     if( cs->_db_name[0] != 0 )
       return -EFAULT;
 
     free( cs->_db_name );
-    memset( cs, 0, sizeof( dbrName_space_t ) );
-    cs->_be_ctx = NULL;
-    if( ((uintptr_t*)cs) != 0 )
+    memset_s( cs, 0, sizeof( dbrName_space_t ) );
+    if(( cs->_ref_count != 0 )||( cs->_idx != 0 ))
       return -EFAULT;
 
     free( cs );
@@ -167,7 +173,6 @@ int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
 
     if( ref_cnt < 1 )
       return -EOVERFLOW;
-
   }
   else // if there are othere refs, then mark as deleted for the last detach to remove the name space
   {
