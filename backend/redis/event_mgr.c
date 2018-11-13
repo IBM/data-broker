@@ -271,7 +271,7 @@ void dbBE_Redis_event_mgr_callback( evutil_socket_t socket, short ev_type, void 
        conn, conn->_socket, conn->_index, ev_type );
   if((( ev_type & EV_TIMEOUT ) != 0 ) && (( ev_type & EV_READ ) == 0 ))
   {
-    LOG( DBG_INFO, stderr, "Connection timeout detected (idx=%d).\n", conn->_index );
+    LOG( DBG_VERBOSE, stderr, "Connection timeout detected (idx=%d).\n", conn->_index );
   }
   else if( ( ev_type & EV_READ ) != 0 )
   {
