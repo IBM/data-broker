@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright (C) 2018 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ DBR_FLAGS_NONE = libdatabroker.DBR_FLAGS_NONE
 DBR_FLAGS_NOWAIT = libdatabroker.DBR_FLAGS_NOWAIT
 DBR_FLAGS_MAX = libdatabroker.DBR_FLAGS_MAX
 
+DBR_GROUP_LIST_EMPTY = libdatabroker.DBR_GROUP_LIST_EMPTY
 
 # Mask
 DBR_STATE_MASK_ALL = libdatabroker.DBR_STATE_MASK_ALL
@@ -102,7 +103,7 @@ def dbrAddUnits(dbr_handle, units):
     return retval 
 
 def dbrRemoveUnits(dbr_handle, units):
-    retval = libdatabroker.dbrRemoveUnits(dbr_handle, unitss)
+    retval = libdatabroker.dbrRemoveUnits(dbr_handle, units)
     return retval
 
 def dbrPut(dbr_hdl, tuple_val, tuple_name, group):
@@ -132,6 +133,13 @@ def dbrGetA(dbr_hdl, out_buffer, buffer_size, tuple_name, match_template, group)
 def dbrTestKey(dbr_hdl, tuple_name):
     retval = libdatabroker.dbrTestKey(dbr_hdl, tuple_name)
     return retval
+
+
+def dbrDirectory(dbr_hdl, match_template, group, count, size, ret_size):
+    tbuf = createBuf('char[]',size)
+    retval = libdatabroker.dbrDirectory(dbr_hdl, match_template, group, count, ffi.from_buffer(tbuf), ffi.cast('const size_t',size), ret_size)
+    result_buffer=(tbuf[0:ret_size[0]].split('\n'))
+    return retval, result_buffer
 
 def dbrMove(src_DBRHandle, src_group, tuple_name, match_template, dest_DBRHandle, dest_group):
     retval = libdatabroker.dbrMove(src_DBRHandle, src_group, tuple_name, match_template, dest_DBRHandle, dest_group)
