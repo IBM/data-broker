@@ -26,6 +26,7 @@ set(DBR_TEST_SOURCES
 	test_dbrAttach.c
 	test_dbrDelete.c
 	test_dbrPutGet.c
+	test_dbrPutGet_ext.c
 	test_dbrPutGetA.c
 	test_delete_scan.c
 	test_errorcodes.c
