@@ -60,8 +60,8 @@ libdbrRemoveUnits( DBR_Handle_t cs_handle,
 
 DBR_Errorcode_t
 libdbrPut( DBR_Handle_t cs_handle,
-           void *va_ptr,
-           int64_t size,
+           dbBE_sge_t *sge,
+           int sge_len,
            DBR_Tuple_name_t tuple_name,
            DBR_Group_t group );
 

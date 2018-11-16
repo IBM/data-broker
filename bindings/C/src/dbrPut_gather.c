@@ -14,22 +14,39 @@
  * limitations under the License.
  *
  */
+
+#include "errorcodes.h"
 #include "libdbrAPI.h"
+#include "libdatabroker_ext.h"
+
+#include <stdlib.h>
 
 DBR_Errorcode_t
-dbrPut (DBR_Handle_t cs_handle,
-        void *va_ptr,
-        int64_t size,
+dbrPut_gather (DBR_Handle_t cs_handle,
+        void **va_ptr,
+        int64_t *size,
+        int len,
         DBR_Tuple_name_t tuple_name,
         DBR_Group_t group)
 {
-  dbBE_sge_t sge;
-  sge._data = va_ptr;
-  sge._size = size;
+  if(( len <= 0 ) || (va_ptr == NULL) || (size==NULL))
+    return DBR_ERR_INVALID;
+
+
+  dbBE_sge_t *sge = (dbBE_sge_t*)calloc( len, sizeof( dbBE_sge_t ) );
+  if( sge == NULL )
+    return DBR_ERR_NOMEMORY;
+
+  int n;
+  for( n=0; n<len; ++n )
+  {
+    sge[ n ]._data = va_ptr[ n ];
+    sge[ n ]._size = size[ n ];
+  }
 
   return libdbrPut( cs_handle,
-                    &sge,
-                    1,
+                    sge,
+                    len,
                     tuple_name,
                     group );
 }

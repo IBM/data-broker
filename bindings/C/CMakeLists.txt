@@ -23,6 +23,7 @@ set( LIBDB_FILES
 	src/dbrQuery.c
 	src/dbrPut.c
 	src/dbrPutA.c
+	src/dbrPut_gather.c
 	src/dbrGet.c
 	src/dbrGetA.c
 	src/dbrRead.c
