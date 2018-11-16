@@ -154,6 +154,14 @@ int main( int argc, char ** argv )
   rc += ReadTest( cs_hdl, "testTup", "Hello\r\nWor\0ld4", 14 );
   rc += GetTest( cs_hdl, "testTup", "Hello\r\nWor\0ld4", 14 );
 
+  double val[3];
+  val[0] = 1.0;
+  val[1] = 1.056015e18;
+  val[2] = -6.2053e-3;
+
+  rc += PutTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
+  rc += ReadTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
+  rc += GetTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
 
   unsigned n, c;
   char *keystr = (char*)malloc( DBR_MAX_KEY_LEN + 16);
