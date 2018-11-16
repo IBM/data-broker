@@ -84,17 +84,17 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx )
 {
   if( cs == NULL
-      || rctx == NULL )
+      || rctx == NULL || cs->_reverse == NULL )
     return DB_TAG_ERROR;
 
   dbrRequestContext_t** cs_wq = cs->_reverse->_cs_wq;
 
   DBR_Tag_t tag = rctx->_tag;
 
-#ifdef DBR_INTTAG
   if( dbrValidateTag( rctx, tag ) != DBR_SUCCESS )
     return DB_TAG_ERROR;
 
+#ifdef DBR_INTTAG
   unsigned int tag_idx = tag;
 
 #else
@@ -123,17 +123,17 @@ DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx )
 DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rctx )
 {
   if( cs == NULL
-      || rctx == NULL )
+      || rctx == NULL || cs->_reverse == NULL )
     return DBR_ERR_INVALID;
 
   dbrRequestContext_t** cs_wq = cs->_reverse->_cs_wq;
 
   DBR_Tag_t tag = rctx->_tag;
 
-#ifdef DBR_INTTAG
   if( dbrValidateTag( rctx, tag ) != DBR_SUCCESS )
     return DBR_ERR_TAGERROR;
 
+#ifdef DBR_INTTAG
   unsigned int tag_idx = tag;
 
 #else
@@ -176,8 +176,17 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
 
 DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
 {
-  if( rctx == NULL )
+  if( rctx == NULL || rctx->_ctx == NULL || rctx->_ctx->_reverse == NULL )
     return NULL;
+
+  if( dbrValidateTag( rctx, rctx->_tag ) != DBR_SUCCESS )
+    return NULL;
+
+  if( rctx->_ctx->_reverse->_cs_wq[ rctx->_tag ] == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Request not inserted in namespace request list.\n" );
+    return NULL;
+  }
 
   if( rctx->_cpl._status == DBR_ERR_INPROGRESS )
   {

@@ -71,6 +71,40 @@ int Request_create_test()
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_SUCCESS );
 
   rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+
+  LOG( DBG_INFO, stdout, "Create request test: rc=%d\n", rc );
+  return rc;
+}
+
+int Request_insert_test()
+{
+  int rc = 0;
+
+  dbrRequestContext_t *rctx = NULL;
+  dbBE_sge_t sge;
+  sge._data = NULL;
+  sge._size = 0;
+
+  dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
+
+  // try to insert a NULL request
+  rc += TEST( dbrInsert_request( ns, NULL ), DB_TAG_ERROR );
+
+  // insert request with invalid tag
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  // change the tag to break the remove function
+  DBR_Tag_t tmptag = rctx->_tag;
+  rctx->_tag = DB_TAG_ERROR;
+
+  rc += TEST( dbrInsert_request( ns, rctx ), DB_TAG_ERROR );
+
+  // clean insert
+  rctx->_tag = tmptag;
+  rc += TEST( dbrInsert_request( ns, rctx ), tmptag );
+
+  rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+
+  LOG( DBG_INFO, stdout, "Insert request test: rc=%d\n", rc );
   return rc;
 }
 
@@ -85,22 +119,74 @@ int Request_remove_test()
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
 
+  // trying to clean nullptr rctx
+  rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_INVALID );
+
   rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+
+  // trying to remove a request that hasn't been inserted
+  rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_HANDLE );
+
+  // cause invalid return by mis-initialized namespace
+  ns->_reverse = NULL;
+  rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_INVALID );
+  ns->_reverse = dbrCheckCreateMainCTX();
 
   // change the tag to break the remove function
   DBR_Tag_t tmptag = rctx->_tag;
   rctx->_tag = DB_TAG_ERROR;
 
-  // trying to clean nullptr rctx
-  rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_INVALID );
-
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_TAGERROR );
 
   rctx->_tag = tmptag;
+  rc += TEST( dbrInsert_request( ns, rctx ), tmptag );
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_SUCCESS );
 
   rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
-  return 0;
+
+  LOG( DBG_INFO, stdout, "Remove request test: rc=%d\n", rc );
+  return rc;
+}
+
+int Request_post_test()
+{
+  int rc = 0;
+
+  dbrRequestContext_t *rctx = NULL;
+  dbBE_sge_t sge;
+  sge._data = NULL;
+  sge._size = 0;
+
+  dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
+
+  // trying to post nullptr rctx
+  rc += TEST( dbrPost_request( rctx ), NULL );
+
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+
+  // trying to post a request that hasn't been inserted
+  rc += TEST( dbrPost_request( rctx ), NULL );
+
+  // cause invalid return by mis-initialized namespace
+  ns->_reverse = NULL;
+  rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_INVALID );
+  ns->_reverse = dbrCheckCreateMainCTX();
+
+  // change the tag to break the post function
+  DBR_Tag_t tmptag = rctx->_tag;
+  rctx->_tag = DB_TAG_ERROR;
+
+  rc += TEST( dbrPost_request( rctx ), NULL );
+
+  rctx->_tag = tmptag;
+  rc += TEST( dbrInsert_request( ns, rctx ), tmptag );
+  rctx->_cpl._status = DBR_ERR_INPROGRESS;
+  rc += TEST( dbrPost_request( rctx ), NULL );
+
+  rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+
+  LOG( DBG_INFO, stdout, "Remove request test: rc=%d\n", rc );
+  return rc;
 }
 
 int main( int argc, char ** argv )
@@ -108,7 +194,9 @@ int main( int argc, char ** argv )
   int rc = 0;
 
   rc += Request_create_test();
+  rc += Request_insert_test();
   rc += Request_remove_test();
+  rc += Request_post_test();
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
