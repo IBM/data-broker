@@ -25,6 +25,7 @@ set( LIBDB_FILES
 	src/dbrPutA.c
 	src/dbrPut_gather.c
 	src/dbrGet.c
+	src/dbrGet_scatter.c
 	src/dbrGetA.c
 	src/dbrRead.c
 	src/dbrReadA.c

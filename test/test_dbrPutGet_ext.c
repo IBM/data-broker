@@ -78,20 +78,36 @@ int KeyTest( DBR_Handle_t cs_hdl,
 
 int GetTest( DBR_Handle_t cs_hdl,
              DBR_Tuple_name_t tupname,
-             const char *instr,
-             const size_t len )
+             char **instr,
+             const int64_t *insize,
+             const int sge_len )
 {
   int rc = 0;
+  int n;
   DBR_Errorcode_t ret = DBR_SUCCESS;
 
-  char *out = (char*)malloc( len + 16 );
-  int64_t out_size = len + 16;
-
+  char *out = (char*)malloc( sge_len * 1024 );
+  int64_t out_size = sge_len * 1024;
   memset( out, 0, out_size );
 
-  rc += TEST_RC( dbrGet( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NONE ), DBR_SUCCESS, ret );
-  rc += TEST( out_size, (int64_t)len );
-  rc += TEST( memcmp( instr, out, len ), 0 );
+  char **strings = (char**)malloc( sge_len * sizeof( char* ) );
+  int64_t *osize = (int64_t*)malloc( sge_len * sizeof( size_t ) );
+  out_size = 0;
+  for( n=0; n<sge_len; ++n )
+  {
+    strings[n] = &out[ n * 1024 ];
+    osize[n] = insize[n];
+    out_size += insize[n]; // accumulate the expected output size
+  }
+
+  int64_t test_size = out_size;
+  rc += TEST_RC( dbrGet_scatter( cs_hdl, (void**)strings, osize, sge_len, tupname, "", 0, DBR_FLAGS_NONE ), DBR_SUCCESS, ret );
+  rc += TEST( out_size, test_size );
+  for( n=0; n<sge_len; ++n )
+  {
+    rc += TEST( insize[n], osize[n] );
+    rc += TEST( memcmp( instr[n], strings[n], insize[n] ), 0 );
+  }
 
   free( out );
 
@@ -142,7 +158,7 @@ int main( int argc, char ** argv )
   rc += ReadTest( cs_hdl, "testTup", "Hello World 1 2", 5+6+2+2 );
 //  rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
 
-  rc += GetTest( cs_hdl, "testTup", "Hello World 1 2", 5+6+2+2 );
+  rc += GetTest( cs_hdl, "testTup", strs, len, 4 );
   TEST_LOG( rc, "First Get" );
 
 //  rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );

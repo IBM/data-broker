@@ -23,8 +23,8 @@
 
 DBR_Errorcode_t
 libdbrGet (DBR_Handle_t cs_handle,
-           void *va_ptr,
-           int64_t size,
+           dbBE_sge_t *sge,
+           int sge_len,
            int64_t *ret_size,
            DBR_Tuple_name_t tuple_name,
            DBR_Tuple_template_t match_template,
@@ -46,18 +46,14 @@ libdbrGet (DBR_Handle_t cs_handle,
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
-  dbBE_sge_t sge;
-  sge._data = va_ptr;
-  sge._size = size;
-
   DBR_Errorcode_t rc = DBR_SUCCESS;
   dbrRequestContext_t *ctx = dbrCreate_request_ctx( DBBE_OPCODE_GET,
                                                     cs_handle,
                                                     group,
                                                     NULL,
                                                     NULL,
-                                                    1,
-                                                    &sge,
+                                                    sge_len,
+                                                    sge,
                                                     ret_size,
                                                     tuple_name,
                                                     match_template,

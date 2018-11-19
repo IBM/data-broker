@@ -26,9 +26,13 @@ dbrGet (DBR_Handle_t cs_handle,
         DBR_Group_t group,
         int flags )
 {
+  dbBE_sge_t sge;
+  sge._data = va_ptr;
+  sge._size = *size;
+
   return libdbrGet( cs_handle,
-                    va_ptr,
-                    *size,
+                    &sge,
+                    1,
                     size,
                     tuple_name,
                     match_template,
