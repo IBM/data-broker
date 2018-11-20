@@ -25,9 +25,13 @@ dbrRead(DBR_Handle_t cs_handle,
         DBR_Group_t group,
         int flags )
 {
+  dbBE_sge_t sge;
+  sge.iov_base = va_ptr;
+  sge.iov_len = *size;
+
   return (DBR_Errorcode_t)libdbrRead( cs_handle,
-                     va_ptr,
-                     *size,
+                     &sge,
+                     1,
                      size,
                      tuple_name,
                      match_template,

@@ -22,14 +22,14 @@
 #include <stdlib.h>
 
 DBR_Errorcode_t
-dbrGet_scatter( DBR_Handle_t dbr_handle,
-                void *va_ptr[],
-                size_t size[],
-                const int len,
-                DBR_Tuple_name_t tuple_name,
-                DBR_Tuple_template_t match_template,
-                DBR_Group_t group,
-                int flags )
+dbrRead_scatter( DBR_Handle_t dbr_handle,
+                 void *va_ptr[],
+                 size_t size[],
+                 int len,
+                 DBR_Tuple_name_t tuple_name,
+                 DBR_Tuple_template_t match_template,
+                 DBR_Group_t group,
+                 int flags )
 {
   if(( len <= 0 ) || (va_ptr == NULL) || (size==NULL))
     return DBR_ERR_INVALID;
@@ -47,16 +47,17 @@ dbrGet_scatter( DBR_Handle_t dbr_handle,
   }
 
   int64_t outsize = 0;
-  DBR_Errorcode_t rc = libdbrGet( dbr_handle,
-                    sge,
-                    len,
-                    &outsize,
-                    tuple_name,
-                    match_template,
-                    group,
-                    (flags & DBR_FLAGS_NOWAIT) ? 0 : 1 );
+  DBR_Errorcode_t rc = libdbrRead( dbr_handle,
+                     sge,
+                     len,
+                     &outsize,
+                     tuple_name,
+                     match_template,
+                     group,
+                     (flags & DBR_FLAGS_NOWAIT) ? 0 : 1 );
 
   free( sge );
   return rc;
+
 }
 

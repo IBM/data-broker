@@ -93,8 +93,8 @@ libdbrGetA( DBR_Handle_t cs_handle,
 
 DBR_Errorcode_t
 libdbrRead( DBR_Handle_t cs_handle,
-            void *va_ptr,
-            int64_t size,
+            dbBE_sge_t *sge,
+            int sge_len,
             int64_t *ret_size,
             DBR_Tuple_name_t tuple_name,
             DBR_Tuple_template_t match_template,

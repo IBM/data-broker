@@ -44,10 +44,13 @@ dbrPut_gather (DBR_Handle_t cs_handle,
     sge[ n ].iov_len = size[ n ];
   }
 
-  return libdbrPut( cs_handle,
+  DBR_Errorcode_t rc = libdbrPut( cs_handle,
                     sge,
                     len,
                     tuple_name,
                     group );
+
+  free( sge );
+  return rc;
 }
 
