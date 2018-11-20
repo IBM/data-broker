@@ -37,7 +37,7 @@ int PutTest_string( DBR_Handle_t cs_hdl,
 {
   int rc = 0;
 
-  rc += TEST( DBR_SUCCESS, dbrPut_gather( cs_hdl, (void **)strings, size, count, tupname, 0 ) );
+  rc += TEST( DBR_SUCCESS, dbrPut_gather( cs_hdl, (const void**)strings, size, count, tupname, 0 ) );
 
   return rc;
 }

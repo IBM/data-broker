@@ -23,11 +23,11 @@
 
 DBR_Errorcode_t
 dbrPut_gather (DBR_Handle_t cs_handle,
-        void **va_ptr,
-        int64_t *size,
-        int len,
-        DBR_Tuple_name_t tuple_name,
-        DBR_Group_t group)
+               const void *va_ptr[],
+               const size_t size[],
+               const int len,
+               DBR_Tuple_name_t tuple_name,
+               DBR_Group_t group)
 {
   if(( len <= 0 ) || (va_ptr == NULL) || (size==NULL))
     return DBR_ERR_INVALID;

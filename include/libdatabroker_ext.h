@@ -54,9 +54,9 @@
  *
  */
 DBR_Errorcode_t dbrPut_gather( DBR_Handle_t dbr_handle,
-                               void *va_ptr[],
-                               int64_t size[],
-                               int len,
+                               const void *va_ptr[],
+                               const size_t size[],
+                               const int len,
                                DBR_Tuple_name_t tuple_name,
                                DBR_Group_t group );
 
