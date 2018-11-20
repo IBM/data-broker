@@ -61,3 +61,26 @@ dbrRead_scatter( DBR_Handle_t dbr_handle,
 
 }
 
+
+DBR_Errorcode_t
+dbrRead_v( DBR_Handle_t dbr_handle,
+           struct iovec *sge,
+           const int len,
+           DBR_Tuple_name_t tuple_name,
+           DBR_Tuple_template_t match_template,
+           DBR_Group_t group,
+           int flags )
+{
+  if(( len <= 0 ) || ( sge == NULL ))
+    return DBR_ERR_INVALID;
+
+  int64_t outsize = 0;
+  return libdbrRead( dbr_handle,
+                     sge,
+                     len,
+                     &outsize,
+                     tuple_name,
+                     match_template,
+                     group,
+                     (flags & DBR_FLAGS_NOWAIT) ? 0 : 1 );
+}

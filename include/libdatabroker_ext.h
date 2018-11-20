@@ -24,7 +24,7 @@
 
 #include <inttypes.h>
 #include <stddef.h>
-
+#include <sys/uio.h>
 
 /**
  * @brief Insert a tuple in a namespace by gathering from non-contiguous memory locations.
@@ -60,6 +60,18 @@ DBR_Errorcode_t dbrPut_gather( DBR_Handle_t dbr_handle,
                                DBR_Tuple_name_t tuple_name,
                                DBR_Group_t group );
 
+/**
+ * @brief Insert a tuple into namespace by gathering from iovec-specified locations
+ *
+ * Same functionality as dbrPut_gather(), just directly based on struct iovec input
+ * instead of 2 separate arrays for address and length.
+ *
+ */
+DBR_Errorcode_t dbrPut_v( DBR_Handle_t dbr_handle,
+                          struct iovec *sge,
+                          const int len,
+                          DBR_Tuple_name_t tuple_name,
+                          DBR_Group_t group );
 
 
 /**
@@ -115,6 +127,20 @@ DBR_Errorcode_t dbrRead_scatter( DBR_Handle_t dbr_handle,
                                  DBR_Group_t group,
                                  int flags );
 
+/**
+ * @brief Read data from a namespace and scatter into iovector specified locations
+ *
+ * Same functionality as dbrRead_scatter(), just directly based on struct iovec input
+ * instead of 2 separate arrays for address and length.
+ *
+ */
+DBR_Errorcode_t dbrRead_v( DBR_Handle_t dbr_handle,
+                           struct iovec *sge,
+                           const int len,
+                           DBR_Tuple_name_t tuple_name,
+                           DBR_Tuple_template_t match_template,
+                           DBR_Group_t group,
+                           int flags );
 
 
 /**
@@ -170,6 +196,20 @@ DBR_Errorcode_t dbrGet_scatter( DBR_Handle_t dbr_handle,
                                 DBR_Group_t group,
                                 int flags );
 
+/**
+ * @brief Get data from a namespace and scatter into iovector specified locations
+ *
+ * Same functionality as dbrGet_scatter(), just directly based on struct iovec input
+ * instead of 2 separate arrays for address and length.
+ *
+ */
+DBR_Errorcode_t dbrGet_v( DBR_Handle_t dbr_handle,
+                          struct iovec *sge,
+                          const int len,
+                          DBR_Tuple_name_t tuple_name,
+                          DBR_Tuple_template_t match_template,
+                          DBR_Group_t group,
+                          int flags );
 
 
 #endif /* INCLUDE_LIBDATABROKER_EXTRAS_H_ */

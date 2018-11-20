@@ -29,7 +29,7 @@
 #include "test_utils.h"
 #include "logutil.h"
 
-int PutTest_string( DBR_Handle_t cs_hdl,
+int PutTest_gather( DBR_Handle_t cs_hdl,
              DBR_Tuple_name_t tupname,
              char **strings,
              const size_t *size,
@@ -43,7 +43,20 @@ int PutTest_string( DBR_Handle_t cs_hdl,
 }
 
 
-int ReadTest( DBR_Handle_t cs_hdl,
+int PutTest_v( DBR_Handle_t cs_hdl,
+             DBR_Tuple_name_t tupname,
+             struct iovec *sge,
+             const int count )
+{
+  int rc = 0;
+
+  rc += TEST( DBR_SUCCESS, dbrPut_v( cs_hdl, sge, count, tupname, 0 ) );
+
+  return rc;
+}
+
+
+int ReadTest_scatter( DBR_Handle_t cs_hdl,
               DBR_Tuple_name_t tupname,
               char **instr,
               const size_t *insize,
@@ -80,6 +93,42 @@ int ReadTest( DBR_Handle_t cs_hdl,
   return rc;
 }
 
+int ReadTest_v( DBR_Handle_t cs_hdl,
+                DBR_Tuple_name_t tupname,
+                struct iovec *isge,
+                const int sge_len )
+{
+  int rc = 0;
+  int n;
+  DBR_Errorcode_t ret = DBR_SUCCESS;
+
+  char *out = (char*)malloc( sge_len * 1024 );
+  int64_t out_size = sge_len * 1024;
+  memset( out, 0, out_size );
+
+  struct iovec *osge = (struct iovec*)malloc( sge_len * sizeof( struct iovec ) );
+  out_size = 0;
+  for( n=0; n<sge_len; ++n )
+  {
+    osge[n].iov_base = &out[ n * 1024 ];
+    osge[n].iov_len = isge[n].iov_len;
+    out_size += isge[n].iov_len; // accumulate the expected output size
+  }
+
+  rc += TEST_RC( dbrRead_v( cs_hdl, osge, sge_len, tupname, "", 0, DBR_FLAGS_NONE ), DBR_SUCCESS, ret );
+  for( n=0; n<sge_len; ++n )
+  {
+    rc += TEST( memcmp( isge[n].iov_base, osge[n].iov_base, isge[n].iov_len ), 0 );
+  }
+
+  free( osge );
+  free( out );
+  return rc;
+}
+
+
+
+
 int KeyTest( DBR_Handle_t cs_hdl,
              DBR_Tuple_name_t tupname,
              const DBR_Errorcode_t expect )
@@ -91,7 +140,7 @@ int KeyTest( DBR_Handle_t cs_hdl,
   return rc;
 }
 
-int GetTest( DBR_Handle_t cs_hdl,
+int GetTest_scatter( DBR_Handle_t cs_hdl,
              DBR_Tuple_name_t tupname,
              char **instr,
              const size_t *insize,
@@ -129,6 +178,39 @@ int GetTest( DBR_Handle_t cs_hdl,
   return rc;
 }
 
+int GetTest_v( DBR_Handle_t cs_hdl,
+               DBR_Tuple_name_t tupname,
+               struct iovec *isge,
+               const int sge_len )
+{
+  int rc = 0;
+  int n;
+  DBR_Errorcode_t ret = DBR_SUCCESS;
+
+  char *out = (char*)malloc( sge_len * 1024 );
+  int64_t out_size = sge_len * 1024;
+  memset( out, 0, out_size );
+
+  struct iovec *osge = (struct iovec*)malloc( sge_len * sizeof( struct iovec ) );
+  out_size = 0;
+  for( n=0; n<sge_len; ++n )
+  {
+    osge[n].iov_base = &out[ n * 1024 ];
+    osge[n].iov_len = isge[n].iov_len;
+    out_size += isge[n].iov_len; // accumulate the expected output size
+  }
+
+  rc += TEST_RC( dbrGet_v( cs_hdl, osge, sge_len, tupname, "", 0, DBR_FLAGS_NONE ), DBR_SUCCESS, ret );
+  for( n=0; n<sge_len; ++n )
+  {
+    rc += TEST( memcmp( isge[n].iov_base, osge[n].iov_base, isge[n].iov_len ), 0 );
+  }
+
+  free( osge );
+  free( out );
+  return rc;
+}
+
 int main( int argc, char ** argv )
 {
   int rc = 0;
@@ -158,103 +240,25 @@ int main( int argc, char ** argv )
   char *strs[] = { "Hello", " World", " 1", " 2" };
   size_t len[] = { 5, 6, 2, 2 };
 
-  rc += PutTest_string( cs_hdl, "testTup", strs, len, 4 );
-//  rc += PutTest( cs_hdl, "testTup", "HelloWorld2", 11 );
-//  rc += PutTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
-//  rc += PutTest( cs_hdl, "testTup", "HelloWorld3", 11 );
-//  rc += PutTest( cs_hdl, "testTup", "HelloWorld4", 11 );
-//  rc += PutTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "012345678901234567890", 21 );
+  struct iovec sge[4] = { {"Hello_",6}, {"World",5}, {"1_",2}, {"4_", 2} };
+
+
+  rc += PutTest_gather( cs_hdl, "testTup", strs, len, 4 );
+  rc += PutTest_v( cs_hdl, "vectorTup", sge, 4 );
 
   rc += KeyTest( cs_hdl, "testTup", DBR_SUCCESS );
+  rc += KeyTest( cs_hdl, "vectorTup", DBR_SUCCESS );
 
   TEST_LOG( rc, "PUT " );
 
-  rc += ReadTest( cs_hdl, "testTup", strs, len, 4 );
-  rc += ReadTest( cs_hdl, "testTup", strs, len, 4 ); // read 2x to make sure it's not consumed
-//  rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
+  rc += ReadTest_v( cs_hdl, "vectorTup", sge, 4 );
+  rc += ReadTest_v( cs_hdl, "vectorTup", sge, 4 );
+  rc += ReadTest_scatter( cs_hdl, "testTup", strs, len, 4 );
+  rc += ReadTest_scatter( cs_hdl, "testTup", strs, len, 4 ); // read 2x to make sure it's not consumed
 
-  rc += GetTest( cs_hdl, "testTup", strs, len, 4 );
+  rc += GetTest_v( cs_hdl, "vectorTup", sge, 4 );
+  rc += GetTest_scatter( cs_hdl, "testTup", strs, len, 4 );
   TEST_LOG( rc, "First Get" );
-
-//  rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
-//  rc += ReadTest( cs_hdl, "testTup", "HelloWorld2", 11 );
-//  rc += ReadTest( cs_hdl, "testTup", "HelloWorld2", 11 );
-//
-//  rc += GetTest( cs_hdl, "testTup", "HelloWorld2", 11 );
-//  rc += GetTest( cs_hdl, "testTup", "HelloWorld3", 11 );
-//  rc += GetTest( cs_hdl, "testTup", "HelloWorld4", 11 );
-//  rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
-//  rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "012345678901234567890", 21 );
-//
-//  rc += PutTest( cs_hdl, "testTup", "Hello\r\nWor\0ld4", 14 );
-//  rc += ReadTest( cs_hdl, "testTup", "Hello\r\nWor\0ld4", 14 );
-//  rc += GetTest( cs_hdl, "testTup", "Hello\r\nWor\0ld4", 14 );
-//
-//  double val[3];
-//  val[0] = 1.0;
-//  val[1] = 1.056015e18;
-//  val[2] = -6.2053e-3;
-//
-//  rc += PutTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
-//  rc += ReadTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
-//  rc += GetTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
-//
-//  unsigned n, c;
-//  char *keystr = (char*)malloc( DBR_MAX_KEY_LEN + 16);
-//  rc += TEST_NOT( keystr, NULL );
-//  TEST_BREAK( rc, "Allocate keystring" );
-//  memset( keystr, 0, DBR_MAX_KEY_LEN + 16 );
-//  for( n=1; n<DBR_MAX_KEY_LEN; ++n )
-//  {
-//    for( c=0; c<n; ++c ) keystr[c] = random() % 26 + 97;
-//    rc += PutTest( cs_hdl, keystr, "HelloWorld1", 11 );
-//    rc += ReadTest( cs_hdl, keystr, "HelloWorld1", 11 );
-//    rc += GetTest( cs_hdl, keystr, "HelloWorld1", 11 );
-//  }
-//  free( keystr );
-//
-//  // long msg test:
-//  int64_t longLen = 1000000-1;
-//  char *longIn = generateLongMsg( longLen );
-//  rc += TEST( DBR_SUCCESS, dbrPut( cs_hdl, longIn, longLen, "testTup", 0 ));
-//  int64_t longRet = longLen + 1;
-//  char *longOut = (char*)calloc( 1, longRet );
-//  rc += TEST( DBR_SUCCESS, dbrRead( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NONE ));
-//  rc += TEST( longRet, longLen );
-//  rc += TEST( strncmp( longOut, longIn, (longRet<longLen ? longRet : longLen) ), 0 );
-//
-//  longRet = longLen + 1;
-//  memset( longOut, 0, longRet );
-//  rc += TEST( DBR_SUCCESS, dbrGet( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NONE ));
-//  rc += TEST( longRet, longLen );
-//  rc += TEST( strncmp( longOut, longIn, (longRet<longLen ? longRet : longLen) ), 0 );
-//
-//
-//  // create a timeout get
-//  rc += TEST_RC( dbrGet( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NONE ), DBR_ERR_TIMEOUT, ret );
-//
-//  rc += TEST_RC( dbrRead( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NOWAIT ), DBR_ERR_UNAVAIL, ret );
-//  rc += TEST_RC( dbrGet( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NOWAIT ), DBR_ERR_UNAVAIL, ret );
-//  rc += KeyTest( cs_hdl, "testTup", DBR_ERR_UNAVAIL );
-//
-//
-//  free( longIn );
-//  free( longOut );
-//
-//  TEST_LOG( rc, "Long Put/Get" );
-//
-//  // binary data test
-//  size_t tlen = 122;
-//  char *tuplestr = (char*)malloc( tlen );
-//
-//  for( n=0; n<tlen; ++n )
-//    tuplestr[ n ] = random() % 256;
-//  tuplestr[ tlen >> 1 ] = 0;
-//  rc += PutTest( cs_hdl, "testTup", tuplestr, tlen );
-//  rc += ReadTest( cs_hdl, "testTup", tuplestr, tlen );
-//  rc += GetTest( cs_hdl, "testTup", tuplestr, tlen );
-//
-//  free( tuplestr );
 
   // delete the name space
   ret = dbrDelete( name );
@@ -269,7 +273,7 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, "Intentionally failing attach" );
 
   // try to access a deleted namespace
-//  rc += TEST_NOT( PutTest( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
+//  rc += TEST_NOT( PutTest_gather( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
 //  rc += TEST_NOT( ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
 //  rc += TEST_NOT( GetTest( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
 

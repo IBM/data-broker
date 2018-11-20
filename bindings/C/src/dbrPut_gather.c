@@ -54,3 +54,19 @@ dbrPut_gather (DBR_Handle_t cs_handle,
   return rc;
 }
 
+DBR_Errorcode_t
+dbrPut_v( DBR_Handle_t dbr_handle,
+          struct iovec *sge,
+          const int len,
+          DBR_Tuple_name_t tuple_name,
+          DBR_Group_t group )
+{
+  if(( dbr_handle == NULL ) || ( sge == NULL ))
+    return DBR_ERR_INVALID;
+
+  return libdbrPut( dbr_handle,
+                    sge,
+                    len,
+                    tuple_name,
+                    group );
+}
