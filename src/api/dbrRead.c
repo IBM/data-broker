@@ -74,7 +74,7 @@ libdbrRead(DBR_Handle_t cs_handle,
 
   dbBE_sge_t sge;
   sge._data = va_ptr;
-  sge._size = size;
+  sge.iov_len = size;
 
   DBR_Errorcode_t rc = DBR_SUCCESS;
   dbrRequestContext_t *ctx = dbrCreate_request_ctx( DBBE_OPCODE_READ,

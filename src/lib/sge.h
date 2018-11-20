@@ -29,7 +29,7 @@ static inline int64_t dbrSGE_extract_size( dbBE_Request_t *req )
   int n;
   for( n = 0; n < req->_sge_count; ++n )
   {
-    size_t sz = req->_sge[n]._size;
+    size_t sz = req->_sge[n].iov_len;
 
     // sanity check
     if(( sz > 0 ) && ( req->_sge[n]._data == NULL ))

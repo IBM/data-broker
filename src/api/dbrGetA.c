@@ -39,7 +39,7 @@ DBR_Tag_t libdbrGetA (DBR_Handle_t cs_handle,
 
   dbBE_sge_t dest_sge;
   dest_sge._data = va_ptr;
-  dest_sge._size = size;
+  dest_sge.iov_len = size;
 
   dbrRequestContext_t *rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET,
                                                      cs_handle,

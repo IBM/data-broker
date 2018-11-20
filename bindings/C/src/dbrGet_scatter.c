@@ -24,7 +24,7 @@
 DBR_Errorcode_t
 dbrGet_scatter( DBR_Handle_t dbr_handle,
                 void *va_ptr[],
-                int64_t size[],
+                size_t size[],
                 const int len,
                 DBR_Tuple_name_t tuple_name,
                 DBR_Tuple_template_t match_template,
@@ -43,7 +43,7 @@ dbrGet_scatter( DBR_Handle_t dbr_handle,
   for( n=0; n<len; ++n )
   {
     sge[ n ]._data = va_ptr[ n ];
-    sge[ n ]._size = size[ n ];
+    sge[ n ].iov_len = size[ n ];
   }
 
   int64_t outsize = 0;

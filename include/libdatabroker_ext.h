@@ -109,7 +109,7 @@ DBR_Errorcode_t dbrPut_gather( DBR_Handle_t dbr_handle,
  */
 DBR_Errorcode_t dbrGet_scatter( DBR_Handle_t dbr_handle,
                                 void *va_ptr[],
-                                int64_t size[],
+                                size_t size[],
                                 int len,
                                 DBR_Tuple_name_t tuple_name,
                                 DBR_Tuple_template_t match_template,

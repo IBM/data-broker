@@ -37,7 +37,7 @@ int PutTest_string( DBR_Handle_t cs_hdl,
 {
   int rc = 0;
 
-  rc += TEST( DBR_SUCCESS, dbrPut_gather( cs_hdl, (void **)strings, (int64_t*)size, count, tupname, 0 ) );
+  rc += TEST( DBR_SUCCESS, dbrPut_gather( cs_hdl, (void **)strings, size, count, tupname, 0 ) );
 
   return rc;
 }
@@ -79,7 +79,7 @@ int KeyTest( DBR_Handle_t cs_hdl,
 int GetTest( DBR_Handle_t cs_hdl,
              DBR_Tuple_name_t tupname,
              char **instr,
-             const int64_t *insize,
+             const size_t *insize,
              const int sge_len )
 {
   int rc = 0;
@@ -91,7 +91,7 @@ int GetTest( DBR_Handle_t cs_hdl,
   memset( out, 0, out_size );
 
   char **strings = (char**)malloc( sge_len * sizeof( char* ) );
-  int64_t *osize = (int64_t*)malloc( sge_len * sizeof( size_t ) );
+  size_t *osize = (size_t*)malloc( sge_len * sizeof( size_t ) );
   out_size = 0;
   for( n=0; n<sge_len; ++n )
   {

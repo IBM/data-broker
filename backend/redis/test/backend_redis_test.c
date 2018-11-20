@@ -48,7 +48,7 @@ int main( int argc, char ** argv )
   req->_user = req;
   req->_sge_count = sge_count;
   req->_sge[0]._data = (void*)buf;
-  req->_sge[0]._size = 5;
+  req->_sge[0].iov_len = 5;
   sprintf( req->_sge[0]._data, "WORLD" );
 
   // put data in
@@ -77,7 +77,7 @@ int main( int argc, char ** argv )
   req->_sge_count = sge_count;
   memset( buf, 0, 128 );
   req->_sge[0]._data = (void*)buf;
-  req->_sge[0]._size = 128;
+  req->_sge[0].iov_len = 128;
 
   // get data out
   rhandle = g_dbBE.post( BE, req );
@@ -106,7 +106,7 @@ int main( int argc, char ** argv )
   req->_sge_count = sge_count;
   memset( buf, 0, 128 );
   req->_sge[0]._data = (void*)buf;
-  req->_sge[0]._size = 128;
+  req->_sge[0].iov_len = 128;
 
   // get data out
   rhandle = g_dbBE.post( BE, req );
@@ -138,7 +138,7 @@ int main( int argc, char ** argv )
   memset( buf, 0, 128 );
   snprintf( buf, 128, "users" );
   req->_sge[0]._data = (void*)buf;
-  req->_sge[0]._size = 5;
+  req->_sge[0].iov_len = 5;
 
   // get data out
   rhandle = g_dbBE.post( BE, req );

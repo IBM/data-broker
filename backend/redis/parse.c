@@ -611,13 +611,13 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         key += DBBE_REDIS_NAMESPACE_SEPARATOR_LEN;
 
         // We only support single-SGE requests for now, the check for single-SGE is done in the init-phase of the request
-        ssize_t current_len = strnlen((char*)request->_user->_sge[0]._data, request->_user->_sge[0]._size );
+        ssize_t current_len = strnlen((char*)request->_user->_sge[0]._data, request->_user->_sge[0].iov_len );
         if(current_len > 0 )
         {
           key = key-1;
           key[0] = '\n';
         }
-        ssize_t remaining = request->_user->_sge[0]._size - current_len;
+        ssize_t remaining = request->_user->_sge[0].iov_len - current_len;
         char *startloc = (char*)(request->_user->_sge[0]._data) + current_len;
         snprintf( startloc, remaining, "%s", key ); // append to the key list
       }
@@ -651,7 +651,7 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
           dbBE_Refcounter_destroy( request->_status.directory.reference );
           request->_status.directory.reference = NULL;
           result->_type = dbBE_REDIS_TYPE_INT;
-          result->_data._integer = strnlen( (char*)request->_user->_sge[0]._data, request->_user->_sge[0]._size );
+          result->_data._integer = strnlen( (char*)request->_user->_sge[0]._data, request->_user->_sge[0].iov_len );
           rc = 0;
         }
       }
