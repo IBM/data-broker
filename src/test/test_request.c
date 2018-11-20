@@ -38,7 +38,7 @@ int Request_create_test()
   int rc = 0;
   dbrRequestContext_t *rctx = NULL;
   dbBE_sge_t sge;
-  sge._data = NULL;
+  sge.iov_base = NULL;
   sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
@@ -82,7 +82,7 @@ int Request_insert_test()
 
   dbrRequestContext_t *rctx = NULL;
   dbBE_sge_t sge;
-  sge._data = NULL;
+  sge.iov_base = NULL;
   sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
@@ -114,7 +114,7 @@ int Request_remove_test()
 
   dbrRequestContext_t *rctx = NULL;
   dbBE_sge_t sge;
-  sge._data = NULL;
+  sge.iov_base = NULL;
   sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
@@ -154,7 +154,7 @@ int Request_post_test()
 
   dbrRequestContext_t *rctx = NULL;
   dbBE_sge_t sge;
-  sge._data = NULL;
+  sge.iov_base = NULL;
   sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );

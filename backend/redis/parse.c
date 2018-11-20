@@ -542,7 +542,7 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
     case DBBE_REDIS_DIRECTORY_STAGE_META:
       if( rc == 0 )
       {
-        char* b = (char*)request->_user->_sge[0]._data;
+        char* b = (char*)request->_user->_sge[0].iov_base;
         b[0] = '\0';
         if(( result->_type != dbBE_REDIS_TYPE_ARRAY ) || ( result->_data._array._len <= 0 ))
         {
@@ -611,14 +611,14 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         key += DBBE_REDIS_NAMESPACE_SEPARATOR_LEN;
 
         // We only support single-SGE requests for now, the check for single-SGE is done in the init-phase of the request
-        ssize_t current_len = strnlen((char*)request->_user->_sge[0]._data, request->_user->_sge[0].iov_len );
+        ssize_t current_len = strnlen((char*)request->_user->_sge[0].iov_base, request->_user->_sge[0].iov_len );
         if(current_len > 0 )
         {
           key = key-1;
           key[0] = '\n';
         }
         ssize_t remaining = request->_user->_sge[0].iov_len - current_len;
-        char *startloc = (char*)(request->_user->_sge[0]._data) + current_len;
+        char *startloc = (char*)(request->_user->_sge[0].iov_base) + current_len;
         snprintf( startloc, remaining, "%s", key ); // append to the key list
       }
       // if cursor is not "0", then create another match request
@@ -651,7 +651,7 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
           dbBE_Refcounter_destroy( request->_status.directory.reference );
           request->_status.directory.reference = NULL;
           result->_type = dbBE_REDIS_TYPE_INT;
-          result->_data._integer = strnlen( (char*)request->_user->_sge[0]._data, request->_user->_sge[0].iov_len );
+          result->_data._integer = strnlen( (char*)request->_user->_sge[0].iov_base, request->_user->_sge[0].iov_len );
           rc = 0;
         }
       }

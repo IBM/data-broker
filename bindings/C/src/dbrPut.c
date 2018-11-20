@@ -24,7 +24,7 @@ dbrPut (DBR_Handle_t cs_handle,
         DBR_Group_t group)
 {
   dbBE_sge_t sge;
-  sge._data = va_ptr;
+  sge.iov_base = va_ptr;
   sge.iov_len = size;
 
   return libdbrPut( cs_handle,

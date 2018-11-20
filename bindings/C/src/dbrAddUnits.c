@@ -34,10 +34,10 @@ dbrAddUnits( DBR_Handle_t cs_handle,
     int64_t i;
     for( i = 0; i < meta_size - 1; i++ ) {
       meta[i].iov_len = strlen( cs_units[i] ) + 1; // ToDo: depends on type!
-      meta[i]._data = cs_units[i];
+      meta[i].iov_base = cs_units[i];
     }
     meta[meta_size - 1].iov_len = 0;
-    meta[meta_size - 1]._data = NULL;
+    meta[meta_size - 1].iov_base = NULL;
   }
 
   DBR_Errorcode_t hdl = libdbrAddUnits( cs_handle, meta_size, meta );

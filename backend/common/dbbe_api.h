@@ -52,8 +52,8 @@ typedef void* dbBE_Handle_t;
  */
 typedef struct
 {
+  void *iov_base;  /**< pointer to the start of the memory region */
   size_t iov_len; /**< size of the memory region */
-  void *_data;  /**< pointer to the start of the memory region */
 } dbBE_sge_t;
 
 

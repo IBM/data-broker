@@ -47,9 +47,9 @@ int main( int argc, char ** argv )
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
   req->_sge_count = sge_count;
-  req->_sge[0]._data = (void*)buf;
+  req->_sge[0].iov_base = (void*)buf;
   req->_sge[0].iov_len = 5;
-  sprintf( req->_sge[0]._data, "WORLD" );
+  sprintf( req->_sge[0].iov_base, "WORLD" );
 
   // put data in
   dbBE_Request_handle_t *rhandle = g_dbBE.post( BE, req );
@@ -76,7 +76,7 @@ int main( int argc, char ** argv )
   req->_user = req;
   req->_sge_count = sge_count;
   memset( buf, 0, 128 );
-  req->_sge[0]._data = (void*)buf;
+  req->_sge[0].iov_base = (void*)buf;
   req->_sge[0].iov_len = 128;
 
   // get data out
@@ -105,7 +105,7 @@ int main( int argc, char ** argv )
   req->_user = req;
   req->_sge_count = sge_count;
   memset( buf, 0, 128 );
-  req->_sge[0]._data = (void*)buf;
+  req->_sge[0].iov_base = (void*)buf;
   req->_sge[0].iov_len = 128;
 
   // get data out
@@ -137,7 +137,7 @@ int main( int argc, char ** argv )
   req->_sge_count = sge_count;
   memset( buf, 0, 128 );
   snprintf( buf, 128, "users" );
-  req->_sge[0]._data = (void*)buf;
+  req->_sge[0].iov_base = (void*)buf;
   req->_sge[0].iov_len = 5;
 
   // get data out

@@ -27,7 +27,7 @@ dbrGet (DBR_Handle_t cs_handle,
         int flags )
 {
   dbBE_sge_t sge;
-  sge._data = va_ptr;
+  sge.iov_base = va_ptr;
   sge.iov_len = *size;
 
   return libdbrGet( cs_handle,

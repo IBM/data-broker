@@ -73,7 +73,7 @@ libdbrRead(DBR_Handle_t cs_handle,
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
   dbBE_sge_t sge;
-  sge._data = va_ptr;
+  sge.iov_base = va_ptr;
   sge.iov_len = size;
 
   DBR_Errorcode_t rc = DBR_SUCCESS;

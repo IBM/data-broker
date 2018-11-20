@@ -40,7 +40,7 @@ dbrPut_gather (DBR_Handle_t cs_handle,
   int n;
   for( n=0; n<len; ++n )
   {
-    sge[ n ]._data = (void*)va_ptr[ n ];
+    sge[ n ].iov_base = (void*)va_ptr[ n ];
     sge[ n ].iov_len = size[ n ];
   }
 

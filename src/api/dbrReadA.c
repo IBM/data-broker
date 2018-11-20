@@ -40,7 +40,7 @@ DBR_Tag_t libdbrReadA(DBR_Handle_t cs_handle,
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
 
   dbBE_sge_t dest_sge;
-  dest_sge._data = va_ptr;
+  dest_sge.iov_base = va_ptr;
   dest_sge.iov_len = size;
 
   dbrRequestContext_t *rctx = dbrCreate_request_ctx( DBBE_OPCODE_READ,

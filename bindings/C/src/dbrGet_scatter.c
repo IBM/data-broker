@@ -42,7 +42,7 @@ dbrGet_scatter( DBR_Handle_t dbr_handle,
   int n;
   for( n=0; n<len; ++n )
   {
-    sge[ n ]._data = va_ptr[ n ];
+    sge[ n ].iov_base = va_ptr[ n ];
     sge[ n ].iov_len = size[ n ];
   }
 

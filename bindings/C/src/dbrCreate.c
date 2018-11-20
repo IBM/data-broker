@@ -37,10 +37,10 @@ dbrCreate (DBR_Name_t db_name,
     int64_t i;
     for( i = 0; i < meta_size - 1; i++ ) {
       meta[i].iov_len = strlen( groups[i] ) + 1; // ToDo: depends on type!
-      meta[i]._data = groups[i];
+      meta[i].iov_base = groups[i];
     }
     meta[meta_size - 1].iov_len = 0;
-    meta[meta_size - 1]._data = NULL;
+    meta[meta_size - 1].iov_base = NULL;
   }
 
   DBR_Handle_t hdl = libdbrCreate( db_name, level, meta_size, meta );
