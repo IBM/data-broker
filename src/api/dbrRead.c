@@ -36,9 +36,13 @@ libdbrTestKey( DBR_Handle_t cs_handle,
 
   int64_t retsize;
 
+  dbBE_sge_t sge;
+  sge.iov_base = cs->_reverse->_tmp_testkey_buf;
+  sge.iov_len = DBR_TMP_BUFFER_LEN;
+
   return libdbrRead( cs_handle,
-                     cs->_reverse->_tmp_testkey_buf,
-                     DBR_TMP_BUFFER_LEN,
+                     &sge,
+                     1,
                      &retsize,
                      tuple_name,
                      match_template,
@@ -51,15 +55,15 @@ libdbrTestKey( DBR_Handle_t cs_handle,
 
 DBR_Errorcode_t
 libdbrRead(DBR_Handle_t cs_handle,
-           void *va_ptr,
-           int64_t size,
+           dbBE_sge_t *sge,
+           int sge_len,
            int64_t *ret_size,
            DBR_Tuple_name_t tuple_name,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
            int enable_timeout)
 {
-  if( cs_handle == NULL )
+  if(( cs_handle == NULL ) || ( sge == NULL ))
     return DBR_ERR_INVALID;
 
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
@@ -72,18 +76,14 @@ libdbrRead(DBR_Handle_t cs_handle,
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
-  dbBE_sge_t sge;
-  sge._data = va_ptr;
-  sge._size = size;
-
   DBR_Errorcode_t rc = DBR_SUCCESS;
   dbrRequestContext_t *ctx = dbrCreate_request_ctx( DBBE_OPCODE_READ,
                                                     cs_handle,
                                                     group,
                                                     NULL,
                                                     NULL,
-                                                    1,
-                                                    &sge,
+                                                    sge_len,
+                                                    sge,
                                                     ret_size,
                                                     tuple_name,
                                                     match_template,

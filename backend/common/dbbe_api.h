@@ -30,6 +30,7 @@
 #include <inttypes.h>
 #include <stddef.h> // size_t
 #include <libdatabroker.h>
+#include <sys/uio.h>
 
 /**
  * @typedef dbBE_Handle_t
@@ -50,12 +51,7 @@ typedef void* dbBE_Handle_t;
  *  The scatter-gather-element defines one entry in a scatter-gather list
  *  and specifies one contiguous memory region in main memory.
  */
-typedef struct
-{
-  size_t _size; /**< size of the memory region */
-  void *_data;  /**< pointer to the start of the memory region */
-} dbBE_sge_t;
-
+typedef struct iovec dbBE_sge_t;
 
 /**
  * @brief Back-end operation code
@@ -234,7 +230,7 @@ static inline size_t dbBE_SGE_get_len( const dbBE_sge_t *sge, const int sge_coun
   int i;
   size_t len = 0;
   for( i = sge_count-1; i>=0; --i )
-    len += sge[ i ]._size;
+    len += sge[ i ].iov_len;
   return len;
 }
 

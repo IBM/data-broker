@@ -383,7 +383,7 @@ DBR_Errorcode_t dbrRemoveUnits( DBR_Handle_t dbr_handle,
  *
  * @param [in] dbr_handle   Handle to the namespace.
  * @param [in] va_ptr	Pointer to the tuple.
- * @param [in] int64_t  Size of the tuple.
+ * @param [in] size  Size of the tuple.
  * @param [in] tuple_name Name/key identifying the tuple.
  * @param [in] group Group to which the namespace belongs.
  *

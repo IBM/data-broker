@@ -41,10 +41,10 @@ int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* destbuf,
   int n;
   for( n = 0; n < sge_count; ++n )
   {
-    if( remain - (int64_t)sge[ n ]._size < 0)
+    if( remain - (int64_t)sge[ n ].iov_len < 0)
       return -ENOMEM;
-    size_t copy_size = (size_t)remain < sge[ n ]._size ? (size_t)remain : sge[ n ]._size;
-    memcpy( pos, sge[ n ]._data, copy_size );
+    size_t copy_size = (size_t)remain < sge[ n ].iov_len ? (size_t)remain : sge[ n ].iov_len;
+    memcpy( pos, sge[ n ].iov_base, copy_size );
     pos += copy_size;
     remain -= copy_size;
   }
@@ -68,8 +68,8 @@ int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_device_t* srcbuf,
   int n;
   for( n = 0; (n < sge_count) && ( remain > 0 ); ++n )
   {
-    size_t copy_size = (size_t)remain < sge[ n ]._size ? (size_t)remain : sge[ n ]._size;
-    memcpy( sge[ n ]._data, pos, copy_size );
+    size_t copy_size = (size_t)remain < sge[ n ].iov_len ? (size_t)remain : sge[ n ].iov_len;
+    memcpy( sge[ n ].iov_base, pos, copy_size );
     pos += copy_size;
     remain -= copy_size;
   }

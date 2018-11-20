@@ -50,10 +50,10 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( stage_specs, NULL );
 
   ureq->_sge_count = 2;
-  ureq->_sge[ 0 ]._data = strdup("Hello World!");
-  ureq->_sge[ 0 ]._size = 12;
-  ureq->_sge[ 1 ]._data = strdup(" You're done.");
-  ureq->_sge[ 1 ]._size = 13;
+  ureq->_sge[ 0 ].iov_base = strdup("Hello World!");
+  ureq->_sge[ 0 ].iov_len = 12;
+  ureq->_sge[ 1 ].iov_base = strdup(" You're done.");
+  ureq->_sge[ 1 ].iov_len = 13;
   ureq->_opcode = DBBE_OPCODE_PUT;
   ureq->_key = "bla";
   ureq->_ns_name = "TestNS";
@@ -75,8 +75,8 @@ int main( int argc, char ** argv )
               0 );
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
   dbBE_Redis_request_destroy( req );
-  free( ureq->_sge[ 0 ]._data );
-  free( ureq->_sge[ 1 ]._data );
+  free( ureq->_sge[ 0 ].iov_base );
+  free( ureq->_sge[ 1 ].iov_base );
 
   // create a get
   ureq->_opcode = DBBE_OPCODE_GET;
@@ -150,8 +150,8 @@ int main( int argc, char ** argv )
   // create an nscreate
   ureq->_opcode = DBBE_OPCODE_NSCREATE;
   ureq->_sge_count = 1;
-  ureq->_sge[0]._data = strdup("users, admins");
-  ureq->_sge[0]._size = strlen( ureq->_sge[0]._data );
+  ureq->_sge[0].iov_base = strdup("users, admins");
+  ureq->_sge[0].iov_len = strlen( ureq->_sge[0].iov_base );
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
@@ -179,13 +179,13 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
   dbBE_Redis_request_destroy( req );
-  free( ureq->_sge[ 0 ]._data );
+  free( ureq->_sge[ 0 ].iov_base );
 
 
   // create an nsquery
   ureq->_opcode = DBBE_OPCODE_NSQUERY;
-  ureq->_sge[0]._data = dbBE_Redis_sr_buffer_get_start( data_buf );
-  ureq->_sge[0]._size = dbBE_Redis_sr_buffer_get_size( data_buf );
+  ureq->_sge[0].iov_base = dbBE_Redis_sr_buffer_get_start( data_buf );
+  ureq->_sge[0].iov_len = dbBE_Redis_sr_buffer_get_size( data_buf );
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
@@ -203,8 +203,8 @@ int main( int argc, char ** argv )
 
   // create an nsattach
   ureq->_opcode = DBBE_OPCODE_NSATTACH;
-  ureq->_sge[0]._data = NULL;
-  ureq->_sge[0]._size = 0;
+  ureq->_sge[0].iov_base = NULL;
+  ureq->_sge[0].iov_len = 0;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
@@ -233,8 +233,8 @@ int main( int argc, char ** argv )
 
   // create an nsdetach
   ureq->_opcode = DBBE_OPCODE_NSDETACH;
-  ureq->_sge[0]._data = NULL;
-  ureq->_sge[0]._size = 0;
+  ureq->_sge[0].iov_base = NULL;
+  ureq->_sge[0].iov_len = 0;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );

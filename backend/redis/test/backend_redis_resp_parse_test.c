@@ -439,7 +439,7 @@ int TestDirectory( const char *namespace,
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
   rc += TEST( dbBE_Redis_process_directory( &req_io, &result, transport, post_queue, cmr ), 0 );
-  rc += TEST( strncmp( (char*)req_io->_user->_sge[0]._data, "bla\nhi\nfasel\nfoob\ngnartz", 1024 ), 0 );
+  rc += TEST( strncmp( (char*)req_io->_user->_sge[0].iov_base, "bla\nhi\nfasel\nfoob\ngnartz", 1024 ), 0 );
 
 
   dbBE_Redis_s2r_queue_destroy( post_queue );
@@ -478,8 +478,8 @@ int main( int argc, char ** argv )
 
   ureq->_opcode = DBBE_OPCODE_NSCREATE;
   ureq->_sge_count = 1;
-  ureq->_sge[0]._data = strdup("users, admins");
-  ureq->_sge[0]._size = strlen( ureq->_sge[0]._data );
+  ureq->_sge[0].iov_base = strdup("users, admins");
+  ureq->_sge[0].iov_len = strlen( ureq->_sge[0].iov_base );
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TestNSCreate( "TestNS", sr_buf, req );
@@ -488,9 +488,9 @@ int main( int argc, char ** argv )
 
 
   ureq->_opcode = DBBE_OPCODE_NSATTACH;
-  free( ureq->_sge[0]._data );
-  ureq->_sge[0]._data = NULL;
-  ureq->_sge[0]._size = 0;
+  free( ureq->_sge[0].iov_base );
+  ureq->_sge[0].iov_base = NULL;
+  ureq->_sge[0].iov_len = 0;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TestNSAttach( "TestNS", sr_buf, req );
@@ -499,8 +499,8 @@ int main( int argc, char ** argv )
 
 
   ureq->_opcode = DBBE_OPCODE_NSDETACH;
-  ureq->_sge[0]._data = NULL;
-  ureq->_sge[0]._size = 0;
+  ureq->_sge[0].iov_base = NULL;
+  ureq->_sge[0].iov_len = 0;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TestNSDetach( "TestNS", sr_buf, req );
@@ -519,10 +519,10 @@ int main( int argc, char ** argv )
   ureq->_opcode = DBBE_OPCODE_PUT;
   ureq->_key = strdup("blafasel");
   ureq->_sge_count = 2;
-  ureq->_sge[ 0 ]._data = buffer;
-  ureq->_sge[ 0 ]._size = 12;
-  ureq->_sge[ 1 ]._data = &buffer[16];
-  ureq->_sge[ 1 ]._size = 13;
+  ureq->_sge[ 0 ].iov_base = buffer;
+  ureq->_sge[ 0 ].iov_len = 12;
+  ureq->_sge[ 1 ].iov_base = &buffer[16];
+  ureq->_sge[ 1 ].iov_len = 13;
 
   snprintf( buffer, 13, "Hello World" );
   snprintf( &buffer[16], 14, " You're done." );
@@ -549,8 +549,8 @@ int main( int argc, char ** argv )
 
   ureq->_opcode = DBBE_OPCODE_DIRECTORY;
   ureq->_sge_count = 1;
-  ureq->_sge[ 0 ]._data = buffer;
-  ureq->_sge[ 0 ]._size = 1024;
+  ureq->_sge[ 0 ].iov_base = buffer;
+  ureq->_sge[ 0 ].iov_len = 1024;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TestDirectory( "TestNS", sr_buf, req );

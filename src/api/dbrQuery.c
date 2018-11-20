@@ -50,8 +50,8 @@ libdbrQuery (DBR_Handle_t cs_handle,
   int64_t meta_size = sizeof( dbr_Name_meta_t );
   memset( &meta, 0, meta_size );
   dbBE_sge_t sge;
-  sge._data = &meta;
-  sge._size = meta_size;
+  sge.iov_base = &meta;
+  sge.iov_len = meta_size;
 
   DBR_Errorcode_t rc = DBR_SUCCESS;
   dbrRequestContext_t *rctx = dbrCreate_request_ctx( DBBE_OPCODE_NSQUERY,

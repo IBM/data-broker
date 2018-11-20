@@ -47,13 +47,13 @@ int main( int argc, char ** argv )
   rc += TEST( dbrSGE_extract_size( req ), 0 );
 
   req->_sge_count = 1;
-  req->_sge[0]._data = NULL;
-  req->_sge[0]._size = 0;
+  req->_sge[0].iov_base = NULL;
+  req->_sge[0].iov_len = 0;
   rc += TEST( dbrSGE_extract_size( req ), 0 );
 
   req->_sge_count = 1;
-  req->_sge[0]._data = NULL;
-  req->_sge[0]._size = 10;
+  req->_sge[0].iov_base = NULL;
+  req->_sge[0].iov_len = 10;
   rc += TEST( dbrSGE_extract_size( req ), 0 );
 
 
@@ -64,13 +64,13 @@ int main( int argc, char ** argv )
 
   for( n=0; n<req->_sge_count; ++n)
   {
-    req->_sge[n]._data = data;
-    req->_sge[n]._size = random() % 100;
-    data_size += req->_sge[n]._size;
+    req->_sge[n].iov_base = data;
+    req->_sge[n].iov_len = random() % 100;
+    data_size += req->_sge[n].iov_len;
   }
   rc += TEST( dbrSGE_extract_size( req ), data_size );
 
-  req->_sge[ random() % TEST_SGE_MAX ]._data = NULL;
+  req->_sge[ random() % TEST_SGE_MAX ].iov_base = NULL;
   rc += TEST( dbrSGE_extract_size( req ), 0 );
 
 

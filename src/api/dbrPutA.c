@@ -43,8 +43,8 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
   }
   dbBE_sge_t sge;
-  sge._data = va_ptr;
-  sge._size = size;
+  sge.iov_base = va_ptr;
+  sge.iov_len = size;
 
   dbrRequestContext_t *pctx = dbrCreate_request_ctx( DBBE_OPCODE_PUT,
                                                      cs_handle,
