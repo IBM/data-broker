@@ -34,3 +34,17 @@ dbrPut (DBR_Handle_t cs_handle,
                     group );
 }
 
+
+DBR_Tag_t
+dbrPutA (DBR_Handle_t cs_handle,
+         void *va_ptr,
+         int64_t size,
+         DBR_Tuple_name_t tuple_name,
+         DBR_Group_t group)
+{
+  return libdbrPutA( cs_handle,
+                     va_ptr,
+                     size,
+                     tuple_name,
+                     group );
+}

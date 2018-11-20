@@ -40,3 +40,20 @@ dbrGet (DBR_Handle_t cs_handle,
                     (flags & DBR_FLAGS_NOWAIT) ? 0 : 1 );
 }
 
+
+DBR_Tag_t
+dbrGetA (DBR_Handle_t cs_handle,
+         void *va_ptr,
+         int64_t *size,
+         DBR_Tuple_name_t tuple_name,
+         DBR_Tuple_template_t match_template,
+         DBR_Group_t group)
+{
+  return libdbrGetA( cs_handle,
+                     va_ptr,
+                     *size,
+                     size,
+                     tuple_name,
+                     match_template,
+                     group );
+}
