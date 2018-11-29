@@ -5,15 +5,15 @@ export PW=foobared
 export PORT=1601
 export TIMEOUT=5000
 export REDISHOME=$HOME
-export REDISDUMP=""
-export RUNDIR=""
-export LAUNCHNODE="c699launch01"
+export REDISDUMP="directory to dump rdb files"
+export RUNDIR="directory to launch this script from"
+export LAUNCHNODE="your launch node"
 export NODE_TIMEOUT=120
 export nodes=6
 
 ## Build script to start redis servers across nodes
 cat  >redis-start.sh  << 'EOR'
-LAUNCHNODE=c699launch01
+LAUNCHNODE="your launch node"
 REDISHOME=$1
 PW=$2
 TIMEOUT=$3
