@@ -5,7 +5,8 @@ export PW=foobared
 export PORT=1601
 export TIMEOUT=5000
 export REDISHOME=$HOME
-export REDISDUMP=/gpfs/wscgpfs01/damora/SPLASH/tests/rdbfiles
+export REDISDUMP=""
+export RUNDIR=""
 export LAUNCHNODE="c699launch01"
 export NODE_TIMEOUT=120
 export nodes=6
@@ -42,7 +43,7 @@ cat >batchjob  << 'EOF'
 #BSUB -nnodes 6
 #BSUB -q excl
 #BSUB -W 30
-#BSUB -cwd "/gpfs/wscgpfs01/damora/SPLASH/tests"
+#BSUB -cwd $RUNDIR
 ulimit -s 10240
 
 
