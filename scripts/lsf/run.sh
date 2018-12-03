@@ -1,19 +1,34 @@
 #!/bin/bash
+#
+# Copyright © 2018 IBM Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 set -e
 export REPLICAS=0
 export PW=foobared
 export PORT=1601
-export TIMEOUT=5000
+export TIMEOUT=<value in milliseconds>
 export REDISHOME=$HOME
-export REDISDUMP="directory to dump rdb files"
-export RUNDIR="directory to launch this script from"
-export LAUNCHNODE="your launch node"
-export NODE_TIMEOUT=120
-export nodes=6
+export REDISDUMP=<path to rdb files that you would like to save/restore>
+export LAUNCHNODE=<name of your launch node>
+export WORKDIR=<path to the working directory>
+export nodes=<number of nodes in cluster>
 
 ## Build script to start redis servers across nodes
 cat  >redis-start.sh  << 'EOR'
-LAUNCHNODE="your launch node"
+LAUNCHNODE=<name of launch node>
 REDISHOME=$1
 PW=$2
 TIMEOUT=$3
@@ -35,6 +50,24 @@ ${REDISHOME}/bin/redis-server --requirepass $PW --bind $myhost   \
 EOR
 chmod +x redis-start.sh
 
+cat  >saverdb.sh  << 'EOS'
+HOST=$1
+REDISHOME=$2
+PW=$3
+PORT=$4
+RC=`$REDISHOME/bin/redis-cli -h $HOST  -p $PORT -a $PW  LASTSAVE`
+${REDISHOME}/bin/redis-cli -h $HOST  -p $PORT -a $PW BGSAVE
+LASTSAVE=$RC
+echo $LASTSAVE
+until [ $RC != $LASTSAVE ];
+do
+ LASTSAVE=`$REDISHOME/bin/redis-cli -h $HOST -p $PORT -a $PW  LASTSAVE`;
+done
+echo "RC=$RC;LASTSAVE=$LASTSAVE"
+exit
+
+EOS
+chmod +x saverdb.sh
 
 ## Build script to submit redis-start.sh script
 cat >batchjob  << 'EOF'
@@ -43,7 +76,7 @@ cat >batchjob  << 'EOF'
 #BSUB -nnodes 6
 #BSUB -q excl
 #BSUB -W 30
-#BSUB -cwd $RUNDIR
+#BSUB -cwd `pwd`
 ulimit -s 10240
 
 
@@ -97,7 +130,7 @@ do
         
         savehosts=${savehosts%?}
         thehost='\`hostname\`'
-        echo "pdsh -w $USER@$savehosts ${REDISHOME}/bin/redis-cli -h %h -p $PORT -a $PW BGSAVE" >>redis-save-rdb.sh
+        echo "pdsh -w $USER@$savehosts $WORKDIR/saverdb.sh %h $REDISHOME $PW $PORT" >>redis-save-rdb.sh
         echo "pdsh -w $USER@$savehosts ${REDISHOME}/bin/rdb '--command protocol ${REDISDUMP}/dump-%n:${PORT}.rdb | ${REDISHOME}/bin/redis-cli -h %h  -p $PORT -a $PW --pipe'" >>redis-restore-rdb.sh
         echo "pdsh -w $USER@$savehosts cat '${REDISDUMP}/appendonly-%n:${PORT}.aof | ${REDISHOME}/bin/redis-cli -h %h  -p $PORT -a $PW'" >>redis-restore-aof.sh
         chmod +x redis-shutdown.sh
