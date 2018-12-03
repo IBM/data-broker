@@ -130,7 +130,7 @@ do
         
         savehosts=${savehosts%?}
         thehost='\`hostname\`'
-        echo "pdsh -w $USER@$savehosts $WORKDIR/saverdb.sh %h $REDISHOME $PW $PORT" >>redis-save-rdb.sh
+        echo "pdsh -w $USER@$savehosts ${WORKDIR}/saverdb.sh %h ${REDISHOME} $PW $PORT" >>redis-save-rdb.sh
         echo "pdsh -w $USER@$savehosts ${REDISHOME}/bin/rdb '--command protocol ${REDISDUMP}/dump-%n:${PORT}.rdb | ${REDISHOME}/bin/redis-cli -h %h  -p $PORT -a $PW --pipe'" >>redis-restore-rdb.sh
         echo "pdsh -w $USER@$savehosts cat '${REDISDUMP}/appendonly-%n:${PORT}.aof | ${REDISHOME}/bin/redis-cli -h %h  -p $PORT -a $PW'" >>redis-restore-aof.sh
         chmod +x redis-shutdown.sh
