@@ -55,13 +55,13 @@ HOST=$1
 REDISHOME=$2
 PW=$3
 PORT=$4
-RC=`$REDISHOME/bin/redis-cli -h $HOST  -p $PORT -a $PW  LASTSAVE`
+RC=`${REDISHOME}/bin/redis-cli -h $HOST  -p $PORT -a $PW  LASTSAVE`
 ${REDISHOME}/bin/redis-cli -h $HOST  -p $PORT -a $PW BGSAVE
 LASTSAVE=$RC
 echo $LASTSAVE
 until [ $RC != $LASTSAVE ];
 do
- LASTSAVE=`$REDISHOME/bin/redis-cli -h $HOST -p $PORT -a $PW  LASTSAVE`;
+ LASTSAVE=`${REDISHOME}/bin/redis-cli -h $HOST -p $PORT -a $PW  LASTSAVE`;
 done
 echo "RC=$RC;LASTSAVE=$LASTSAVE"
 exit
@@ -83,7 +83,7 @@ ulimit -s 10240
 echo $LSB_JOBID > lsbjobid
 echo $LSB_DJOB_HOSTFILE > lsbdjobhostfile
 # could pass ENV vars in redis.conf file
-/opt/ibm/spectrum_mpi/jsm_pmix/bin/jsrun --smpiargs “none” --rs_per_host 1 ./redis-start.sh $REDISHOME $PW $TIMEOUT $PORT $LSB_DJOB_HOSTFILE
+/opt/ibm/spectrum_mpi/jsm_pmix/bin/jsrun --smpiargs “none” --rs_per_host 1 ./redis-start.sh ${REDISHOME} $PW $TIMEOUT $PORT $LSB_DJOB_HOSTFILE
 EOF
 
 # submit job
