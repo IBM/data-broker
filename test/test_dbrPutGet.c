@@ -54,6 +54,7 @@ int ReadTest( DBR_Handle_t cs_hdl,
 
   memset( out, 0, out_size );
 
+  rc += TEST_RC( dbrTestKey( cs_hdl, tupname ), DBR_SUCCESS, ret );
   rc += TEST_RC( dbrRead( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NONE ), DBR_SUCCESS, ret );
   rc += TEST( out_size, (int64_t)len );
   rc += TEST( memcmp( instr, out, len ), 0 );
@@ -128,6 +129,7 @@ int main( int argc, char ** argv )
   rc += PutTest( cs_hdl, "testTup", "HelloWorld3", 11 );
   rc += PutTest( cs_hdl, "testTup", "HelloWorld4", 11 );
   rc += PutTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "012345678901234567890", 21 );
+  rc += PutTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.WithEnter", "0123456\r\n78901234567890", 23 );
 
   rc += KeyTest( cs_hdl, "testTup", DBR_SUCCESS );
 
@@ -136,6 +138,7 @@ int main( int argc, char ** argv )
   rc += ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 );
   rc += ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 );
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
+  rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.WithEnter", "0123456\r\n78901234567890", 23 );
 
   rc += GetTest( cs_hdl, "testTup", "HelloWorld1", 11 );
   TEST_LOG( rc, "First Get" );
@@ -149,6 +152,7 @@ int main( int argc, char ** argv )
   rc += GetTest( cs_hdl, "testTup", "HelloWorld4", 11 );
   rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
   rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "012345678901234567890", 21 );
+  rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.WithEnter", "0123456\r\n78901234567890", 23 );
 
   rc += PutTest( cs_hdl, "testTup", "Hello\r\nWor\0ld4", 14 );
   rc += ReadTest( cs_hdl, "testTup", "Hello\r\nWor\0ld4", 14 );
