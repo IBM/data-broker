@@ -32,7 +32,7 @@ c) run cmake:
      
    with options:
      -DCMAKE_INSTALL_PREFIX=<path>     set the install path (default: /usr/local)
-     -DAPPLE                           when building for MAC OS
+     -DAPPLE=1                         when building for MAC OS
      -DDEFAULT_BE=<backend-path-name>  what backend to link by default (default: redis)
      
    example:
