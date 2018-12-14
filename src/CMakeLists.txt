@@ -43,10 +43,8 @@ set( LIBDBINT_FILES
 include_directories(./)
 link_directories(/usr/local/lib)
 add_library(databroker_int SHARED ${LIBDBINT_FILES})
-add_dependencies(databroker_int ${TRANSPORT_LIBS} ${BACKEND_LIST} )
-if( DEFINED APPLE )
- target_link_libraries(databroker_int ${TRANSPORT_LIBS} ${BACKEND_LIST} )
-endif( DEFINED APPLE )
+add_dependencies(databroker_int ${BACKEND_LIST} ${TRANSPORT_LIBS} )
+target_link_libraries(databroker_int ${BACKEND_LIST} ${TRANSPORT_LIBS} )
 
 install( TARGETS databroker_int
 	LIBRARY

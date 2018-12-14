@@ -208,7 +208,7 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
   // check for incomplete data with only the \n missing
   if( ( string[exp_len] == '\r' ) && ( exp_len + 1 == limit - (int64_t)processed ) )
   {
-    LOG( DBG_INFO, stderr, "String just missing the \\n part of terminator\n" );
+    LOG( DBG_VERBOSE, stderr, "String just missing the \\n part of terminator\n" );
     *parsed = 0;
     return -EAGAIN;
   }
@@ -605,8 +605,8 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         char *key = strstr( subresult->_data._array._data[ n ]._data._string._data, DBBE_REDIS_NAMESPACE_SEPARATOR );
         if( key == NULL )
         {
-          return_error_clean_result( -EBADE, result );
-          return -EBADE;
+          return_error_clean_result( -EILSEQ, result );
+          return -EILSEQ;
         }
         key += DBBE_REDIS_NAMESPACE_SEPARATOR_LEN;
 
