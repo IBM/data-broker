@@ -416,8 +416,46 @@ If no namespace exists, then:
 Please see \ref{sec:interface:limits} for current limitations and
 problems.
 
+\subsection{Building an Application with the Data Broker}
+\begin{lstlisting}[basicstyle=\scriptsize\ttfamily,backgroundcolor=\color{backcolour},caption=Example Makefile,captionpos=b,label=code:Makefile]
+# Build Environment
+CC            = gcc
+CXX           = g++
+CFLAGS        = -O3
+CXXFLAGS      = -O3
+INCPATH       = -I./ -I$(DATABROKER_HOME)/include
+LINK          = g++ 
+LDFLAGS       = -L$(DATABROKER_HOME)/lib
+LIBS          = -lcurses -lstdc++ -ldatabroker -ldbbe_redis
+RM            = rm -f
+# 
+OBJECTS_DIR   = ./
+SOURCES      = single.cc
+TARGET       = single
+#
+# Compile
+.SUFFIXES: .o .c .cpp .cc .cxx .C
+.cpp.o:
+    $(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+.cc.o:
+    $(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+.cxx.o:
+    $(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+.C.o:
+    $(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+.c.o:
+    $(CC)  -c $(CFLAGS)   $(INCPATH) -o "$@" "$<"
+# 
+# Build 
+all: Makefile $(TARGET)
+$(TARGET): $(OBJECTS) Makefile
+    $(LINK) $(LDFLAGS) -o $(TARGET) $(OBJECTS) $(LIBS)
+# 
+clean:
+    $(RM)  $(OBJECTS) $(DESTDIR)/$(TARGET)
+\end{lstlisting}
 
-\subsection{Configuration}
+\subsection{Configuration}\
 \label{sec:interface:config}
 There are a few environment variables that can be set by the user to
 adjust the behavior of the databroker library.
