@@ -426,7 +426,7 @@ CXXFLAGS      = -O3
 INCPATH       = -I./ -I$(DATABROKER_HOME)/include
 LINK          = g++ 
 LDFLAGS       = -L$(DATABROKER_HOME)/lib
-LIBS          = -lcurses -lstdc++ -ldatabroker -ldbbe_redis
+LIBS          = -lstdc++ -ldatabroker -ldbbe_redis
 RM            = rm -f
 # 
 OBJECTS_DIR   = ./
@@ -455,7 +455,7 @@ clean:
     $(RM)  $(OBJECTS) $(DESTDIR)/$(TARGET)
 \end{lstlisting}
 
-\subsection{Configuration}\
+\subsection{Configuration}
 \label{sec:interface:config}
 There are a few environment variables that can be set by the user to
 adjust the behavior of the databroker library.
