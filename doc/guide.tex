@@ -429,8 +429,9 @@ LDFLAGS       = -L$(DATABROKER_HOME)/lib
 LIBS          = -lstdc++ -ldatabroker -ldbbe_redis
 RM            = rm -f
 # 
-OBJECTS_DIR   = ./
+OBJECTS      = single.o
 SOURCES      = single.cc
+DESTDIR	     = ./
 TARGET       = single
 #
 # Compile
@@ -447,8 +448,8 @@ TARGET       = single
     $(CC)  -c $(CFLAGS)   $(INCPATH) -o "$@" "$<"
 # 
 # Build 
-all: Makefile $(TARGET)
-$(TARGET): $(OBJECTS) Makefile
+all:  $(TARGET)
+$(TARGET): $(OBJECTS) 
     $(LINK) $(LDFLAGS) -o $(TARGET) $(OBJECTS) $(LIBS)
 # 
 clean:
