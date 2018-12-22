@@ -22,29 +22,36 @@ cmake uses an out-of-source build tree and in order to build it, it's
 best to:
 
 a) create a build directory
-     mkdir build
-
+```
+mkdir build
+```
 b) switch to that dir
-     cd build
-
+```
+cd build
+```
 c) run cmake:
-     cmake <source_dir> [options]
-     
+```
+cmake <source_dir> [options]
+```     
    with options:
-     -DCMAKE_INSTALL_PREFIX=<path>     set the install path (default: /usr/local)
+```  
+  -DCMAKE_INSTALL_PREFIX=<path>     set the install path (default: /usr/local)
      -DAPPLE=1                         when building for MAC OS
      -DDEFAULT_BE=<backend-path-name>  what backend to link by default (default: redis)
-     
+ ```    
    example:
-     when run from the created 'build' dir and to prepare installation in /opt/databroker:
-         cmake ../ -DCMAKE_INSTALL_PREFIX=/opt/databroker
-
+     when run from the created 'build' dir and to prepare installation in `/opt/databroker`:
+```
+  cmake ../ -DCMAKE_INSTALL_PREFIX=/opt/databroker
+```
 d) run make
-     make
-
+```
+make
+```
 e) install
-     make install
-
+```
+make install
+```
 
 
 ## 2 Setting up Redis:
@@ -52,9 +59,9 @@ e) install
 A Redis out-of-the box will almost do the trick.  What's needed in
 addition to the basic config is to enable password authorization. Edit
 the redis.conf
-
+```
 requirepass <areallylongandcrypticpassphrase>
-
+```
 The password can (and should) be a nice and long cryptic string. You
 won't have to type it. (see below)
 
@@ -73,7 +80,7 @@ version 4.0.6) allow to provide the password via command line so
 there's likely no need for this workaround.
 
 Further details are beyond the scope of this README and can be found
-here:  https://redis.io/topics/cluster-tutorial
+here:  [https://redis.io/topics/cluster-tutorial](https://redis.io/topics/cluster-tutorial)
 
 Recommendation for the debugging phase: use a shorter passphrase if you
 plan to use redis-cli to check stored content, you need to authenticate
@@ -86,7 +93,7 @@ too.
 
 After running make install in the Data Broker build directory, you
 should have a directory with include file and libraries located in
-the place you specified with the cmake command (or under /usr/local).
+the place you specified with the cmake command (or under `/usr/local`).
 
 
 
@@ -97,17 +104,17 @@ variables:
 
 DBR_SERVER
       Points to one of the Redis instances that are part of the
-      backend.  If not set, it defaults to 'localhost'.
+      backend.  If not set, it defaults to `localhost`.
 
 DBR_PORT
       Points to the TCP port of the Redis instance specified by
-      DBR_SERVER.  If not set, it defaults to '6379'.
+      DBR_SERVER.  If not set, it defaults to `6379`.
 
 DBR_AUTHFILE
       Point the library to the location of the file that contains the
       Redis passphrase. Make sure to restrict the access to that file
       to the intended group of people who need access to Redis.  If
-      not set, it defaults to '.redis.auth' (note this is pointing to
+      not set, it defaults to `.redis.auth` (note this is pointing to
       the current work dir). For better security, it is suggested to
       specify an absolute path.
 
