@@ -139,7 +139,7 @@ do
         chmod +x redis-restore-rdb.sh
         chmod +x redis-restore-aof.sh
 
-        # could we execute redis-trib from one of hosts in $LSB_HOSTS
+        # confirm that all redis-servers are communicating before creating cluster
         noping=true
         while [ "$noping" = true ] 
         do
@@ -162,7 +162,7 @@ do
             sleep 2
         done
 
-        ${REDISHOME}/bin/redis-trib.rb create --password $PW  --replicas $REPLICAS $CLUSTER
+        ${REDISHOME}/bin/redis-cli --cluster create -a $PW --cluster-replicas $REPLICAS $CLUSTER
         waiting=false
     fi
 done
