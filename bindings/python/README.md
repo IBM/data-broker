@@ -46,12 +46,12 @@ Functions can be accessed from the `dbr` module and the Data Broker types can be
 For instance:
 ```
 dbr_name = "DBRtestname"
-groups = ffi.new('DBR_GroupList_t','0')
+group_list = ffi.new('DBR_GroupList_t')
 dbr_hdl = ffi.new('DBR_Handle_t*')
 level = dbr.DBR_PERST_VOLATILE_SIMPLE
 
-# Create the Data Broker
-dbr_hdl = dbr.dbrCreate(dbr_name, level, groups)
+# Create a Data Broker instance
+dbr_hdl = dbr.dbrCreate(dbr_name, level, group_list)
 ```
 The following tables report all the currently supported functions, according to the Data Broker API.
 
@@ -69,25 +69,27 @@ sys.path.insert(0, os.path.abspath('path/to/dbr_module'))
 
 |Name | Description|
 | ------------- |:-------------|
-| dbrCreate() | Create a new Data Broker|
-| dbrDelete() | Delete an existing Data Broker|
-| dbrAttach() | Attach to an existing Data Broker|
-| dbrDetach() | Detach from an existing Data Broker|
-| dbrQuery()  | Query information about an existing Data Broker|
-| dbrTest()   | Test the status of an asynchronous call |
-| dbrCancel() | Cancel an asynchronous call |
+| dbrCreate()   | Create a new Data Broker|
+| dbrDelete()   | Delete an existing Data Broker|
+| dbrAttach()   | Attach to an existing Data Broker|
+| dbrDetach()   | Detach from an existing Data Broker|
+| dbrQuery()    | Query information about an existing Data Broker|
+| dbrTest()     | Test the status of an asynchronous call |
+| dbrCancel()   | Cancel an asynchronous call |
 
 **Data Broker Access Functions**
 
 | Name | Description|
 | ------------- |:-------------|
-| dbrPut()  | Insert a tuple in the Data Broker|
-| dbrRead() | Read a tuple in the Data Broker|
-| dbrGet()  | Pop a tuple in the Data Broker |
-| dbrReadA()| Read a tuple in the Data Broker, non blocking|
-| dbrPutA() | Put a tuple in the Data Broker, non blocking|
-| dbrGetA() | Pop a tuple in the Data Broker, non blocking|
-| dbrMove() | Move a tuple from a source namespace to a destination namespace|
+| dbrPut()      | Insert a tuple in the Data Broker|
+| dbrRead()     | Read a tuple from the Data Broker|
+| dbrGet()      | Pop a tuple from the Data Broker |
+| dbrReadA()    | Read a tuple from the Data Broker, non blocking|
+| dbrPutA()     | Put a tuple in the Data Broker, non blocking|
+| dbrGetA()     | Pop a tuple from the Data Broker, non blocking|
+| dbrMove()     | Move a tuple from a source namespace to a destination namespace|
+| dbrTestKey()  | Checks if a tuple, identified by its name/key, exists in the namespace|
+| dbrDirectory()| Get a list of available tuple names of a namespace filtered by the user-provided pattern|
 
 **Data Broker and CFFI**
 
