@@ -97,12 +97,12 @@ int main( int argc, char ** argv )
 	DBR_Handle_t ns_hdl = NULL;
 	
 	// Check existence of the namespace with the specified name
-	DBR_Errorcode_t ret = dbrQuery(ns_hdl, &ns_state, DBR_STATE_MASK_ALL);
-	if (ret == DBR_ERR_INVALID) {
-		// Namespace not existing, create one 
-		ns_hdl = dbrCreate (name, level, groups);
-	}  else if (ret == DBR_SUCCESS)
-		ns_hdl = dbrAttach( name );
+    ns_hdl = dbrAttach( name );
+    if (ret == NULL) {
+       // name space doesn't exist or some error happened in the back-end
+    } else {
+       // successfully attached
+    }
 		
 	// ...
 }
