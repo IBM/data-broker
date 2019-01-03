@@ -150,7 +150,7 @@ typedef char *DBR_Name_t;
  * @see DBR_UnitList_t
  *
  */
-typedef char *DBR_Group_t;
+typedef char* DBR_Group_t;
 
 /**
  * @typedef DBR_GroupList_t
@@ -246,6 +246,11 @@ typedef DBR_Errorcode_t (*FunctPtr_t)(void*);
  * @brief Largest length allowed for a tuple name (key).
  */
 #define DBR_MAX_KEY_LEN ( 1023 )
+
+/**
+ * @brief Initializer for an empty group
+ */
+#define DBR_GROUP_EMPTY ( NULL )
 
 /**
  * @brief Initializer for empty group lists

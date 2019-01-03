@@ -98,7 +98,7 @@ int main( int argc, char ** argv )
   // test the directory command and list all tuple names/keys
   char *tbuf = (char*)calloc( 1024, sizeof( char ) );
   int64_t rsize = 0;
-  rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_LIST_EMPTY, 1000, tbuf, 1024, &rsize ), DBR_SUCCESS );
+  rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_EMPTY, 1000, tbuf, 1024, &rsize ), DBR_SUCCESS );
   rc += TEST_NOT( strchr( (char*)tbuf, '1' ), NULL );
   rc += TEST_NOT( strchr( (char*)tbuf, '2' ), NULL );
   rc += TEST_NOT( strchr( (char*)tbuf, '3' ), NULL );

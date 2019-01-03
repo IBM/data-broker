@@ -29,7 +29,7 @@ dbrTestKey(DBR_Handle_t cs_handle,
            DBR_Tuple_name_t tuple_name )
 {
   DBR_Tuple_template_t match_template = "";
-  DBR_Group_t group = DBR_GROUP_LIST_EMPTY;
+  DBR_Group_t group = DBR_GROUP_EMPTY;
 
   /* for now, we just map this to a read that doesn't wait for timeouts and ignores the returned value */
   DBR_Errorcode_t rc = libdbrTestKey( cs_handle,
