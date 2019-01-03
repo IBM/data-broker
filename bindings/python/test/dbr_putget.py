@@ -25,7 +25,7 @@ level = dbr.DBR_PERST_VOLATILE_SIMPLE
 group_list = ffi.new('DBR_GroupList_t')
 dbr_hdl = ffi.new('DBR_Handle_t*')
 dbr_hdl = dbr.dbrCreate(dbr_name, level, group_list)
-group = '0'
+group = dbr.DBR_GROUP_EMPTY
 
 # query the CDB to see if successful
 dbr_state = ffi.new('DBR_State_t*')
