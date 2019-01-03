@@ -98,5 +98,6 @@ add_subdirectory(test)
 
 install(FILES include/libdatabroker.h
     include/errorcodes.h
+    include/libdatabroker_ext.h
     DESTINATION include
 )

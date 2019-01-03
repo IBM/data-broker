@@ -18,7 +18,10 @@
 #ifndef SRC_LIB_SGE_H_
 #define SRC_LIB_SGE_H_
 
+#include "../../backend/common/dbbe_api.h"
+
 #include <stddef.h>
+#include <inttypes.h>
 
 static inline int64_t dbrSGE_extract_size( dbBE_Request_t *req )
 {
