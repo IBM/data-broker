@@ -29,15 +29,16 @@ dbrCreate (DBR_Name_t db_name,
   unsigned int meta_size = 0;
   dbBE_sge_t* meta = NULL;
   if( groups ) {
-    for(; groups[meta_size] != NULL && meta_size <= 1024; ++meta_size) // ToDo: define a check for max.!
+    for(; groups[meta_size] != DBR_GROUP_EMPTY && meta_size <= 1024; ++meta_size) // ToDo: define a check for max.!
       ;
     ++meta_size; // needs to account for NULL as well!
 
     meta = (dbBE_sge_t*) calloc ( meta_size, sizeof(dbBE_sge_t) );
     int64_t i;
     for( i = 0; i < meta_size - 1; i++ ) {
-      meta[i].iov_len = strlen( groups[i] ) + 1; // ToDo: depends on type!
-      meta[i].iov_base = groups[i];
+//      meta[i].iov_len = strlen( groups[i] ) + 1; // ToDo: depends on type!
+      meta[i].iov_len = sizeof( DBR_Group_t ) + 1; // ToDo: depends on type!
+      meta[i].iov_base = &groups[i];
     }
     meta[meta_size - 1].iov_len = 0;
     meta[meta_size - 1].iov_base = NULL;

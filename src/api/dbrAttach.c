@@ -88,9 +88,9 @@ libdbrAttach (DBR_Name_t db_name)
 
   dbrRequestContext_t *rctx = dbrCreate_request_ctx( DBBE_OPCODE_NSATTACH,
                                                      cs,
+                                                     DBR_GROUP_EMPTY,
                                                      NULL,
-                                                     NULL,
-                                                     NULL,
+                                                     DBR_GROUP_EMPTY,
                                                      0,
                                                      NULL,
                                                      NULL,

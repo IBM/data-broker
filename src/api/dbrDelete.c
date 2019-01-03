@@ -75,9 +75,9 @@ libdbrDelete (DBR_Name_t db_name)
   DBR_Errorcode_t rc = DBR_SUCCESS;
   dbrRequestContext_t *rctx = dbrCreate_request_ctx( DBBE_OPCODE_NSDELETE,
                                                      cs,
+                                                     DBR_GROUP_EMPTY,
                                                      NULL,
-                                                     NULL,
-                                                     NULL,
+                                                     DBR_GROUP_EMPTY,
                                                      0,
                                                      NULL,
                                                      NULL,

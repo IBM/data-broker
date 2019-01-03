@@ -43,27 +43,27 @@ int Request_create_test()
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
 
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, NULL, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, DB_TAG_ERROR );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, NULL, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, DB_TAG_ERROR );
   rc += TEST( rctx, NULL );
 
   // request creation with error tag:
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, DB_TAG_ERROR );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, DB_TAG_ERROR );
   rc += TEST( rctx, NULL );
 
   // invalid sge input
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 1, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 1, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
   rctx += TEST( rctx, NULL );
 
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, &sge, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, &sge, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
   rctx += TEST( rctx, NULL );
 
   // try with invalid opcode
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_MAX, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, &sge, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_MAX, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, &sge, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
   rctx += TEST( rctx, NULL );
 
 
   // some successful creation
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
   rc += TEST_NOT( rctx, NULL );
 
   // insert to remove
@@ -91,7 +91,7 @@ int Request_insert_test()
   rc += TEST( dbrInsert_request( ns, NULL ), DB_TAG_ERROR );
 
   // insert request with invalid tag
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
   // change the tag to break the remove function
   DBR_Tag_t tmptag = rctx->_tag;
   rctx->_tag = DB_TAG_ERROR;
@@ -122,7 +122,7 @@ int Request_remove_test()
   // trying to clean nullptr rctx
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_INVALID );
 
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
 
   // trying to remove a request that hasn't been inserted
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_ERR_HANDLE );
@@ -162,7 +162,7 @@ int Request_post_test()
   // trying to post nullptr rctx
   rc += TEST( dbrPost_request( rctx ), NULL );
 
-  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_LIST_EMPTY, NULL, DBR_GROUP_LIST_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
+  rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
 
   // trying to post a request that hasn't been inserted
   rc += TEST( dbrPost_request( rctx ), NULL );
