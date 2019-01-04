@@ -41,9 +41,11 @@ int main( int argc, char ** argv )
   // create locator
   dbBE_Redis_locator_t *locator = dbBE_Redis_locator_create();
   rc += TEST_NOT( locator, NULL );
+  rc += TEST( dbBE_Redis_locator_hash_covered( locator ), 0 );
 
   // assign a first address
   rc += TEST( dbBE_Redis_locator_assign_conn_index( locator, cidx1, 1234), 0 );
+  rc += TEST( dbBE_Redis_locator_hash_covered( locator ), 0 );
 
   // try to assign address to invalid slot
   rc += TEST_NOT( dbBE_Redis_locator_assign_conn_index( locator, cidx1, 32151), 0 );

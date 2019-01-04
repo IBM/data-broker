@@ -29,6 +29,7 @@
 #include <netinet/in.h>
 
 #include "address.h"
+#include "hash_cover.h"
 
 typedef uint16_t dbBE_Redis_hash_slot_t;
 typedef uint16_t dbBE_Redis_locator_index_t;
@@ -43,6 +44,7 @@ typedef uint16_t dbBE_Redis_locator_index_t;
 typedef struct
 {
   dbBE_Redis_locator_index_t _index[ DBBE_REDIS_HASH_SLOT_MAX ];
+  dbBE_Redis_hash_cover_t *_hash_cover;
 } dbBE_Redis_locator_t;
 
 /*
@@ -87,6 +89,15 @@ int dbBE_Redis_locator_reassociate_conn_index( dbBE_Redis_locator_t *locator,
  * calculate crc16 of the key and return the redis hash slot
  */
 dbBE_Redis_hash_slot_t dbBE_Redis_locator_hash( const char *key, const uint16_t size );
+
+
+/*
+ * return whether the hash range is covered with valid connections or not
+ * todo: the hash_covered member should be restructured into a bitmap or
+ *       other structure that includes location info of holes in the hash
+ *       coverage to speed up the status updates
+ */
+int dbBE_Redis_locator_hash_covered( dbBE_Redis_locator_t *locator );
 
 
 #endif /* BACKEND_REDIS_LOCATOR_H_ */
