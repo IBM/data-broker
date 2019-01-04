@@ -25,7 +25,7 @@ level = dbr.DBR_PERST_VOLATILE_SIMPLE
 group_list = ffi.new('DBR_GroupList_t')
 dbr_hdl = ffi.new('DBR_Handle_t*')
 dbr_hdl = dbr.dbrCreate(dbr_name, level, group_list)
-group = '0'
+group = dbr.DBR_GROUP_EMPTY
 
 # query the DBR to see if successful
 dbr_state = ffi.new('DBR_State_t*')
@@ -40,7 +40,6 @@ out_size = ffi.new('int64_t*')
 out_size[0] = 1024
 
 q = dbr.createBuf('char[]', out_size[0])
-group_t = 0
 tag = dbr.dbrGetA(dbr_hdl, q, out_size, "testTup","", group)
 if (tag!=dbr.DBR_ERR_TAGERROR):
     state = dbr.dbrTest(tag) 

@@ -38,10 +38,12 @@ ffibuilder.set_source("_dbr_interface",None,
 ffibuilder.cdef("""
 
 #define DBR_MAX_KEY_LEN 1023
-#define DBR_GROUP_LIST_EMPTY 0
+#define DBR_GROUP_LIST_EMPTY 0 
+#define DBR_GROUP_EMPTY 0
 #define DBR_UNIT_LIST_EMPTY 0 
 #define DBR_STATE_MASK_ALL  0xFFFFFFFFFFFFFFFFull
- typedef enum {
+
+typedef enum {
   DBR_PERST_VOLATILE_SIMPLE,
   DBR_PERST_VOLATILE_FT,
   DBR_PERST_TEMPORARY_SIMPLE,
