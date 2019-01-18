@@ -30,7 +30,7 @@ DBR_Errorcode_t
 libdbrDetach (DBR_Handle_t cs_handle)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
-  if(( cs == NULL ) || ( cs->_reverse == NULL ))
+  if(( cs == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DBR_ERR_INVALID;
 
   BIGLOCK_LOCK( cs->_reverse );

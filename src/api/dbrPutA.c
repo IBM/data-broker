@@ -28,7 +28,7 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
                       DBR_Group_t group)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
-  if(( cs == NULL ) || ( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ))
+  if(( cs == NULL ) || ( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
   {
     LOG( DBG_ERR, stderr, "Invalid input name space handle\n" );
     return DB_TAG_ERROR;

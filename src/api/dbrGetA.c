@@ -28,7 +28,7 @@ DBR_Tag_t libdbrGetA (DBR_Handle_t cs_handle,
                    DBR_Group_t group)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
-  if(( cs == NULL ) || ( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ))
+  if(( cs == NULL ) || ( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DB_TAG_ERROR;
 
   BIGLOCK_LOCK( cs->_reverse );
