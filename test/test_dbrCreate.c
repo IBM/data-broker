@@ -30,6 +30,7 @@ int main( int argc, char ** argv )
   DBR_GroupList_t groups = 0;
 
   DBR_Handle_t cs_hdl = NULL;
+  DBR_Handle_t cs_hdl2 = NULL;
   DBR_Errorcode_t ret = DBR_SUCCESS;
   DBR_State_t cs_state;
 
@@ -46,8 +47,9 @@ int main( int argc, char ** argv )
   rc += TEST( DBR_SUCCESS, ret );
 
   // test if creating again fails as expected
-  cs_hdl = dbrCreate( name, level, groups );
-  rc += TEST( NULL, cs_hdl );
+  LOG( DBG_ALL, stderr, "This needs to fail and find an existing namespace: ");
+  cs_hdl2 = dbrCreate( name, level, groups );
+  rc += TEST( NULL, cs_hdl2 );
 
   // delete the name space
   ret = dbrDelete( name );

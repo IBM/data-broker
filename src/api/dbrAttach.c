@@ -59,8 +59,6 @@ libdbrAttach (DBR_Name_t db_name)
   BIGLOCK_LOCK( ctx );
 
   dbrName_space_t *cs = NULL;
-  dbrName_space_t *cs_tmp = NULL;
-  DBR_Errorcode_t local_result = DBR_SUCCESS;
 
   // check if this name is already tracked in the in-mem table
   uint32_t idx = dbrMain_find( ctx, db_name );
@@ -72,14 +70,17 @@ libdbrAttach (DBR_Name_t db_name)
       errno = ENOENT;
       BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)NULL );
     }
-    ++cs->_ref_count;
+    if(( errno = dbrMain_attach( ctx, cs ) ) != 0 )
+      BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)NULL );
   }
   else
   {
-    errno = ENOENT;
-    local_result = DBR_ERR_NSINVAL;
-    cs_tmp = dbrMain_create_local( db_name );
-    cs = cs_tmp;
+    cs = dbrMain_create_local( db_name );
+    if( cs == NULL )
+    {
+      errno = ETOOMANYREFS;
+      BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)NULL );
+    }
   }
 
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
@@ -118,46 +119,12 @@ libdbrAttach (DBR_Name_t db_name)
     goto error;
   }
 
-  // namespace exists while local info is missing
-  // create local info
-  if( local_result == DBR_ERR_NSINVAL )
-  {
-    // create cs instance
-    cs = cs_tmp;
-    if( cs == NULL )
-    {
-      errno = ENOMEM;
-      goto error;
-    }
-
-    // insert to global context table for ref-counting
-    idx = dbrMain_insert( ctx, cs );
-    if( cs->_idx == dbrERROR_INDEX )
-    {
-      errno = ETOOMANYREFS;
-      goto error;
-    }
-    local_result = DBR_SUCCESS;
-
-    int rc = dbrMain_attach( ctx, cs );
-    if( rc != 0 )
-    {
-      errno = -rc;
-      goto error;
-    }
-  }
-
   dbrRemove_request( cs, rctx );
   BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)cs );
 
 error:
-  if( local_result == DBR_SUCCESS )
-    --cs->_ref_count;   // restore the ref counter
   dbrRemove_request( cs, rctx );
-  if( cs_tmp != NULL )
-  {
-    dbrMain_detach( ctx, cs_tmp );
-    dbrMain_delete( ctx, cs_tmp );
-  }
+  if( cs != NULL )
+    dbrMain_detach( ctx, cs );
   BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)NULL );
 }

@@ -59,14 +59,22 @@ int main( int argc, char ** argv )
   }
 
   // test if detach too often keeps the refcount sane
-  for( n=0; n<12; ++n )
+  for( n=0; n<10; ++n )
   {
     ret = dbrDetach( cs_hdl );
-    if( n<10 )
-      rc += TEST( DBR_SUCCESS, ret );
-    else
-      rc += TEST( DBR_ERR_NSINVAL, ret );
+    rc += TEST( DBR_SUCCESS, ret );
   }
+
+  // detach once more to cause local delete
+  ret = dbrDetach( cs_hdl );
+  rc += TEST( DBR_SUCCESS, ret );
+
+  // detach again (this causes use-after free, because the hdl should be wiped now)
+  ret = dbrDetach( cs_hdl );
+  rc += TEST( DBR_ERR_INVALID, ret ); // invalid argument (not invalid namespace)
+
+  cs_hdl = dbrAttach( name );
+  rc += TEST_NOT( NULL, cs_hdl );
 
   // delete the name space
   ret = dbrDelete( name );
