@@ -36,7 +36,7 @@ libdbrQuery (DBR_Handle_t cs_handle,
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
   // if there's no handle or no back-end (gets deleted after the last detach/delete)
   // the cs-hdl points to an invalid name space
-  if(( cs == NULL ) || ( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ))
+  if(( cs == NULL ) || ( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DBR_ERR_NSINVAL;
 
   BIGLOCK_LOCK( cs->_reverse );

@@ -42,6 +42,8 @@ int Request_create_test()
   sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
+  rc += TEST_NOT( ns, NULL );
+  TEST_BREAK( rc, "Namespace not created. Can't continue\n" );
 
   rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, NULL, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, DB_TAG_ERROR );
   rc += TEST( rctx, NULL );
@@ -49,6 +51,7 @@ int Request_create_test()
   // request creation with error tag:
   rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 0, NULL, NULL, NULL, NULL, DB_TAG_ERROR );
   rc += TEST( rctx, NULL );
+
 
   // invalid sge input
   rctx = dbrCreate_request_ctx( DBBE_OPCODE_GET, ns, DBR_GROUP_EMPTY, NULL, DBR_GROUP_EMPTY, 1, NULL, NULL, NULL, NULL, dbrTag_get( ns->_reverse ) );
@@ -194,8 +197,11 @@ int main( int argc, char ** argv )
   int rc = 0;
 
   rc += Request_create_test();
+  TEST_BREAK( rc, "Request_create test already failed. Exiting.\n" );
   rc += Request_insert_test();
+  TEST_BREAK( rc, "Request_insert test already failed. Exiting.\n" );
   rc += Request_remove_test();
+  TEST_BREAK( rc, "Request_remove test already failed. Exiting.\n" );
   rc += Request_post_test();
 
   printf( "Test exiting with rc=%d\n", rc );

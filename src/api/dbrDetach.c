@@ -30,7 +30,7 @@ DBR_Errorcode_t
 libdbrDetach (DBR_Handle_t cs_handle)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
-  if(( cs == NULL ) || ( cs->_reverse == NULL ))
+  if(( cs == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DBR_ERR_INVALID;
 
   BIGLOCK_LOCK( cs->_reverse );
@@ -39,7 +39,7 @@ libdbrDetach (DBR_Handle_t cs_handle)
   int ref = cs->_ref_count;
 
   // if that fails, then don't bother detaching globally because we haven't been attached to it
-  if( ref <= 1 )
+  if( ref < 1 )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_NSINVAL );
 
   dbrMain_context_t *ctx = cs->_reverse;
@@ -85,12 +85,12 @@ libdbrDetach (DBR_Handle_t cs_handle)
   if( rc != DBR_SUCCESS )
     goto error;
 
+  dbrRemove_request( cs, rctx );
+
   // try to detach locally
   ref = dbrMain_detach( ctx, cs );
 
-  dbrRemove_request( cs, rctx );
-
-  BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_SUCCESS );
+  BIGLOCK_UNLOCKRETURN( ctx, DBR_SUCCESS );
 error:
 
   fprintf( stderr, "failed to detach or name space doesn't exist: %s\n", cs->_db_name );

@@ -58,10 +58,8 @@ libdbrDelete (DBR_Name_t db_name)
 
   // don't bother deleting yet because we have some other parties attached
   if( cs->_ref_count > 1 )
-    BIGLOCK_UNLOCKRETURN( ctx, DBR_ERR_NSBUSY );  // temporarily return INPROGRESS to signal that delete needs to be called again later
+    BIGLOCK_UNLOCKRETURN( ctx, DBR_ERR_NSBUSY );
 
-  // find the cs-name in redis and remove the entry
-  // check if back end context was successul
   if( ctx->_be_ctx == NULL )
   {
     errno = ENOTCONN;
@@ -109,14 +107,11 @@ libdbrDelete (DBR_Name_t db_name)
     goto error;
 
   rc = dbrCheck_response( rctx );
-  if( rc != DBR_SUCCESS )
-    goto error;
+  // keep going here, even with error, we need to remove the request and delete/detach locally
 
   dbrRemove_request( cs, rctx );
   if( dbrMain_delete( ctx, cs ) != 0 )
     rc = DBR_ERR_NSINVAL;
-  else
-    rc = DBR_SUCCESS;
 
   BIGLOCK_UNLOCKRETURN( ctx, rc );
 

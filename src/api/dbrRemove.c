@@ -30,7 +30,7 @@ libdbrRemove( DBR_Handle_t cs_handle,
     return DBR_ERR_INVALID;
 
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
-  if(( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ))
+  if(( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DBR_ERR_NSINVAL;
 
   BIGLOCK_LOCK( cs->_reverse );

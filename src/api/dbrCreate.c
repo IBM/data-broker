@@ -77,14 +77,6 @@ libdbrCreate (DBR_Name_t db_name,
     }
 
     local_result = DBR_SUCCESS;
-
-    // insert to global context table for ref-counting
-    idx = dbrMain_insert( ctx, cs );
-    if( cs->_idx == dbrERROR_INDEX )
-    {
-      errno = ETOOMANYREFS;
-      goto error;
-    }
   }
 
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
