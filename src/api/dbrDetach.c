@@ -85,12 +85,12 @@ libdbrDetach (DBR_Handle_t cs_handle)
   if( rc != DBR_SUCCESS )
     goto error;
 
+  dbrRemove_request( cs, rctx );
+
   // try to detach locally
   ref = dbrMain_detach( ctx, cs );
 
-  dbrRemove_request( cs, rctx );
-
-  BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_SUCCESS );
+  BIGLOCK_UNLOCKRETURN( ctx, DBR_SUCCESS );
 error:
 
   fprintf( stderr, "failed to detach or name space doesn't exist: %s\n", cs->_db_name );
