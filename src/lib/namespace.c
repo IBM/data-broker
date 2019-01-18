@@ -61,32 +61,54 @@ dbrName_space_t* dbrMain_create_local( DBR_Name_t db_name )
 
   // initialize the cs data
   cs->_db_name = strdup( db_name );
-  cs->_ref_count = 1;
   cs->_reverse = dbrCheckCreateMainCTX();
   cs->_be_ctx = dbrlib_backend_get_handle();
   cs->_status = dbrNS_STATUS_CREATED;
+  cs->_idx = dbrERROR_INDEX;
 
+  if( dbrMain_insert( cs->_reverse, cs ) == dbrERROR_INDEX )
+  {
+    LOG( DBG_ERR, stderr, "Reference count error detected while creating namespace.\n" );
+    memset( cs, 0, sizeof( dbrName_space_t ) );
+    free(cs);
+    cs = NULL;
+  }
   return cs;
 }
 
-// inserts cs into an empty slot regardless of whether an entry with the same name exists or not
+// inserts cs into an empty slot (idempotent if already inserted before)
 uint32_t dbrMain_insert( dbrMain_context_t *libctx, dbrName_space_t *cs )
 {
-  if( libctx == NULL )
+  if(( libctx == NULL ) || ( cs == NULL ))
     return dbrERROR_INDEX;
 
-  // find the first hole in the context list
-  // todo: current search has O(N) complexity, improve that later!!!
   uint32_t idx = 0;
-  while((idx<dbrNUM_DB_MAX) && ( libctx->_cs_list[ idx ] != NULL ))
-    ++idx;
+  if( cs->_idx == dbrERROR_INDEX ) // not yet inserted?
+  {
+    // find the first hole in the context list
+    // todo: current search has O(N) complexity, improve that later!!!
+    while((idx<dbrNUM_DB_MAX) && ( libctx->_cs_list[ idx ] != NULL ))
+      ++idx;
 
-  // if we hit the end, then everything is occupied
-  // todo: for now just return error, later maybe extend the list
-  if( idx == dbrNUM_DB_MAX )
-    return dbrERROR_INDEX;
+    // if we hit the end, then everything is occupied
+    // todo: for now just return error, later maybe extend the list
+    if( idx == dbrNUM_DB_MAX )
+      return dbrERROR_INDEX;
+  }
+  else
+    idx = cs->_idx;
 
   // insert
+  if(( libctx->_cs_list[ idx ] != NULL ) && ( libctx->_cs_list[ idx ] != cs ))
+  {
+    LOG( DBG_ERR, stderr, "Inconsistent namespace table.\n" );
+    return dbrERROR_INDEX;
+  }
+
+  // do nothing if already inserted
+  if( libctx->_cs_list[ idx ] == cs )
+    return idx;
+
   libctx->_cs_list[ idx ] = cs;
   cs->_ref_count = 1;
   cs->_idx = idx;
@@ -100,11 +122,13 @@ int dbrMain_attach( dbrMain_context_t *libctx, dbrName_space_t *cs )
   if(( libctx == NULL ) || ( cs == NULL ))
     return -EINVAL;
 
-  // find the first hole in the context list
-  // todo: current search has O(N) complexity, improve that later!!!
+  // check consistency
   uint32_t idx = cs->_idx;
-  if( libctx->_cs_list[ idx ] == NULL )
+  if(( libctx->_cs_list[ idx ] == NULL ) || ( cs != libctx->_cs_list[ idx ] ))
+  {
+    LOG( DBG_ERR, stderr, "Inconsistent Namespace table.\n" );
     return -ENOENT;
+  }
 
   // can only detach from referenced or deleted name spaces
   if(( cs->_status != dbrNS_STATUS_REFERENCED) &&
@@ -116,34 +140,61 @@ int dbrMain_attach( dbrMain_context_t *libctx, dbrName_space_t *cs )
   return 0;
 }
 
+
+static int
+dbrMain_delete_local( dbrMain_context_t *libctx, dbrName_space_t *cs )
+{
+  int rc = 0;
+  if(( cs == NULL ) || ( libctx == NULL ))
+    return -EINVAL;
+
+  if( cs->_status != dbrNS_STATUS_DELETED )
+  {
+    LOG( DBG_ERR, stderr, "Reference count error: expected namespace status DELETED.\n" );
+  }
+
+  uint32_t idx = cs->_idx;
+  memset_s( cs->_db_name, 0, strlen( cs->_db_name ) );
+  if( cs->_db_name[0] != 0 )
+    rc = -EFAULT;
+
+  free( cs->_db_name );
+  memset_s( cs, 0, sizeof( dbrName_space_t ) );
+  if(( cs->_ref_count != 0 )||( cs->_idx != 0 )||(cs->_status != dbrNS_STATUS_UNDEFINED))
+    rc = -EFAULT;
+
+  free( cs );
+  libctx->_cs_list[ idx ] = NULL;
+
+  return rc;
+}
+
 int dbrMain_detach( dbrMain_context_t *libctx, dbrName_space_t *cs )
 {
   if(( libctx == NULL )||( cs == NULL ))
     return -EINVAL;
 
-  // find the first hole in the context list
-  // todo: current search has O(N) complexity, improve that later!!!
+  // check consistency
   uint32_t idx = cs->_idx;
-  if( libctx->_cs_list[ idx ] == NULL )
+  if(( libctx->_cs_list[ idx ] == NULL ) || ( cs != libctx->_cs_list[ idx ] ))
+  {
+    LOG( DBG_ERR, stderr, "Inconsistent Namespace table.\n" );
     return -ENOENT;
+  }
 
   // can only detach from referenced or deleted name spaces
   if(( cs->_status != dbrNS_STATUS_REFERENCED) &&
       ( cs->_status != dbrNS_STATUS_DELETED ))
     return -EINVAL;
 
-  // ref count checking
-  if( cs->_ref_count == 1 )
+  // ref count + check
+  --cs->_ref_count;
+  if( cs->_ref_count < 1 )
   {
-    if( cs->_status == dbrNS_STATUS_DELETED )
-    {
-      return dbrMain_delete( libctx, cs ); // redo the delete call, since we're the last one to detach
-    }
-    else
-      return -EOVERFLOW;
+    // remove from namespace list
+    cs->_status = dbrNS_STATUS_DELETED;
+    return dbrMain_delete_local( libctx, cs );
   }
-  else
-    --cs->_ref_count;
 
   return 0;
 }
@@ -153,30 +204,14 @@ int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
   if(( cs == NULL ) || ( libctx == NULL ))
     return -EINVAL;
 
-  // only delete id there are no other references
-  if( cs->_ref_count <= 1 )
+  if( cs->_status == dbrNS_STATUS_DELETED )
+    return -EBADF;
+
+  cs->_status = dbrNS_STATUS_DELETED;
+
+  if( dbrMain_detach( libctx, cs ) != 0 )
   {
-    int ref_cnt = cs->_ref_count; // store for use after cleaning cs
-
-    uint32_t idx = cs->_idx;
-    memset_s( cs->_db_name, 0, strlen( cs->_db_name ) );
-    if( cs->_db_name[0] != 0 )
-      return -EFAULT;
-
-    free( cs->_db_name );
-    memset_s( cs, 0, sizeof( dbrName_space_t ) );
-    if(( cs->_ref_count != 0 )||( cs->_idx != 0 ))
-      return -EFAULT;
-
-    free( cs );
-    libctx->_cs_list[ idx ] = NULL;
-
-    if( ref_cnt < 1 )
-      return -EOVERFLOW;
-  }
-  else // if there are othere refs, then mark as deleted for the last detach to remove the name space
-  {
-    cs->_status = dbrNS_STATUS_DELETED;
+    LOG( DBG_WARN, stderr, "Reference count error while deleting namespace. Deleting anyway.\n" );
   }
 
   return 0;
