@@ -819,7 +819,7 @@ int dbBE_Redis_process_nsattach( dbBE_Redis_request_t *request,
     case 1:
       if( rc == 0 )
       {
-        if( result->_data._integer < 2 )
+        if( result->_data._integer < 1 )
         {
           rc = -EOVERFLOW;
           result->_data._integer = rc;

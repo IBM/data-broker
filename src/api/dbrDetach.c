@@ -39,7 +39,7 @@ libdbrDetach (DBR_Handle_t cs_handle)
   int ref = cs->_ref_count;
 
   // if that fails, then don't bother detaching globally because we haven't been attached to it
-  if( ref <= 1 )
+  if( ref < 1 )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_NSINVAL );
 
   dbrMain_context_t *ctx = cs->_reverse;
