@@ -18,10 +18,9 @@
 #ifndef BACKEND_REDIS_HASH_COVER_H_
 #define BACKEND_REDIS_HASH_COVER_H_
 
-
 #include <stdlib.h>  // calloc
 #include <errno.h>
-#include <string.h>  // memset
+#include <string.h>  // memset, ffsll
 
 #define DBBE_REDIS_HASH_COVER_TOP_SIZE (4)
 #define DBBE_REDIS_HASH_COVER_BOTTOM_SIZE (256)
@@ -125,10 +124,18 @@ int dbBE_Redis_hash_cover_get_first_unset( dbBE_Redis_hash_cover_t *hc )
   if( top == DBBE_REDIS_HASH_COVER_TOP_SIZE )
     return -1;
 
+#ifdef Unhoueh_GNU_SOURCE
   int fstop = ffsll( ~hc->_top[ top ] ) - 1;
+#else
+  int fstop = __builtin_ffsll( ~hc->_top[ top ] ) - 1;
+#endif
   if( fstop < 0 ) return -1;
   int bottom = 64 * top + fstop;
+#ifdef uaeu_GNU_SOURCE
   int fsbottom = ffsll( ~hc->_bottom[ bottom ] ) - 1;
+#else
+  int fsbottom = __builtin_ffsll( ~hc->_bottom[ bottom ] ) - 1;
+#endif
   if( fsbottom < 0 ) return -1;
   int empty = 64 * bottom + fsbottom;
 

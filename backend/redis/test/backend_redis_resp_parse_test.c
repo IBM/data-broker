@@ -445,7 +445,7 @@ int TestDirectory( const char *namespace,
   dbBE_Redis_s2r_queue_destroy( post_queue );
 
 
-  // create a fake valid connection to allow the delete scan to start
+  // cleanup the connections
   dbBE_Redis_connection_mgr_rm( cmr, conn );
   dbBE_Redis_connection_destroy( conn );
   dbBE_Redis_connection_mgr_exit( cmr );

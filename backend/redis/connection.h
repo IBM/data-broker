@@ -98,6 +98,11 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
                                                   const char *authfile );
 
 /*
+ * reconnect to a Redis instance that was connected before
+ */
+int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn );
+
+/*
  * receive data from a connection and place data into the attached sr_buffer
  */
 ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn );

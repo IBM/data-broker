@@ -33,6 +33,7 @@
 #include <netdb.h>
 
 #include "logutil.h"
+#include "utility.h"
 #include "definitions.h"
 #include "connection.h"
 
@@ -206,6 +207,40 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   return conn->_address;
 }
 
+int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
+{
+  int rc = 0;
+  if(( conn == NULL ) || ( conn->_status != DBBE_CONNECTION_STATUS_DISCONNECTED ))
+    return -EINVAL;
+
+  int s = socket( conn->_address->_address.sin_family, SOCK_STREAM, 0 );
+  if( s < 0 )
+    return -errno;
+
+  rc = connect( conn->_socket,
+                (const struct sockaddr*)&(conn->_address->_address),
+                sizeof( conn->_address->_address ) );
+  if( rc == 0 )
+  {
+    conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
+    LOG( DBG_VERBOSE, stdout, "Reconnected connection %d\n", conn->_index );
+  }
+
+  char *authfile = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
+  rc = dbBE_Redis_connection_auth( conn, authfile );
+
+  if( authfile != NULL )
+    free( authfile );
+
+  if( rc != 0 )
+  {
+    dbBE_Redis_connection_unlink( conn );
+    return rc;
+  }
+
+  return rc;
+}
+
 static
 ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
 {
@@ -349,7 +384,7 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn )
 }
 
 /*
- * disconnect from a Redis instance
+ * disconnect from a Redis instance and destroy the address and socket
  */
 int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
 {
@@ -473,6 +508,12 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
 {
   if( conn == NULL )
     return;
+
+  if( conn->_status == DBBE_CONNECTION_STATUS_UNSPEC )
+  {
+    LOG( DBG_ERR, stderr, "Attempting to clean a connection in unspecified state.\n" );
+    return;
+  }
 
   // disconnect if needed
   if(( conn->_status == DBBE_CONNECTION_STATUS_CONNECTED ) ||
