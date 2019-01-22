@@ -102,8 +102,9 @@ int main( int argc, char ** argv )
 
   rc += TEST_NOT( mgr, NULL );
 
-  rc += TEST_NOT( dbBE_Redis_connection_mgr_add( mgr, NULL ), 0 );
-  rc += TEST_NOT( dbBE_Redis_connection_mgr_rm( mgr, NULL ), 0 );
+  rc += TEST( dbBE_Redis_connection_mgr_add( mgr, NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_mgr_rm( mgr, NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, NULL ), -EINVAL );
 
   dbBE_Redis_connection_t *conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
@@ -145,6 +146,12 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), DBBE_REDIS_MAX_CONNECTIONS );
   rc += TEST( dbBE_Redis_connection_unlink( conn2 ), 0 );
   dbBE_Redis_connection_destroy( conn2 );
+
+  // fail one connection and try to recover
+  dbBE_Redis_connection_t *dconn = carray[ 10 ];
+  rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, dconn ), 0 );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, dconn ), 1 );
+
 
   // remove all connections
   for( i = 0; i < DBBE_REDIS_MAX_CONNECTIONS; ++i )

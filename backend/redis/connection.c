@@ -217,7 +217,7 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
   if( s < 0 )
     return -errno;
 
-  rc = connect( conn->_socket,
+  rc = connect( s,
                 (const struct sockaddr*)&(conn->_address->_address),
                 sizeof( conn->_address->_address ) );
   if( rc == 0 )
@@ -225,7 +225,13 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
     conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
     LOG( DBG_VERBOSE, stdout, "Reconnected connection %d\n", conn->_index );
   }
+  else
+  {
+    LOG( DBG_ERR, stderr, "Reconnection failed: %s\n", strerror( errno ) );
+    return -errno;
+  }
 
+  conn->_socket = s;
   char *authfile = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   rc = dbBE_Redis_connection_auth( conn, authfile );
 
@@ -392,9 +398,10 @@ int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
     return -EINVAL;
 
   close( conn->_socket );
+  conn->_socket = -1;
   conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
-  dbBE_Redis_address_destroy( conn->_address );
-  conn->_address = NULL;
+//  dbBE_Redis_address_destroy( conn->_address );
+//  conn->_address = NULL;
 
   return 0;
 }

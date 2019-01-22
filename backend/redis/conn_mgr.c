@@ -200,7 +200,8 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
   conn_mgr->_connections[ conn->_index ] = NULL;
   --conn_mgr->_connection_count;
 
-  dbBE_Redis_connection_fail( conn );
+  dbBE_Redis_connection_fail( conn ); // mark failed ...
+  dbBE_Redis_connection_unlink( conn ); // and shut down/disconnect without deleting the addr info
 
   return 0;
 }
@@ -214,6 +215,7 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
     dbBE_Redis_connection_t *rec = conn_mgr->_broken[ c ];
     if( rec != NULL )
     {
+      rec->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
       if( dbBE_Redis_connection_reconnect( rec ) == 0 )
       {
         conn_mgr->_connections[ c ] = rec;
