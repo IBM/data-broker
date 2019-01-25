@@ -44,7 +44,7 @@ typedef uint16_t dbBE_Redis_locator_index_t;
 typedef struct
 {
   dbBE_Redis_locator_index_t _index[ DBBE_REDIS_HASH_SLOT_MAX ];
-  dbBE_Redis_hash_cover_t *_hash_cover;
+  dbBE_Redis_slot_bitmap_t *_hash_cover;
 } dbBE_Redis_locator_t;
 
 /*

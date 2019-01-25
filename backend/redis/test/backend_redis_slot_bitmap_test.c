@@ -35,22 +35,22 @@ int main( int argc, char ** argv )
   int rc = 0;
   int n = 0;
 
-  dbBE_Redis_hash_cover_t *hc = dbBE_Redis_hash_cover_create();
-  rc += TEST_NOT( hc, NULL );
+  dbBE_Redis_slot_bitmap_t *sb = dbBE_Redis_slot_bitmap_create();
+  rc += TEST_NOT( sb, NULL );
 
   // shouldn't be covered after initialization
-  rc += TEST( dbBE_Redis_hash_cover_full( hc ), 0 );
+  rc += TEST( dbBE_Redis_slot_bitmap_full( sb ), 0 );
 
   // fill the space
   for( n=0; n<16384; ++n )
-    rc += TEST( dbBE_Redis_hash_cover_set( hc, n ), n );
+    rc += TEST( dbBE_Redis_slot_bitmap_set( sb, n ), n );
 
   // should be covered now
-  rc += TEST( dbBE_Redis_hash_cover_full( hc ), 1 );
+  rc += TEST( dbBE_Redis_slot_bitmap_full( sb ), 1 );
 
   // set a bit that's already set and expect to be still covered
-  rc += TEST( dbBE_Redis_hash_cover_set( hc, 5054 ), 5054 );
-  rc += TEST( dbBE_Redis_hash_cover_full( hc ), 1 );
+  rc += TEST( dbBE_Redis_slot_bitmap_set( sb, 5054 ), 5054 );
+  rc += TEST( dbBE_Redis_slot_bitmap_full( sb ), 1 );
 
 
   int tb = 0;
@@ -58,20 +58,20 @@ int main( int argc, char ** argv )
   for( tb=0; tb<16384; ++tb )
   {
     // unset a bit and expect not to be covered
-    rc += TEST( dbBE_Redis_hash_cover_unset( hc, tb ), tb );
-    rc += TEST( dbBE_Redis_hash_cover_full( hc ), 0 );
+    rc += TEST( dbBE_Redis_slot_bitmap_unset( sb, tb ), tb );
+    rc += TEST( dbBE_Redis_slot_bitmap_full( sb ), 0 );
 
-    rc += TEST_RC( dbBE_Redis_hash_cover_get_first_unset( hc ), tb, cv );
+    rc += TEST_RC( dbBE_Redis_slot_bitmap_get_first_unset( sb ), tb, cv );
 //    fprintf( stdout, "First unset bit: %d == %d\n", tb, cv );
 
     // set this bit again and expect coverage
-    rc += TEST( dbBE_Redis_hash_cover_set( hc, tb ), tb );
-    rc += TEST( dbBE_Redis_hash_cover_full( hc ), 1 );
+    rc += TEST( dbBE_Redis_slot_bitmap_set( sb, tb ), tb );
+    rc += TEST( dbBE_Redis_slot_bitmap_full( sb ), 1 );
   }
 
   // destroy the hash cover
-  rc += TEST( dbBE_Redis_hash_cover_destroy( hc ), 0 );
-  rc += TEST( dbBE_Redis_hash_cover_destroy( NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_slot_bitmap_destroy( sb ), 0 );
+  rc += TEST( dbBE_Redis_slot_bitmap_destroy( NULL ), -EINVAL );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

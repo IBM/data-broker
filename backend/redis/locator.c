@@ -44,7 +44,7 @@ dbBE_Redis_locator_t* dbBE_Redis_locator_create()
   {
     locator->_index[ i ] = DBBE_REDIS_LOCATOR_INDEX_INVAL;
   }
-  locator->_hash_cover = dbBE_Redis_hash_cover_create();
+  locator->_hash_cover = dbBE_Redis_slot_bitmap_create();
   return locator;
 }
 
@@ -57,7 +57,7 @@ int dbBE_Redis_locator_destroy( dbBE_Redis_locator_t *locator )
     return -EINVAL;
 
   int rc = 0;
-  rc = dbBE_Redis_hash_cover_destroy( locator->_hash_cover );
+  rc = dbBE_Redis_slot_bitmap_destroy( locator->_hash_cover );
 
   memset( locator, 0, sizeof( dbBE_Redis_locator_t ) );
   free( locator );
@@ -88,9 +88,9 @@ int dbBE_Redis_locator_assign_conn_index( dbBE_Redis_locator_t *locator,
   {
     locator->_index[ hash_slot ] = index;
     if( index == DBBE_REDIS_LOCATOR_INDEX_INVAL )
-      dbBE_Redis_hash_cover_unset( locator->_hash_cover, hash_slot );
+      dbBE_Redis_slot_bitmap_unset( locator->_hash_cover, hash_slot );
     else
-      dbBE_Redis_hash_cover_set( locator->_hash_cover, hash_slot );
+      dbBE_Redis_slot_bitmap_set( locator->_hash_cover, hash_slot );
     return 0;
   }
   else
@@ -106,7 +106,7 @@ int dbBE_Redis_locator_remove_conn_index( dbBE_Redis_locator_t *locator,
   if(( locator != NULL ) && ( hash_slot == (hash_slot & DBBE_REDIS_HASH_SLOT_MASK) ))
   {
     locator->_index[ hash_slot ] = DBBE_REDIS_LOCATOR_INDEX_INVAL;
-    dbBE_Redis_hash_cover_unset( locator->_hash_cover, hash_slot );
+    dbBE_Redis_slot_bitmap_unset( locator->_hash_cover, hash_slot );
     return 0;
   }
   else
@@ -133,9 +133,9 @@ int dbBE_Redis_locator_reassociate_conn_index( dbBE_Redis_locator_t *locator,
     {
       locator->_index[ i ] = to;
       if( to == DBBE_REDIS_LOCATOR_INDEX_INVAL )
-        dbBE_Redis_hash_cover_unset( locator->_hash_cover, i );
+        dbBE_Redis_slot_bitmap_unset( locator->_hash_cover, i );
       else
-        dbBE_Redis_hash_cover_set( locator->_hash_cover, i );
+        dbBE_Redis_slot_bitmap_set( locator->_hash_cover, i );
       ++updated;
     }
   }
@@ -153,5 +153,5 @@ int dbBE_Redis_locator_hash_covered( dbBE_Redis_locator_t *locator )
   if( locator == NULL )
     return 0;
 
-  return dbBE_Redis_hash_cover_full( locator->_hash_cover );
+  return dbBE_Redis_slot_bitmap_full( locator->_hash_cover );
 }

@@ -29,43 +29,43 @@
 typedef struct {
   uint64_t _top[4];
   uint64_t _bottom[256];
-} dbBE_Redis_hash_cover_t;
+} dbBE_Redis_slot_bitmap_t;
 
 
 static inline
-dbBE_Redis_hash_cover_t* dbBE_Redis_hash_cover_create()
+dbBE_Redis_slot_bitmap_t* dbBE_Redis_slot_bitmap_create()
 {
-  dbBE_Redis_hash_cover_t *hc = (dbBE_Redis_hash_cover_t*)calloc( 1, sizeof( dbBE_Redis_hash_cover_t) );
-  if( hc == NULL )
+  dbBE_Redis_slot_bitmap_t *sb = (dbBE_Redis_slot_bitmap_t*)calloc( 1, sizeof( dbBE_Redis_slot_bitmap_t) );
+  if( sb == NULL )
     return NULL;
 
-  return hc;
+  return sb;
 }
 
 
 static inline
-int dbBE_Redis_hash_cover_destroy( dbBE_Redis_hash_cover_t *hc )
+int dbBE_Redis_slot_bitmap_destroy( dbBE_Redis_slot_bitmap_t *sb )
 {
-  if( hc == NULL )
+  if( sb == NULL )
     return -EINVAL;
 
-  memset( hc, 0, sizeof( dbBE_Redis_hash_cover_t ) );
-  free( hc );
-  hc = NULL;
+  memset( sb, 0, sizeof( dbBE_Redis_slot_bitmap_t ) );
+  free( sb );
+  sb = NULL;
 
   return 0;
 }
 
 
 static inline
-int dbBE_Redis_hash_cover_full( const dbBE_Redis_hash_cover_t *hc )
+int dbBE_Redis_slot_bitmap_full( const dbBE_Redis_slot_bitmap_t *sb )
 {
-  if( hc == NULL )
+  if( sb == NULL )
     return 0;
   int n;
   uint64_t cover = DBBE_REDIS_SLOT_BITMAP_FULL;
   for( n = 0; (n < DBBE_REDIS_SLOT_BITMAP_TOP_SIZE) && (cover == DBBE_REDIS_SLOT_BITMAP_FULL); ++n )
-    cover &= hc->_top[n];
+    cover &= sb->_top[n];
   return (cover == DBBE_REDIS_SLOT_BITMAP_FULL ) ? 1 : 0;
 }
 
@@ -77,64 +77,64 @@ int dbBE_Redis_hash_cover_full( const dbBE_Redis_hash_cover_t *hc )
 
 
 static inline
-int dbBE_Redis_hash_cover_set( dbBE_Redis_hash_cover_t *hc, int slot )
+int dbBE_Redis_slot_bitmap_set( dbBE_Redis_slot_bitmap_t *sb, int slot )
 {
-  if(( hc == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
+  if(( sb == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
     return -EINVAL;
 
-  hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] |= ( 1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot) );
+  sb->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] |= ( 1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot) );
 
   // only enable the top-level, if all of the bottom level is set
-  uint64_t all_set = ( hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] == DBBE_REDIS_SLOT_BITMAP_FULL ) ? 1 : 0;
-  hc->_top[ DBBE_REDIS_SLOT_BITMAP_ITOP(slot) ] |= ( all_set << DBBE_REDIS_SLOT_BITMAP_OTOP(slot) );
+  uint64_t all_set = ( sb->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] == DBBE_REDIS_SLOT_BITMAP_FULL ) ? 1 : 0;
+  sb->_top[ DBBE_REDIS_SLOT_BITMAP_ITOP(slot) ] |= ( all_set << DBBE_REDIS_SLOT_BITMAP_OTOP(slot) );
 
   return slot;
 }
 
 static inline
-int dbBE_Redis_hash_cover_unset( dbBE_Redis_hash_cover_t *hc, int slot )
+int dbBE_Redis_slot_bitmap_unset( dbBE_Redis_slot_bitmap_t *sb, int slot )
 {
-  if(( hc == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
+  if(( sb == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
     return -EINVAL;
 
-  hc->_top[ DBBE_REDIS_SLOT_BITMAP_ITOP(slot) ] &= ~(1ull << DBBE_REDIS_SLOT_BITMAP_OTOP(slot) );
-  hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] &= ~(1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot) );
+  sb->_top[ DBBE_REDIS_SLOT_BITMAP_ITOP(slot) ] &= ~(1ull << DBBE_REDIS_SLOT_BITMAP_OTOP(slot) );
+  sb->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] &= ~(1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot) );
 
   return slot;
 }
 
 static inline
-int dbBE_Redis_hash_cover_get( dbBE_Redis_hash_cover_t *hc, int slot )
+int dbBE_Redis_slot_bitmap_get( dbBE_Redis_slot_bitmap_t *sb, int slot )
 {
-  if(( hc == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
+  if(( sb == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
     return -EINVAL;
 
   // just need to check the bottom, since the top only reflects the total
-  if(hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) & (1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot)) ] != 0)
+  if(sb->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) & (1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot)) ] != 0)
     return 1;
   else
     return 0;
 }
 
 static inline
-int dbBE_Redis_hash_cover_get_first_unset( dbBE_Redis_hash_cover_t *hc )
+int dbBE_Redis_slot_bitmap_get_first_unset( dbBE_Redis_slot_bitmap_t *sb )
 {
   int top = 0;
-  for( ;(top < DBBE_REDIS_SLOT_BITMAP_TOP_SIZE) && ( hc->_top[ top ] == DBBE_REDIS_SLOT_BITMAP_FULL ); ++top );
+  for( ;(top < DBBE_REDIS_SLOT_BITMAP_TOP_SIZE) && ( sb->_top[ top ] == DBBE_REDIS_SLOT_BITMAP_FULL ); ++top );
   if( top == DBBE_REDIS_SLOT_BITMAP_TOP_SIZE )
     return -1;
 
 #ifdef Unhoueh_GNU_SOURCE
-  int fstop = ffsll( ~hc->_top[ top ] ) - 1;
+  int fstop = ffsll( ~sb->_top[ top ] ) - 1;
 #else
-  int fstop = __builtin_ffsll( ~hc->_top[ top ] ) - 1;
+  int fstop = __builtin_ffsll( ~sb->_top[ top ] ) - 1;
 #endif
   if( fstop < 0 ) return -1;
   int bottom = 64 * top + fstop;
 #ifdef uaeu_GNU_SOURCE
-  int fsbottom = ffsll( ~hc->_bottom[ bottom ] ) - 1;
+  int fsbottom = ffsll( ~sb->_bottom[ bottom ] ) - 1;
 #else
-  int fsbottom = __builtin_ffsll( ~hc->_bottom[ bottom ] ) - 1;
+  int fsbottom = __builtin_ffsll( ~sb->_bottom[ bottom ] ) - 1;
 #endif
   if( fsbottom < 0 ) return -1;
   int empty = 64 * bottom + fsbottom;
