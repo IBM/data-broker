@@ -26,7 +26,7 @@
 #include <errno.h>
 #include <libdatabroker.h>
 
-#include "../backend/redis/hash_cover.h"
+#include "../backend/redis/slot_bitmap.h"
 #include "test_utils.h"
 
 

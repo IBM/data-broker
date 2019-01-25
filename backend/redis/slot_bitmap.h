@@ -15,16 +15,16 @@
  *
  */
 
-#ifndef BACKEND_REDIS_HASH_COVER_H_
-#define BACKEND_REDIS_HASH_COVER_H_
+#ifndef BACKEND_REDIS_SLOT_BITMAP_H_
+#define BACKEND_REDIS_SLOT_BITMAP_H_
 
 #include <stdlib.h>  // calloc
 #include <errno.h>
 #include <string.h>  // memset, ffsll
 
-#define DBBE_REDIS_HASH_COVER_TOP_SIZE (4)
-#define DBBE_REDIS_HASH_COVER_BOTTOM_SIZE (256)
-#define DBBE_REDIS_HASH_COVER_FULL ( 0xFFFFFFFFFFFFFFFFull )
+#define DBBE_REDIS_SLOT_BITMAP_TOP_SIZE (4)
+#define DBBE_REDIS_SLOT_BITMAP_BOTTOM_SIZE (256)
+#define DBBE_REDIS_SLOT_BITMAP_FULL ( 0xFFFFFFFFFFFFFFFFull )
 
 typedef struct {
   uint64_t _top[4];
@@ -63,17 +63,17 @@ int dbBE_Redis_hash_cover_full( const dbBE_Redis_hash_cover_t *hc )
   if( hc == NULL )
     return 0;
   int n;
-  uint64_t cover = DBBE_REDIS_HASH_COVER_FULL;
-  for( n = 0; (n < DBBE_REDIS_HASH_COVER_TOP_SIZE) && (cover == DBBE_REDIS_HASH_COVER_FULL); ++n )
+  uint64_t cover = DBBE_REDIS_SLOT_BITMAP_FULL;
+  for( n = 0; (n < DBBE_REDIS_SLOT_BITMAP_TOP_SIZE) && (cover == DBBE_REDIS_SLOT_BITMAP_FULL); ++n )
     cover &= hc->_top[n];
-  return (cover == DBBE_REDIS_HASH_COVER_FULL ) ? 1 : 0;
+  return (cover == DBBE_REDIS_SLOT_BITMAP_FULL ) ? 1 : 0;
 }
 
 
-#define DBBE_REDIS_HASH_COVER_ITOP( s ) ((s) >> 12ull)       // divide by 4096 ( 64x64 )
-#define DBBE_REDIS_HASH_COVER_OTOP( s ) (((s) >> 6ull) % 64) // div by 256 and get the offset in the 64bit top value
-#define DBBE_REDIS_HASH_COVER_IBOT( s ) ((s) >> 6ull )       // divide by 64
-#define DBBE_REDIS_HASH_COVER_OBOT( s ) ((s) % 64ull )       // offset in the 64bit bottom value
+#define DBBE_REDIS_SLOT_BITMAP_ITOP( s ) ((s) >> 12ull)       // divide by 4096 ( 64x64 )
+#define DBBE_REDIS_SLOT_BITMAP_OTOP( s ) (((s) >> 6ull) % 64) // div by 256 and get the offset in the 64bit top value
+#define DBBE_REDIS_SLOT_BITMAP_IBOT( s ) ((s) >> 6ull )       // divide by 64
+#define DBBE_REDIS_SLOT_BITMAP_OBOT( s ) ((s) % 64ull )       // offset in the 64bit bottom value
 
 
 static inline
@@ -82,11 +82,11 @@ int dbBE_Redis_hash_cover_set( dbBE_Redis_hash_cover_t *hc, int slot )
   if(( hc == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
     return -EINVAL;
 
-  hc->_bottom[ DBBE_REDIS_HASH_COVER_IBOT(slot) ] |= ( 1ull << DBBE_REDIS_HASH_COVER_OBOT(slot) );
+  hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] |= ( 1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot) );
 
   // only enable the top-level, if all of the bottom level is set
-  uint64_t all_set = ( hc->_bottom[ DBBE_REDIS_HASH_COVER_IBOT(slot) ] == DBBE_REDIS_HASH_COVER_FULL ) ? 1 : 0;
-  hc->_top[ DBBE_REDIS_HASH_COVER_ITOP(slot) ] |= ( all_set << DBBE_REDIS_HASH_COVER_OTOP(slot) );
+  uint64_t all_set = ( hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] == DBBE_REDIS_SLOT_BITMAP_FULL ) ? 1 : 0;
+  hc->_top[ DBBE_REDIS_SLOT_BITMAP_ITOP(slot) ] |= ( all_set << DBBE_REDIS_SLOT_BITMAP_OTOP(slot) );
 
   return slot;
 }
@@ -97,8 +97,8 @@ int dbBE_Redis_hash_cover_unset( dbBE_Redis_hash_cover_t *hc, int slot )
   if(( hc == NULL ) || ( slot < 0 ) || ( slot >= 16384 ))
     return -EINVAL;
 
-  hc->_top[ DBBE_REDIS_HASH_COVER_ITOP(slot) ] &= ~(1ull << DBBE_REDIS_HASH_COVER_OTOP(slot) );
-  hc->_bottom[ DBBE_REDIS_HASH_COVER_IBOT(slot) ] &= ~(1ull << DBBE_REDIS_HASH_COVER_OBOT(slot) );
+  hc->_top[ DBBE_REDIS_SLOT_BITMAP_ITOP(slot) ] &= ~(1ull << DBBE_REDIS_SLOT_BITMAP_OTOP(slot) );
+  hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] &= ~(1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot) );
 
   return slot;
 }
@@ -110,7 +110,7 @@ int dbBE_Redis_hash_cover_get( dbBE_Redis_hash_cover_t *hc, int slot )
     return -EINVAL;
 
   // just need to check the bottom, since the top only reflects the total
-  if(hc->_bottom[ DBBE_REDIS_HASH_COVER_IBOT(slot) & (1ull << DBBE_REDIS_HASH_COVER_OBOT(slot)) ] != 0)
+  if(hc->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) & (1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot)) ] != 0)
     return 1;
   else
     return 0;
@@ -120,8 +120,8 @@ static inline
 int dbBE_Redis_hash_cover_get_first_unset( dbBE_Redis_hash_cover_t *hc )
 {
   int top = 0;
-  for( ;(top < DBBE_REDIS_HASH_COVER_TOP_SIZE) && ( hc->_top[ top ] == DBBE_REDIS_HASH_COVER_FULL ); ++top );
-  if( top == DBBE_REDIS_HASH_COVER_TOP_SIZE )
+  for( ;(top < DBBE_REDIS_SLOT_BITMAP_TOP_SIZE) && ( hc->_top[ top ] == DBBE_REDIS_SLOT_BITMAP_FULL ); ++top );
+  if( top == DBBE_REDIS_SLOT_BITMAP_TOP_SIZE )
     return -1;
 
 #ifdef Unhoueh_GNU_SOURCE
@@ -142,4 +142,4 @@ int dbBE_Redis_hash_cover_get_first_unset( dbBE_Redis_hash_cover_t *hc )
   return empty;
 }
 
-#endif /* BACKEND_REDIS_HASH_COVER_H_ */
+#endif /* BACKEND_REDIS_SLOT_BITMAP_H_ */

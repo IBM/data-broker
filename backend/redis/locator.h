@@ -29,7 +29,7 @@
 #include <netinet/in.h>
 
 #include "address.h"
-#include "hash_cover.h"
+#include "slot_bitmap.h"
 
 typedef uint16_t dbBE_Redis_hash_slot_t;
 typedef uint16_t dbBE_Redis_locator_index_t;
