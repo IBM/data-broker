@@ -108,7 +108,7 @@ void* dbBE_Redis_receiver( void *args )
                                                    DBBE_REDIS_LOCATOR_INDEX_INVAL );
 
         // remove the connection from the connection mgr
-        dbBE_Redis_connection_mgr_rm( input->_backend->_conn_mgr, conn );
+        dbBE_Redis_connection_mgr_conn_fail( input->_backend->_conn_mgr, conn );
 
         // todo: cancel all remaining requests for cleanup
         break;

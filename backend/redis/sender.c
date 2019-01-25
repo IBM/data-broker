@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "logutil.h"
 #include "../common/completion_queue.h"
 #include "redis.h"
 #include "create.h"
@@ -114,6 +115,15 @@ void* dbBE_Redis_sender( void *args )
       dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -EINVAL );
       goto skip_sending;
     }
+
+    if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
+    {
+      if( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr ) == 0 )
+      {
+        dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
+        goto skip_sending;
+      }
+    }
     uint16_t slot = dbBE_Redis_locator_hash( keybuffer, strnlen( keybuffer, DBBE_REDIS_MAX_KEY_LEN ) );
     request->_conn_index = dbBE_Redis_locator_get_conn_index( input->_backend->_locator, slot );
 
@@ -162,6 +172,12 @@ void* dbBE_Redis_sender( void *args )
     goto skip_sending;
   }
 
+  if( ! dbBE_Redis_connection_RTS( conn ) )
+  {
+    LOG( DBG_ERR, stderr, "Associated connection not ready to send\n" );
+    rc = -ENOTCONN;
+    goto skip_sending;
+  }
   // create Redis request from queue entry
   //  - opcode, key, namespace
   //  - SGE/device specific transport
