@@ -57,6 +57,18 @@ void dbBE_Redis_connection_mgr_exit( dbBE_Redis_connection_mgr_t *conn_mgr );
 int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
                                    dbBE_Redis_connection_t *conn );
 
+
+/*
+ * fail a tracked connection
+ */
+int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                         dbBE_Redis_connection_t *conn );
+
+/*
+ * attempt to recover the conn_mgr connectivity
+ */
+int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr );
+
 /*
  * Remove a connection from the mgr
  */
@@ -66,7 +78,9 @@ int dbBE_Redis_connection_mgr_rm( dbBE_Redis_connection_mgr_t *conn_mgr,
 /*
  * Insert and connect a new connection
  */
-dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink();
+dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                            char *host,
+                                                            char *port );
 
 /*
  * get the number of (active) connections

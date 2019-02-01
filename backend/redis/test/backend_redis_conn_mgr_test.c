@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -150,7 +150,7 @@ int main( int argc, char ** argv )
   // fail one connection and try to recover
   dbBE_Redis_connection_t *dconn = carray[ 10 ];
   rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, dconn ), 0 );
-  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, dconn ), 1 );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr ), 1 );
 
 
   // remove all connections

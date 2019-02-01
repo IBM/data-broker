@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -418,6 +418,8 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
           dbBE_Redis_result_cleanup( &result, 0 );
           goto exit_connect;
         }
+
+        dbBE_Redis_connection_assign_slot_range( dest, first_slot, last_slot );
 
         // update locator
         int slot;

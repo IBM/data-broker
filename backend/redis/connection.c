@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@
  */
 dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_size )
 {
+  int rc = 0;
+
   dbBE_Redis_connection_t *conn = (dbBE_Redis_connection_t*)malloc( sizeof( dbBE_Redis_connection_t ) );
   if( conn == NULL )
   {
@@ -56,11 +58,8 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 
   if(( sendb == NULL ) || ( recvb == NULL ))
   {
-    free( conn );
-    dbBE_Redis_sr_buffer_free( sendb );
-    dbBE_Redis_sr_buffer_free( recvb );
-    errno = ENOMEM;
-    return NULL;
+    rc = ENOMEM;
+    goto error;
   }
 
   conn->_sendbuf = sendb;
@@ -70,9 +69,36 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   if(( sendb == NULL ) || ( recvb == NULL ))
     conn->_status = DBBE_CONNECTION_STATUS_UNSPEC;
 
-  conn->_posted_q = dbBE_Redis_s2r_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
+  dbBE_Redis_s2r_queue_t *queue = dbBE_Redis_s2r_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
+  if( queue == NULL )
+  {
+    rc = ENOMEM;
+    goto error;
+  }
+  conn->_posted_q = queue;
+
+  dbBE_Redis_slot_bitmap_t *slots = dbBE_Redis_slot_bitmap_create();
+  if( slots == NULL )
+  {
+    rc = ENOMEM;
+    goto error;
+  }
+  conn->_slots = slots;
 
   return conn;
+
+error:
+  if( sendb != NULL )
+    dbBE_Redis_sr_buffer_free( sendb );
+  if( recvb != NULL )
+    dbBE_Redis_sr_buffer_free( recvb );
+  if( slots != NULL )
+    dbBE_Redis_slot_bitmap_destroy( slots );
+  if( conn )
+    free( conn );
+
+  errno = rc;
+  return NULL;
 }
 
 /*
@@ -112,6 +138,30 @@ int dbBE_Redis_connection_assign_recvbuf( dbBE_Redis_connection_t *conn,
   else
     conn->_status = DBBE_CONNECTION_STATUS_INITIALIZED;
 
+  return 0;
+}
+
+/*
+ * assign an initial slot range to the connection
+ */
+int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
+                                             int first_slot,
+                                             int last_slot )
+{
+  if( conn == NULL )
+    return -EINVAL;
+
+  if( conn->_slots == NULL )
+    return -ENOENT;
+
+  if(( first_slot >= 0 ) && ( last_slot >= first_slot ))
+  {
+    int n;
+
+    dbBE_Redis_slot_bitmap_reset( conn->_slots );
+    for( n=first_slot; n<last_slot; ++n )
+      dbBE_Redis_slot_bitmap_set( conn->_slots, n );
+  }
   return 0;
 }
 
