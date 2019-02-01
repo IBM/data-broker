@@ -18,6 +18,7 @@
 #ifndef BACKEND_REDIS_SLOT_BITMAP_H_
 #define BACKEND_REDIS_SLOT_BITMAP_H_
 
+#include <inttypes.h>
 #include <stdlib.h>  // calloc
 #include <errno.h>
 #include <string.h>  // memset, ffsll
@@ -27,8 +28,8 @@
 #define DBBE_REDIS_SLOT_BITMAP_FULL ( 0xFFFFFFFFFFFFFFFFull )
 
 typedef struct {
-  uint64_t _top[4];
-  uint64_t _bottom[256];
+  uint64_t _top[ DBBE_REDIS_SLOT_BITMAP_TOP_SIZE ];
+  uint64_t _bottom[ DBBE_REDIS_SLOT_BITMAP_BOTTOM_SIZE ];
 } dbBE_Redis_slot_bitmap_t;
 
 
@@ -101,6 +102,14 @@ int dbBE_Redis_slot_bitmap_unset( dbBE_Redis_slot_bitmap_t *sb, int slot )
   sb->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] &= ~(1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot) );
 
   return slot;
+}
+
+static inline
+int dbBE_Redis_slot_bitmap_reset( dbBE_Redis_slot_bitmap_t *sb )
+{
+  memset( sb->_top, 0, sizeof( uint64_t ) * DBBE_REDIS_SLOT_BITMAP_TOP_SIZE );
+  memset( sb->_bottom, 0, sizeof( uint64_t ) * DBBE_REDIS_SLOT_BITMAP_BOTTOM_SIZE );
+  return 0;
 }
 
 static inline
