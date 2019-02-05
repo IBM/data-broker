@@ -432,7 +432,9 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     }
     else
     {
+      // no-cluster setup with single connection
       int slot;
+      dbBE_Redis_connection_assign_slot_range( initial_conn, 0, DBBE_REDIS_HASH_SLOT_MAX );
       for( slot = 0; slot <= DBBE_REDIS_HASH_SLOT_MAX; ++slot )
         dbBE_Redis_locator_assign_conn_index( ctx->_locator,
                                               initial_conn->_index,

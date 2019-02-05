@@ -78,6 +78,7 @@ int main( int argc, char ** argv )
 
   dbBE_Redis_connection_mgr_t *mgr = NULL;
   dbBE_Redis_connection_t *carray[ DBBE_REDIS_MAX_CONNECTIONS + 5 ];
+  dbBE_Redis_locator_t *locator = NULL;
 
   char *host = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
   rc += TEST_NOT( host, NULL );
@@ -105,6 +106,8 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_mgr_rm( mgr, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( NULL, locator ), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, NULL ), 0 );
 
   dbBE_Redis_connection_t *conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
@@ -150,7 +153,7 @@ int main( int argc, char ** argv )
   // fail one connection and try to recover
   dbBE_Redis_connection_t *dconn = carray[ 10 ];
   rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, dconn ), 0 );
-  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr ), 1 );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, locator ), 1 );
 
 
   // remove all connections

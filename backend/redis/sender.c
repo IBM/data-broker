@@ -118,7 +118,7 @@ void* dbBE_Redis_sender( void *args )
 
     if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
     {
-      if( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr ) == 0 )
+      if( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr, input->_backend->_locator ) == 0 )
       {
         dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
         goto skip_sending;

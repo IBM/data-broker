@@ -23,6 +23,7 @@
 
 #include "definitions.h"
 #include "connection.h"
+#include "locator.h"
 #include "event_mgr.h"
 
 typedef struct
@@ -67,7 +68,8 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
 /*
  * attempt to recover the conn_mgr connectivity
  */
-int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr );
+int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                            dbBE_Redis_locator_t *locator );
 
 /*
  * Remove a connection from the mgr

@@ -206,8 +206,12 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
   return 0;
 }
 
-int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr )
+int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                            dbBE_Redis_locator_t *locator )
 {
+  if( conn_mgr == NULL )
+    return -EINVAL;
+
   unsigned c;
   int recovered = 0;
   for( c=0; c < DBBE_REDIS_MAX_CONNECTIONS; ++c )
@@ -218,10 +222,19 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
       rec->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
       if( dbBE_Redis_connection_reconnect( rec ) == 0 )
       {
+        int slot;
         conn_mgr->_connections[ c ] = rec;
         conn_mgr->_broken[ c ] = NULL;
         ++conn_mgr->_connection_count;
         ++recovered;
+        dbBE_Redis_slot_bitmap_t *bitmap = dbBE_Redis_connection_get_slot_range( rec );
+        for( slot=0;
+            (locator != NULL) && ( bitmap != NULL ) && (slot < DBBE_REDIS_HASH_SLOT_MAX);
+            ++slot )
+        {
+          if( dbBE_Redis_slot_bitmap_get( bitmap, slot ) != 0 )
+            dbBE_Redis_locator_assign_conn_index( locator, c, slot );
+        }
       }
       else
       {
