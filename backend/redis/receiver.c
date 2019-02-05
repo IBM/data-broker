@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ void* dbBE_Redis_receiver( void *args )
                                                    DBBE_REDIS_LOCATOR_INDEX_INVAL );
 
         // remove the connection from the connection mgr
-        dbBE_Redis_connection_mgr_rm( input->_backend->_conn_mgr, conn );
+        dbBE_Redis_connection_mgr_conn_fail( input->_backend->_conn_mgr, conn );
 
         // todo: cancel all remaining requests for cleanup
         break;
@@ -117,6 +117,7 @@ void* dbBE_Redis_receiver( void *args )
   }
 
   dbBE_Redis_request_t *request = NULL;
+  dbBE_Completion_t *completion = NULL;
   dbBE_Redis_result_t result;
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
@@ -157,6 +158,10 @@ process_next_item:
 
     case dbBE_REDIS_TYPE_RELOCATE:
     {
+      // unset the connection slot in old place
+      dbBE_Redis_slot_bitmap_t *slots = dbBE_Redis_connection_get_slot_range( conn );
+      dbBE_Redis_slot_bitmap_unset( slots, result._data._location._hash );
+
       // check connection exists,
       dbBE_Redis_connection_t *dest =
           dbBE_Redis_connection_mgr_get_connection_to( input->_backend->_conn_mgr,
@@ -174,6 +179,24 @@ process_next_item:
         char *port = dbBE_Redis_address_split( host );
 
         dest = dbBE_Redis_connection_mgr_newlink( input->_backend->_conn_mgr, host, port );
+        if( dest == NULL )
+        {
+          // unable to recreate connection, failing the request
+          completion = dbBE_Redis_complete_error(
+              request,
+              &result,
+              -ENOTCONN );
+          dbBE_Redis_request_destroy( request );
+          if( completion == NULL )
+          {
+            fprintf( stderr, "RedisBE: Failed to create error completion.\n");
+            dbBE_Redis_result_cleanup( &result, 0 );
+            goto skip_receiving;
+          }
+        }
+        // update the connection slot in new destination
+        dbBE_Redis_slot_bitmap_t *slots = dbBE_Redis_connection_get_slot_range( dest );
+        dbBE_Redis_slot_bitmap_set( slots, result._data._location._hash );
         dbBE_Redis_locator_assign_conn_index( input->_backend->_locator, dest->_index, result._data._location._hash );
       }
 
@@ -185,7 +208,6 @@ process_next_item:
     default:
       if( request != NULL )
       {
-        dbBE_Completion_t *completion = NULL;
         switch( request->_user->_opcode )
         {
           case DBBE_OPCODE_PUT:

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 #include <netdb.h>
 
 #include "logutil.h"
+#include "utility.h"
 #include "definitions.h"
 #include "connection.h"
 
@@ -42,6 +43,8 @@
  */
 dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_size )
 {
+  int rc = 0;
+
   dbBE_Redis_connection_t *conn = (dbBE_Redis_connection_t*)malloc( sizeof( dbBE_Redis_connection_t ) );
   if( conn == NULL )
   {
@@ -55,11 +58,8 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 
   if(( sendb == NULL ) || ( recvb == NULL ))
   {
-    free( conn );
-    dbBE_Redis_sr_buffer_free( sendb );
-    dbBE_Redis_sr_buffer_free( recvb );
-    errno = ENOMEM;
-    return NULL;
+    rc = ENOMEM;
+    goto error;
   }
 
   conn->_sendbuf = sendb;
@@ -69,9 +69,36 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   if(( sendb == NULL ) || ( recvb == NULL ))
     conn->_status = DBBE_CONNECTION_STATUS_UNSPEC;
 
-  conn->_posted_q = dbBE_Redis_s2r_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
+  dbBE_Redis_s2r_queue_t *queue = dbBE_Redis_s2r_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
+  if( queue == NULL )
+  {
+    rc = ENOMEM;
+    goto error;
+  }
+  conn->_posted_q = queue;
+
+  dbBE_Redis_slot_bitmap_t *slots = dbBE_Redis_slot_bitmap_create();
+  if( slots == NULL )
+  {
+    rc = ENOMEM;
+    goto error;
+  }
+  conn->_slots = slots;
 
   return conn;
+
+error:
+  if( sendb != NULL )
+    dbBE_Redis_sr_buffer_free( sendb );
+  if( recvb != NULL )
+    dbBE_Redis_sr_buffer_free( recvb );
+  if( slots != NULL )
+    dbBE_Redis_slot_bitmap_destroy( slots );
+  if( conn )
+    free( conn );
+
+  errno = rc;
+  return NULL;
 }
 
 /*
@@ -111,6 +138,30 @@ int dbBE_Redis_connection_assign_recvbuf( dbBE_Redis_connection_t *conn,
   else
     conn->_status = DBBE_CONNECTION_STATUS_INITIALIZED;
 
+  return 0;
+}
+
+/*
+ * assign an initial slot range to the connection
+ */
+int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
+                                             int first_slot,
+                                             int last_slot )
+{
+  if( conn == NULL )
+    return -EINVAL;
+
+  if( conn->_slots == NULL )
+    return -ENOENT;
+
+  if(( first_slot >= 0 ) && ( last_slot >= first_slot ))
+  {
+    int n;
+
+    dbBE_Redis_slot_bitmap_reset( conn->_slots );
+    for( n=first_slot; n<last_slot; ++n )
+      dbBE_Redis_slot_bitmap_set( conn->_slots, n );
+  }
   return 0;
 }
 
@@ -204,6 +255,46 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
 #endif
 
   return conn->_address;
+}
+
+int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
+{
+  int rc = 0;
+  if(( conn == NULL ) || ( conn->_status != DBBE_CONNECTION_STATUS_DISCONNECTED ))
+    return -EINVAL;
+
+  int s = socket( conn->_address->_address.sin_family, SOCK_STREAM, 0 );
+  if( s < 0 )
+    return -errno;
+
+  rc = connect( s,
+                (const struct sockaddr*)&(conn->_address->_address),
+                sizeof( conn->_address->_address ) );
+  if( rc == 0 )
+  {
+    conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
+    LOG( DBG_VERBOSE, stdout, "Reconnected connection %d\n", conn->_index );
+  }
+  else
+  {
+    LOG( DBG_ERR, stderr, "Reconnection failed: %s\n", strerror( errno ) );
+    return -errno;
+  }
+
+  conn->_socket = s;
+  char *authfile = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
+  rc = dbBE_Redis_connection_auth( conn, authfile );
+
+  if( authfile != NULL )
+    free( authfile );
+
+  if( rc != 0 )
+  {
+    dbBE_Redis_connection_unlink( conn );
+    return rc;
+  }
+
+  return rc;
 }
 
 static
@@ -349,7 +440,7 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn )
 }
 
 /*
- * disconnect from a Redis instance
+ * disconnect from a Redis instance and destroy the address and socket
  */
 int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
 {
@@ -357,9 +448,10 @@ int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
     return -EINVAL;
 
   close( conn->_socket );
+  conn->_socket = -1;
   conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
-  dbBE_Redis_address_destroy( conn->_address );
-  conn->_address = NULL;
+//  dbBE_Redis_address_destroy( conn->_address );
+//  conn->_address = NULL;
 
   return 0;
 }
@@ -473,6 +565,12 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
 {
   if( conn == NULL )
     return;
+
+  if( conn->_status == DBBE_CONNECTION_STATUS_UNSPEC )
+  {
+    LOG( DBG_ERR, stderr, "Attempting to clean a connection in unspecified state.\n" );
+    return;
+  }
 
   // disconnect if needed
   if(( conn->_status == DBBE_CONNECTION_STATUS_CONNECTED ) ||

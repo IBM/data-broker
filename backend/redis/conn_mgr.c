@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,10 +73,13 @@ void dbBE_Redis_connection_mgr_exit( dbBE_Redis_connection_mgr_t *conn_mgr )
   unsigned n;
   for( n = 0; n < DBBE_REDIS_MAX_CONNECTIONS; ++n )
   {
-    if( conn_mgr->_connections[ n ] == NULL )
+    if(( conn_mgr->_connections[ n ] == NULL ) && ( conn_mgr->_broken[ n ] == NULL ))
       continue;
-    dbBE_Redis_event_mgr_rm( conn_mgr->_ev_mgr, conn_mgr->_connections[ n ] );
-    dbBE_Redis_connection_destroy( conn_mgr->_connections[ n ] );
+    dbBE_Redis_connection_t *c = conn_mgr->_connections[ n ];
+    if( c == NULL )
+      c = conn_mgr->_broken[ n ];
+    dbBE_Redis_event_mgr_rm( conn_mgr->_ev_mgr, c );
+    dbBE_Redis_connection_destroy( c );
   }
 
   dbBE_Redis_event_mgr_exit( conn_mgr->_ev_mgr );
@@ -175,9 +178,75 @@ exit_connect:
 }
 
 
+/*
+ * Move a connection from regular to broken list
+ */
+int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                         dbBE_Redis_connection_t *conn )
+{
+  if(( conn_mgr == NULL ) || ( conn == NULL ))
+  {
+    LOG( DBG_ERR, stderr, "connection_mgr_conn_fail: invalid argument: conn_mgr=%p; conn%p\n", conn_mgr, conn );
+    return -EINVAL;
+  }
+
+  if( conn_mgr->_connection_count <= 0 )
+  {
+    LOG( DBG_ERR, stderr, "connection_mgr_conn_fail: no active connections, can't fail more\n" );
+    return -ENOENT;
+  }
+
+  conn_mgr->_broken[ conn->_index ] = conn;
+  conn_mgr->_connections[ conn->_index ] = NULL;
+  --conn_mgr->_connection_count;
+
+  dbBE_Redis_connection_fail( conn ); // mark failed ...
+  dbBE_Redis_connection_unlink( conn ); // and shut down/disconnect without deleting the addr info
+
+  return 0;
+}
+
+int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                            dbBE_Redis_locator_t *locator )
+{
+  if( conn_mgr == NULL )
+    return -EINVAL;
+
+  unsigned c;
+  int recovered = 0;
+  for( c=0; c < DBBE_REDIS_MAX_CONNECTIONS; ++c )
+  {
+    dbBE_Redis_connection_t *rec = conn_mgr->_broken[ c ];
+    if( rec != NULL )
+    {
+      rec->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
+      if( dbBE_Redis_connection_reconnect( rec ) == 0 )
+      {
+        int slot;
+        conn_mgr->_connections[ c ] = rec;
+        conn_mgr->_broken[ c ] = NULL;
+        ++conn_mgr->_connection_count;
+        ++recovered;
+        dbBE_Redis_slot_bitmap_t *bitmap = dbBE_Redis_connection_get_slot_range( rec );
+        for( slot=0;
+            (locator != NULL) && ( bitmap != NULL ) && (slot < DBBE_REDIS_HASH_SLOT_MAX);
+            ++slot )
+        {
+          if( dbBE_Redis_slot_bitmap_get( bitmap, slot ) != 0 )
+            dbBE_Redis_locator_assign_conn_index( locator, c, slot );
+        }
+      }
+      else
+      {
+        LOG( DBG_VERBOSE, stderr, "conn_mgr_conn_recover: failed to reconnect index %d\n", rec->_index );
+      }
+    }
+  }
+  return recovered;
+}
 
 /*
- * Remove a connection from the mgr
+ * Remove a connection from the mgr regardless of status
  */
 int dbBE_Redis_connection_mgr_rm( dbBE_Redis_connection_mgr_t *conn_mgr,
                                   dbBE_Redis_connection_t *conn )
@@ -195,22 +264,31 @@ int dbBE_Redis_connection_mgr_rm( dbBE_Redis_connection_mgr_t *conn_mgr,
   }
 
   unsigned i = 0;
-  for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS) && (conn_mgr->_connections[ i ] != conn); ++i ) {}
+  for( i = 0;
+      (i < DBBE_REDIS_MAX_CONNECTIONS) &&
+          ((conn_mgr->_connections[ i ] != conn) && (conn_mgr->_broken[ i ] != conn ));
+      ++i )
+  {}
   if( i >= DBBE_REDIS_MAX_CONNECTIONS )
   {
     LOG( DBG_ERR, stderr, "connection_mgr_rm: connection not found. Can't delete.\n" );
     return -ENOENT;
   }
 
-  conn_mgr->_connections[ i ] = NULL;
-  --conn_mgr->_connection_count;
-
-  int rc = dbBE_Redis_event_mgr_rm( conn_mgr->_ev_mgr, conn );
-  if( rc != 0 )
+  // only remove from event mgr if it wasn't broken already
+  if( conn_mgr->_connections[ i ] == conn )
   {
-    LOG( DBG_ERR, stderr, "connection_mgr_rm: failed to remove connection from event mgr.\n" );
-    return rc;
+    int rc = dbBE_Redis_event_mgr_rm( conn_mgr->_ev_mgr, conn );
+    if( rc != 0 )
+    {
+      LOG( DBG_ERR, stderr, "connection_mgr_rm: failed to remove connection from event mgr.\n" );
+      return rc;
+    }
+    --conn_mgr->_connection_count;
   }
+
+  conn_mgr->_broken[ i ] = NULL;
+  conn_mgr->_connections[ i ] = NULL;
 
   return 0;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "locator.h"
 #include "sr_buffer.h"
 #include "s2r_queue.h"
+#include "slot_bitmap.h"
 
 typedef enum
 {
@@ -43,6 +44,7 @@ typedef struct
   dbBE_Redis_sr_buffer_t *_sendbuf;
   dbBE_Redis_sr_buffer_t *_recvbuf;
   dbBE_Redis_s2r_queue_t *_posted_q;
+  dbBE_Redis_slot_bitmap_t *_slots;
   volatile dbBE_Connection_status_t _status;
 } dbBE_Redis_connection_t;
 
@@ -58,12 +60,19 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 /*
  * return the connection status of the Redis connection
  */
-#define dbBE_Redis_connection_get_status( conn ) ( ( conn != NULL ) ? conn->_status : DBBE_CONNECTION_STATUS_UNSPEC )
+#define dbBE_Redis_connection_get_status( conn ) ( ( (conn) != NULL ) ? (conn)->_status : DBBE_CONNECTION_STATUS_UNSPEC )
 
 /*
  * return the index of a connection in the connection mgr (-1 if connection is not known to be in connection mgr)
  */
-#define dbBE_Redis_connection_get_index( conn ) ( ( conn != NULL ) ? conn->_index : -1 )
+#define dbBE_Redis_connection_get_index( conn ) ( ( (conn) != NULL ) ? (conn)->_index : -1 )
+
+/*
+ * return the slot-range bitmap ptr
+ */
+#define dbBE_Redis_connection_get_slot_range( conn ) ( ( (conn) != NULL ) ? (conn)->_slots : NULL )
+
+
 
 /*
  * set connection status to reflect ready to recv (i.e. pending data)
@@ -88,6 +97,15 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 #define dbBE_Redis_connection_RTS( conn ) \
   ( ((conn)->_status == DBBE_CONNECTION_STATUS_CONNECTED ) || dbBE_Redis_connection_RTR( conn ) )
 
+
+/*
+ * assign an initial slot range to the connection
+ */
+int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
+                                             int first_slot,
+                                             int last_slot );
+
+
 /*
  * connect to a Redis instance given by the host and port
  * it will connect and then return the created Redis address type
@@ -96,6 +114,11 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
                                                   const char *host,
                                                   const char *port,
                                                   const char *authfile );
+
+/*
+ * reconnect to a Redis instance that was connected before
+ */
+int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn );
 
 /*
  * receive data from a connection and place data into the attached sr_buffer

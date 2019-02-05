@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@
 
 #include "definitions.h"
 #include "connection.h"
+#include "locator.h"
 #include "event_mgr.h"
 
 typedef struct
 {
   // connection list
   dbBE_Redis_connection_t *_connections[ DBBE_REDIS_MAX_CONNECTIONS ];
+  dbBE_Redis_connection_t *_broken[ DBBE_REDIS_MAX_CONNECTIONS ];
 //  pthread_mutex_lock_t _lock;
 
   int _connection_count;
@@ -56,6 +58,19 @@ void dbBE_Redis_connection_mgr_exit( dbBE_Redis_connection_mgr_t *conn_mgr );
 int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
                                    dbBE_Redis_connection_t *conn );
 
+
+/*
+ * fail a tracked connection
+ */
+int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                         dbBE_Redis_connection_t *conn );
+
+/*
+ * attempt to recover the conn_mgr connectivity
+ */
+int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                            dbBE_Redis_locator_t *locator );
+
 /*
  * Remove a connection from the mgr
  */
@@ -65,7 +80,9 @@ int dbBE_Redis_connection_mgr_rm( dbBE_Redis_connection_mgr_t *conn_mgr,
 /*
  * Insert and connect a new connection
  */
-dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink();
+dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                            char *host,
+                                                            char *port );
 
 /*
  * get the number of (active) connections
