@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,6 +79,13 @@ typedef enum
   DBBE_OPCODE_MAX  /**< Non-implemented operation to simplify range checks for opcodes  */
 } dbBE_Opcode;
 
+enum
+{
+  DBBE_OPCODE_FLAGS_NONE = 0,
+  DBBE_OPCODE_FLAGS_IMMEDIATE = 0x1
+};
+
+
 /**
  * @struct dbBE_Request dbbe_api.h "backend/common/dbbe_api.h"
  *
@@ -95,6 +102,7 @@ typedef struct dbBE_Request
   DBR_Group_t _group;          /**< group */
   DBR_Tuple_name_t _key;       /**< key/tuple name */
   DBR_Tuple_template_t _match; /**< match template */
+  int64_t _flags;              /**< any special flags or modifiers for the request */
   int _sge_count;              /**< number of sge's */
   dbBE_sge_t _sge[];           /**< SGE's */
 } dbBE_Request_t;
