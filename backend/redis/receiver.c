@@ -294,6 +294,13 @@ process_next_item:
         }
         else // handle errors
         {
+          if( rc == -EAGAIN )
+          {
+            dbBE_Redis_result_cleanup( &result, 0 );
+            dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
+            goto skip_receiving;
+          }
+
           completion = dbBE_Redis_complete_error(
               request,
               &result,
