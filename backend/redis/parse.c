@@ -529,6 +529,34 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
 }
 
 
+int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
+                               dbBE_Redis_result_t *result )
+{
+  int rc = 0;
+  rc = dbBE_Redis_process_general( request, result );
+  if( rc == 0 )
+  {
+    switch( result->_data._integer )
+    {
+      case 0:
+        dbBE_Redis_result_cleanup( result, 0 );
+        result->_type = dbBE_REDIS_TYPE_INT;
+        result->_data._integer = -ENOENT;
+        rc = -ENOENT;
+        break;
+
+      case 1:
+        rc = 0;
+        break;
+
+      default:
+        LOG( DBG_ERR, stderr, "Remove found duplicate entries for %s\n", request->_user->_key );
+        break;
+    }
+  }
+  return rc;
+}
+
 int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
                                   dbBE_Redis_result_t *result,
                                   dbBE_Data_transport_t *transport,
