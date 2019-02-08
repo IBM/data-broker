@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -164,6 +164,16 @@ DBR_Errorcode_t dbrProcess_completion( dbrRequestContext_t *rctx,
 }
 
 /*
+ * signals a request cancellation to the back-end
+ */
+DBR_Errorcode_t dbrCancel_request( dbrName_space_t *cs, dbrRequestContext_t *req_rctx )
+{
+  if(( cs == NULL ) || ( req_rctx == NULL ))
+    return DBR_ERR_INVALID;
+  return g_dbBE.cancel( cs->_be_ctx, req_rctx->_be_request_hdl );
+}
+
+/*
  * grabs the first entry of the completion queue
  * processes the completion
  * if it was the desired request, then returns: the status (success/error)
@@ -222,16 +232,22 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
    * Only uses gettimeofday every N loops to reduce the number of syscalls
    */
 
-  uint64_t timeloops = 0; // have a loop count to reduce the amount of gettimeofday calls
+  /*
+   * have a loop count to reduce the amount of gettimeofday calls
+   * start with negative offset to prevent the syscall for the first N iterations
+   */
+  uint64_t timeloops = (uint64_t)-100;
+  uint64_t timecalls = 0;
   do
   {
     rc = dbrTest_request( cs, hdl );
     if((rc == DBR_ERR_INPROGRESS)
        && enable_timeout)
     {
-      if( ((++timeloops) & 0xFFFF ) == 0 )
+      if( ((++timeloops) & 0x3FFF ) == 0 )
       {
         gettimeofday( &now, NULL );
+        ++timecalls;
         if( start_time.tv_sec == 0 )
         {
           start_time.tv_sec = now.tv_sec;
@@ -246,6 +262,13 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
 
   // ToDo: if Timeout -> send first a cancel and wait for acknowledge.
   //       otherwise internal structures could be in danger.
+  if(( rc == DBR_ERR_INPROGRESS )&& (elapsed.tv_sec >= cs->_reverse->_config._timeout_sec))
+  {
+    dbrCancel_request( cs, hdl );
+    rc = DBR_ERR_INPROGRESS;
+    while( rc == DBR_ERR_INPROGRESS )
+      rc = dbrTest_request( cs, hdl );
+  }
 
   return rc;
 }

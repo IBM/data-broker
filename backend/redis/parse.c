@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -499,7 +499,10 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
         result->_type = dbBE_REDIS_TYPE_INT;
         result->_data._integer = -ENOENT;
-        return -ENOENT;
+        if( request->_user->_flags & DBBE_OPCODE_FLAGS_IMMEDIATE )
+          return -ENOENT;
+        else
+          return -EAGAIN;
       }
 
       int64_t transferred = transport->scatter( (dbBE_Data_transport_device_t*)result->_data._string._data,

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,6 +94,8 @@ libdbrRead(DBR_Handle_t cs_handle,
     goto error;
   }
 
+  ctx->_req._flags = (enable_timeout == 0 ? DBBE_OPCODE_FLAGS_IMMEDIATE : DBBE_OPCODE_FLAGS_NONE );
+
   if( dbrInsert_request( cs, ctx ) == DB_TAG_ERROR )
   {
     rc = DBR_ERR_TAGERROR;
@@ -122,6 +124,12 @@ libdbrRead(DBR_Handle_t cs_handle,
   case DBR_ERR_BE_GENERAL:
     if( enable_timeout == 0 )
       rc = DBR_ERR_UNAVAIL;
+    break;
+  case DBR_ERR_CANCELLED:
+    if( enable_timeout == 0 )
+      rc = DBR_ERR_UNAVAIL;
+    else
+      rc = DBR_ERR_TIMEOUT;
     break;
   default:
     goto error;
