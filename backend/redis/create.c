@@ -339,9 +339,17 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       }
       break;
     }
+    case DBBE_OPCODE_REMOVE:
+    {
+      if( stage->_stage != 0 ) // Read is only a single stage request
+        return -EINVAL;
+
+      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
+      len += dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
+      break;
+    }
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
-    case DBBE_OPCODE_REMOVE:
     case DBBE_OPCODE_UNSPEC:
     case DBBE_OPCODE_MAX:
     default:
@@ -372,6 +380,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_PUT:
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_REMOVE:
     {
       int len = snprintf( keybuf, size, "%s%s%s",
                           request->_user->_ns_name,
@@ -407,7 +416,6 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
     case DBBE_OPCODE_CANCEL:
-    case DBBE_OPCODE_REMOVE:
       errno = ENOSYS;
       return NULL;
     case DBBE_OPCODE_UNSPEC:
