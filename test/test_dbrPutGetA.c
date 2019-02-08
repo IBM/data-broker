@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,6 +133,33 @@ int main( int argc, char ** argv )
   out_size = 1024;
   rc += TEST_NOT( DBR_SUCCESS, dbrRead( cs_hdl, out, &out_size, "testTup", "", 0, DBR_FLAGS_NONE ) );
 
+  // testing sequence where getA is posted before put
+  memset( out, 0, out_size );
+  out_size = 1024;
+  gettimeofday( &start_time, NULL );
+
+  tag = dbrGetA( cs_hdl, out, &out_size, "testTuple", "", 0 ); // post the get for non-existing tuple
+  rc += TEST_NOT( DB_TAG_ERROR, tag );
+
+  if( tag != DB_TAG_ERROR )
+  {
+    rc += TEST( DBR_SUCCESS, dbrPut( cs_hdl, in, in_size, "testTuple", DBR_GROUP_EMPTY ) ); // put the data
+    do  // test for the get to complete successfully
+    {
+      state = dbrTest( tag );
+      rc += TEST_NOT( DBR_ERR_GENERIC, state );
+      rc += TEST_NOT( DBR_ERR_TAGERROR, state );
+      if( state == DBR_ERR_INPROGRESS )
+      {
+        usleep( 100000 );
+        gettimeofday( &now, NULL );
+      }
+    } while( (state == DBR_ERR_INPROGRESS ) && ( (now.tv_sec - start_time.tv_sec ) <= 2 ));
+  }
+
+  rc += TEST( DBR_SUCCESS, state );
+  rc += TEST( in_size, out_size );
+  rc += TEST( strncmp( in, out, 1024 ), 0 );
 
   // delete the name space
   ret = dbrDelete( name );
