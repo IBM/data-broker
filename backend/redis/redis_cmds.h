@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -139,6 +139,22 @@ int dbBE_Redis_command_lindex_create( dbBE_Redis_command_stage_spec_t *stage,
 
   return len;
 }
+
+int dbBE_Redis_command_del_create( dbBE_Redis_command_stage_spec_t *stage,
+                                   dbBE_Redis_sr_buffer_t *sr_buf,
+                                   char *keybuffer )
+{
+  int len = 0;
+  dbBE_Redis_data_t data;
+  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+  if( len < 0 )
+    return -EINVAL;
+  data._string._data = keybuffer;
+  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+  return len;
+}
+
 
 int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
                                       dbBE_Redis_sr_buffer_t *sr_buf,

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -285,12 +285,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
           if( request->_status.nsdelete.scankey == NULL )
             return -EINVAL;
 
-          len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-          if( len < 0 )
-            break;
-          data._string._data = request->_status.nsdelete.scankey;
-          data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-          len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+          len += dbBE_Redis_command_del_create( stage, sr_buf, request->_status.nsdelete.scankey );
           break;
 
         case DBBE_REDIS_NSDELETE_STAGE_DELNS: // DEL ns_name
