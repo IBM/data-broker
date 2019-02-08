@@ -232,16 +232,22 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
    * Only uses gettimeofday every N loops to reduce the number of syscalls
    */
 
-  uint64_t timeloops = 0; // have a loop count to reduce the amount of gettimeofday calls
+  /*
+   * have a loop count to reduce the amount of gettimeofday calls
+   * start with negative offset to prevent the syscall for the first N iterations
+   */
+  uint64_t timeloops = (uint64_t)-100;
+  uint64_t timecalls = 0;
   do
   {
     rc = dbrTest_request( cs, hdl );
     if((rc == DBR_ERR_INPROGRESS)
        && enable_timeout)
     {
-      if( ((++timeloops) & 0xFFFF ) == 0 )
+      if( ((++timeloops) & 0x3FFF ) == 0 )
       {
         gettimeofday( &now, NULL );
+        ++timecalls;
         if( start_time.tv_sec == 0 )
         {
           start_time.tv_sec = now.tv_sec;
