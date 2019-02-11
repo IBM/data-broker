@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,6 +92,12 @@ int dbBE_Redis_process_put( dbBE_Redis_request_t *request,
 int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
                             dbBE_Redis_result_t *result,
                             dbBE_Data_transport_t *transport );
+
+/*
+ * process the response data of a remove request
+ */
+int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
+                               dbBE_Redis_result_t *result );
 
 /*
  * process the response data of a directory request

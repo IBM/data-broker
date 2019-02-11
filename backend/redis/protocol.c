@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -274,6 +274,23 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   s->_stage = stage;
 
   gRedis_command_spec = specs;
+
+
+  /*
+   * Remove command
+   * - DEL ns_name::key
+   */
+  op = DBBE_OPCODE_REMOVE;
+  stage = 0;
+  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
+  s = &specs[ index ];
+  s->_array_len = 2;
+  s->_final = 1;
+  s->_result = 1;
+  s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
+  strcpy( s->_command, "DEL" );
+  s->_stage = stage;
+
 
   return specs;
 }

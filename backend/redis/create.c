@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -285,12 +285,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
           if( request->_status.nsdelete.scankey == NULL )
             return -EINVAL;
 
-          len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-          if( len < 0 )
-            break;
-          data._string._data = request->_status.nsdelete.scankey;
-          data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-          len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+          len += dbBE_Redis_command_del_create( stage, sr_buf, request->_status.nsdelete.scankey );
           break;
 
         case DBBE_REDIS_NSDELETE_STAGE_DELNS: // DEL ns_name
@@ -344,9 +339,17 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       }
       break;
     }
+    case DBBE_OPCODE_REMOVE:
+    {
+      if( stage->_stage != 0 ) // Read is only a single stage request
+        return -EINVAL;
+
+      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
+      len += dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
+      break;
+    }
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
-    case DBBE_OPCODE_REMOVE:
     case DBBE_OPCODE_UNSPEC:
     case DBBE_OPCODE_MAX:
     default:
@@ -377,6 +380,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_PUT:
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_REMOVE:
     {
       int len = snprintf( keybuf, size, "%s%s%s",
                           request->_user->_ns_name,
@@ -412,7 +416,6 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
     case DBBE_OPCODE_CANCEL:
-    case DBBE_OPCODE_REMOVE:
       errno = ENOSYS;
       return NULL;
     case DBBE_OPCODE_UNSPEC:
