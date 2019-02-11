@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -205,6 +205,11 @@ int main( int argc, char ** argv )
   rc += TEST_RC( dbrGet( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NOWAIT ), DBR_ERR_UNAVAIL, ret );
   rc += KeyTest( cs_hdl, "testTup", DBR_ERR_UNAVAIL );
 
+
+  // testing of remove cmd
+  rc += PutTest( cs_hdl, "testTup", "HelloWorld1", 11 );
+  rc += TEST_RC( dbrRemove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "" ), DBR_SUCCESS, ret );
+  rc += TEST_RC( dbrGet( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NOWAIT ), DBR_ERR_UNAVAIL, ret );
 
   free( longIn );
   free( longOut );
