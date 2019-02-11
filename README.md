@@ -22,29 +22,36 @@ cmake uses an out-of-source build tree and in order to build it, it's
 best to:
 
 a) create a build directory
-     mkdir build
-
+```
+mkdir build
+```
 b) switch to that dir
-     cd build
-
+```
+cd build
+```
 c) run cmake:
-     cmake <source_dir> [options]
-     
-   with options:
-     -DCMAKE_INSTALL_PREFIX=<path>     set the install path (default: /usr/local)
-     -DAPPLE=1                         when building for MAC OS
-     -DDEFAULT_BE=<backend-path-name>  what backend to link by default (default: redis)
-     
-   example:
-     when run from the created 'build' dir and to prepare installation in /opt/databroker:
-         cmake ../ -DCMAKE_INSTALL_PREFIX=/opt/databroker
-
+```
+cmake <source_dir> [options]
+``` 
+with options:
+```
+-DCMAKE_INSTALL_PREFIX=<path>     set the install path (default: /usr/local)
+-DAPPLE=1                         when building for MAC OS
+-DDEFAULT_BE=<backend-path-name>  what backend to link by default (default: redis)
+```     
+example:
+when run from the created 'build' dir and to prepare installation in `/opt/databroker`:
+```
+cmake ../ -DCMAKE_INSTALL_PREFIX=/opt/databroker
+```
 d) run make
-     make
-
+```
+make
+```
 e) install
-     make install
-
+```
+make install
+```
 
 
 ## 2 Setting up Redis:
@@ -66,7 +73,7 @@ Setting up Redis cluster is more tricky with authorization enabled.
 Most important to make it as easy as possible: all instances need to
 use the same password.  One way (not the only) to create the cluster
 is to omit the password in the beginning, then use the recommended
-redis-trib.rb script to create and configure the cluster. After it's
+`redis-trib.rb` script to create and configure the cluster. After it's
 set up, you'd add the password configuration to the config file of
 each instance and restart.  Newer versions of redis-trib (since
 version 4.0.6) allow to provide the password via command line so
@@ -86,7 +93,7 @@ too.
 
 After running make install in the Data Broker build directory, you
 should have a directory with include file and libraries located in
-the place you specified with the cmake command (or under /usr/local).
+the place you specified with the cmake command (or under `/usr/local`).
 
 
 
