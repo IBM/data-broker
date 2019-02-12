@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,11 +34,17 @@ typedef struct dbBE_Redis_intern_directory_data
   dbBE_Refcounter_t *reference;
 } dbBE_Redis_intern_directory_data_t;
 
+typedef struct dbBE_Redis_intern_move_data
+{
+  char *dumped_value;
+  size_t len;
+} dbBE_Redis_intern_move_data_t;
 
 typedef union dbBE_Redis_intern_data
 {
   dbBE_Redis_intern_delete_data_t  nsdelete;
   dbBE_Redis_intern_directory_data_t directory;
+  dbBE_Redis_intern_move_data_t move;
 } dbBE_Redis_intern_data_t;
 
 
