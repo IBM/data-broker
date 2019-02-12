@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,15 @@ typedef enum
   DBBE_REDIS_NSDELETE_STAGE_DELNS = 3
 } dbBE_Redis_nsdelete_stages_t;
 
+/*
+ * enumeration of the move key stages
+ */
+typedef enum
+{
+  DBBE_REDIS_MOVE_STAGE_DUMP = 0,
+  DBBE_REDIS_MOVE_STAGE_RESTORE = 1,
+  DBBE_REDIS_MOVE_STAGE_DEL = 2
+} dbBE_Redis_move_stages_t;
 
 /*
  * holds the generic spec of a command stage

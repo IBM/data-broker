@@ -273,9 +273,6 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   strcpy( s->_command, "DEL" );
   s->_stage = stage;
 
-  gRedis_command_spec = specs;
-
-
   /*
    * Remove command
    * - DEL ns_name::key
@@ -291,6 +288,45 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   strcpy( s->_command, "DEL" );
   s->_stage = stage;
 
+  /*
+   * Move command
+   * - dump <ns>::<tuplename>              (whole value, old place)
+   * - restore <ns>::<tuplename> 0 <value> (whole value, old place)
+   * - del <ns>::<tuplename>               (old place)
+   */
+  op = DBBE_OPCODE_MOVE;
+  stage = DBBE_REDIS_MOVE_STAGE_DUMP;
+  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
+  s = &specs[ index ];
+  s->_array_len = 2;
+  s->_final = 0;
+  s->_result = 0;
+  s->_expect = dbBE_REDIS_TYPE_CHAR; // will return serialized sequence of tuple
+  strcpy( s->_command, "DUMP" );
+  s->_stage = stage;
+
+  stage = DBBE_REDIS_MOVE_STAGE_RESTORE;
+  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
+  s = &specs[ index ];
+  s->_array_len = 4;
+  s->_final = 0;
+  s->_result = 0;
+  s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
+  strcpy( s->_command, "RESTORE" );
+  s->_stage = stage;
+
+  stage = DBBE_REDIS_MOVE_STAGE_DEL;
+  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
+  s = &specs[ index ];
+  s->_array_len = 2;
+  s->_final = 1;
+  s->_result = 1;
+  s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
+  strcpy( s->_command, "DEL" );
+  s->_stage = stage;
+
+
+  gRedis_command_spec = specs;
 
   return specs;
 }
