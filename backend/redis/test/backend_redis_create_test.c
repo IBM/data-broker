@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -321,6 +321,64 @@ int main( int argc, char ** argv )
               0 );
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
   dbBE_Redis_request_destroy( req );
+
+
+
+  // create a move command
+  ureq->_opcode = DBBE_OPCODE_MOVE;
+  ureq->_key = "TestTup";
+
+  req = dbBE_Redis_request_allocate( ureq );
+  rc += TEST_NOT( req, NULL );
+
+  rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_DUMP );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*2\r\n$4\r\nDUMP\r\n$15\r\nTestNS::TestTup\r\n",
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  req->_status.move.dumped_value = strdup( "SerializedValueOfTestTup" );
+
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+  rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_RESTORE );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  ureq->_sge[0].iov_base = strdup( "Target" );
+  ureq->_sge[0].iov_len = 6;
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*4\r\n$7\r\nRESTORE\r\n$15\r\nTarget::TestTup\r\n$1\r\n0\r\n$24\r\nSerializedValueOfTestTup\r\n",
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+  rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_DEL );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$15\r\nTestNS::TestTup\r\n", // delkeys uses the key only (the prefix is already in the key, internally)
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  if( req->_status.move.dumped_value != NULL )
+    free( req->_status.move.dumped_value );
+  req->_status.move.dumped_value = NULL;
+  if( ureq->_sge[0].iov_base != NULL )
+    free( ureq->_sge[0].iov_base );
+  ureq->_sge[0].iov_base = NULL;
+  dbBE_Redis_request_destroy( req );
+
+
 
 
 
