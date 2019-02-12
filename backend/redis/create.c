@@ -146,6 +146,29 @@ int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_T
   return data_len;
 }
 
+/*
+ * create the key, based on the command type
+ */
+static inline
+char* dbBE_Redis_create_dest_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
+{
+  if( keybuf == NULL )
+  {
+    errno = EINVAL;
+    return NULL;
+  }
+  memset( keybuf, 0, size );
+  int len = snprintf( keybuf, size, "%s%s%s",
+                      request->_user->_sge[0].iov_base, // destination namespace is in the first SGE arg
+                      DBBE_REDIS_NAMESPACE_SEPARATOR,
+                      request->_user->_key );
+  if(( len < 0 ) || ( len >= size ))
+  {
+    errno = EMSGSIZE;
+    return NULL;
+  }
+  return keybuf;
+}
 
 /*
  * convert a redis request into a command string in sr_buf
@@ -212,7 +235,25 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     }
     case DBBE_OPCODE_MOVE:
     {
-      fprintf(stderr, "%s:%s(): ERROR: ToDo not implemented\n", __FILE__, __FUNCTION__);
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_MOVE_STAGE_DUMP:
+          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+            return -EBADMSG;
+          len = dbBE_Redis_command_dump_create( stage, sr_buf, keybuffer );
+          break;
+
+        case DBBE_REDIS_MOVE_STAGE_RESTORE:
+          if( dbBE_Redis_create_dest_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+            return -EBADMSG;
+          len = dbBE_Redis_command_restore_create( stage, sr_buf, keybuffer, request->_status.move );
+          break;
+        case DBBE_REDIS_MOVE_STAGE_DEL:
+          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+            return -EBADMSG;
+          len = dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
+          break;
+      }
       break;
     }
     case DBBE_OPCODE_DIRECTORY:
@@ -381,6 +422,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_REMOVE:
+    case DBBE_OPCODE_MOVE:  // only covers the DUMP-stage
     {
       int len = snprintf( keybuf, size, "%s%s%s",
                           request->_user->_ns_name,
@@ -391,11 +433,6 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
         errno = EMSGSIZE;
         return NULL;
       }
-      break;
-    }
-    case DBBE_OPCODE_MOVE:
-    {
-      fprintf(stderr, "%s:%s(): ERROR: ToDo not implemented\n", __FILE__, __FUNCTION__);
       break;
     }
     case DBBE_OPCODE_DIRECTORY:
