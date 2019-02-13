@@ -61,6 +61,16 @@ int dbBE_Redis_create_send_error( dbBE_Completion_queue_t *cq, dbBE_Redis_reques
   return 0;
 }
 
+static inline
+int dbBE_Redis_cmd_stage_needs_rekeying( dbBE_Redis_request_t *request )
+{
+  int check = 0;
+  check += ( request->_step->_stage == 0 ); // all first-stage requests need to get checked
+  check += ( request->_user->_opcode == DBBE_OPCODE_MOVE ); // MOVE cmd needs re-keying for each stage
+
+  return check;
+}
+
 
 /*
  * sender function, creates requests to redis
@@ -115,15 +125,31 @@ void* dbBE_Redis_sender( void *args )
    * because the key might have changed and then the conn-index would be off.
    * Also, check the hash-coverage in case there were any connection failures.
    */
-
-  char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
-  if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+  if( dbBE_Redis_cmd_stage_needs_rekeying( request ) != 0 )
   {
-    dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -EINVAL );
-    goto skip_sending;
+    char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
+    if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+    {
+      dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -EINVAL );
+      goto skip_sending;
+    }
+
+    // use locator to retrieve address (unless it's a redirect - ASK redirects are temporary and will not update the locator mapping)
+    uint16_t slot = dbBE_Redis_locator_hash( keybuffer, strnlen( keybuffer, DBBE_REDIS_MAX_KEY_LEN ) );
+    request->_conn_index = dbBE_Redis_locator_get_conn_index( input->_backend->_locator, slot );
+
+    if( request->_conn_index == DBBE_REDIS_LOCATOR_INDEX_INVAL )
+    {
+      dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
+      goto skip_sending;
+    }
   }
 
-  // check server connections
+  /*
+   * check server connections,
+   * fail any request if there's a connection missing
+   * because the cluster will not accept new requests anyway
+   */
   if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
   {
     if( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr, input->_backend->_locator ) == 0 )
@@ -131,16 +157,6 @@ void* dbBE_Redis_sender( void *args )
       dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
       goto skip_sending;
     }
-  }
-
-  // use locator to retrieve address (unless it's a redirect - ASK redirects are temporary and will not update the locator mapping)
-  uint16_t slot = dbBE_Redis_locator_hash( keybuffer, strnlen( keybuffer, DBBE_REDIS_MAX_KEY_LEN ) );
-  request->_conn_index = dbBE_Redis_locator_get_conn_index( input->_backend->_locator, slot );
-
-  if( request->_conn_index == DBBE_REDIS_LOCATOR_INDEX_INVAL )
-  {
-    dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
-    goto skip_sending;
   }
 
   // check for any cancelled requests and process cancellations
