@@ -557,6 +557,43 @@ int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
   return rc;
 }
 
+int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
+                             dbBE_Redis_result_t *result )
+{
+  int rc = 0;
+  rc = dbBE_Redis_process_general( request, result );
+
+  switch( request->_step->_stage )
+  {
+    case DBBE_REDIS_MOVE_STAGE_DUMP:
+      if( rc == 0 )
+      {
+        // create a mem-region to store the dumped data
+        char *buf = (char*)calloc( result->_data._string._size + 8, sizeof( char ) );
+        memcpy( buf, result->_data._string._data, result->_data._string._size );
+        request->_status.move.dumped_value = buf;
+        request->_status.move.len = result->_data._string._size;
+      }
+      break;
+
+    case DBBE_REDIS_MOVE_STAGE_RESTORE:
+      if( request->_status.move.dumped_value != NULL )
+        free( request->_status.move.dumped_value );
+      request->_status.move.dumped_value = NULL;
+      request->_status.move.len = 0;
+      break;
+
+    case DBBE_REDIS_MOVE_STAGE_DEL:
+      break;
+
+    default:
+      LOG( DBG_ERR, stderr, "Invalid request stage (%d) while processing move cmd.\n", (int)request->_step->_stage );
+      return_error_clean_result( rc, result );
+      break;
+  }
+  return rc;
+}
+
 int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
                                   dbBE_Redis_result_t *result,
                                   dbBE_Data_transport_t *transport,
