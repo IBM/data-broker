@@ -343,6 +343,7 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
 
   req->_status.move.dumped_value = strdup( "SerializedValueOfTestTup" );
+  req->_status.move.len = 24;
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_RESTORE );
