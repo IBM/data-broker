@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,22 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
 
   if( op >= DBBE_OPCODE_MAX )
     return NULL;
+
+  dbBE_sge_t move_sge[2];
+  switch( op )
+  {
+    case DBBE_OPCODE_MOVE:
+      // for the move cmd, we'll put the destination cs and group into the SGE/value
+      sge_count = 2;
+      move_sge[0].iov_base = dst_cs->_db_name;
+      move_sge[0].iov_len = strnlen( dst_cs->_db_name, DBR_MAX_KEY_LEN );
+      move_sge[1].iov_base = dst_group;
+      move_sge[1].iov_len = sizeof( DBR_Group_t );
+      sge = move_sge;
+      break;
+    default:
+      break;
+  }
 
   dbrRequestContext_t *req = (dbrRequestContext_t*)calloc( 1, sizeof( dbrRequestContext_t ) + sge_count * sizeof(dbBE_sge_t) );
   if( req == NULL )
