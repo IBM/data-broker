@@ -578,6 +578,7 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
      ( conn->_status == DBBE_CONNECTION_STATUS_PENDING_DATA ))
     dbBE_Redis_connection_unlink( conn );
 
+  dbBE_Redis_slot_bitmap_destroy( conn->_slots );
   dbBE_Redis_s2r_queue_destroy( conn->_posted_q );
   dbBE_Redis_sr_buffer_free( conn->_sendbuf );
   dbBE_Redis_sr_buffer_free( conn->_recvbuf );
