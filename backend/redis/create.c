@@ -93,14 +93,12 @@ int Redis_insert_bulk_string_head( char *buf, const size_t size )
  * use for short data only
  * large data should use the transports
  */
-int Redis_insert_raw( char *buf, const char *data )
+int Redis_insert_raw( char *buf, const char *data, const size_t size )
 {
   if( buf == NULL )
     return -1;
-  size_t len = sprintf( buf, "%s", data );
-  if( len < strlen( data ) )
-    return -1;
-  return (int)len;
+  memcpy( buf, data, size );
+  return (int)size;
 }
 
 
@@ -120,7 +118,7 @@ int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_T
       data_len = Redis_insert_bulk_string_head( writepos, data->_integer );
       break;
     case dbBE_REDIS_TYPE_RAW:
-      data_len = Redis_insert_raw( writepos, data->_string._data );
+      data_len = Redis_insert_raw( writepos, data->_string._data, data->_string._size );
       break;
     case dbBE_REDIS_TYPE_INT:  ///< integer
       data_len = Redis_insert_integer( writepos, data->_integer );
