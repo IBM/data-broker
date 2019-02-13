@@ -570,6 +570,9 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
       {
         // create a mem-region to store the dumped data
         char *buf = (char*)calloc( result->_data._string._size + 8, sizeof( char ) );
+        if( buf == NULL )
+          return_error_clean_result( -ENOMEM, result );
+
         memcpy( buf, result->_data._string._data, result->_data._string._size );
         request->_status.move.dumped_value = buf;
         request->_status.move.len = result->_data._string._size;
