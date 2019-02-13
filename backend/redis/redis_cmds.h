@@ -360,8 +360,9 @@ int dbBE_Redis_command_restore_create( dbBE_Redis_command_stage_spec_t *stage,
 
   data._string._data = dump_data.dumped_value;
   data._string._size = dump_data.len;
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_STRING_HEAD, &data );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_RAW, &data );
+  len += dbBE_Redis_command_create_terminate( sr_buf );
   return len;
 }
 
