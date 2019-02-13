@@ -223,6 +223,10 @@ process_next_item:
             rc = dbBE_Redis_process_remove( request, &result );
             break;
 
+          case DBBE_OPCODE_MOVE:
+            rc = dbBE_Redis_process_move( request, &result );
+            break;
+
           case DBBE_OPCODE_DIRECTORY:
             rc = dbBE_Redis_process_directory( &request, &result,
                                                input->_backend->_transport,
