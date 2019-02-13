@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -454,7 +454,76 @@ int TestDirectory( const char *namespace,
   return rc;
 }
 
+int TestMove( const char *namespace,
+              dbBE_Redis_sr_buffer_t *sr_buf,
+              dbBE_Redis_request_t *req )
+{
+  int rc = 0;
+  int len = 0;
 
+  dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
+
+  // stage: DUMP
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  "$10\r\nDumpedData\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_move( req, &result ), 0 );
+
+  rc += TEST( strncmp( (char*)result._data._string._data, "DumpedData", 10 ), 0 );
+  rc += TEST( result._data._string._size, 10 );
+  rc += TEST_NOT( req->_status.move.dumped_value, NULL );
+  rc += TEST( req->_status.move.len, 10 );
+
+  // stage: RESTORE
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  "$2\r\nOK\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_move( req, &result ), 0 );
+
+  rc += TEST( strncmp( (char*)result._data._string._data, "OK", 2 ), 0 );
+  rc += TEST( result._data._string._size, 2 );
+  rc += TEST( req->_status.move.dumped_value, NULL );
+  rc += TEST( req->_status.move.len, 0 );
+
+
+  // stage: DEL
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  ":1\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_move( req, &result ), 0 );
+
+  rc += TEST( result._data._integer, 1 );
+  rc += TEST( req->_status.move.dumped_value, NULL );
+  rc += TEST( req->_status.move.len, 0 );
+
+  return rc;
+}
 
 
 int main( int argc, char ** argv )
@@ -556,6 +625,20 @@ int main( int argc, char ** argv )
   rc += TestDirectory( "TestNS", sr_buf, req );
   dbBE_Redis_request_destroy( req );
 
+  memset( buffer, 0, 1024 );
+  snprintf( buffer, 1024, "Target" );
+  req = dbBE_Redis_request_allocate( ureq );
+
+  ureq->_opcode = DBBE_OPCODE_MOVE;
+  ureq->_sge_count = 2;
+  ureq->_sge[ 0 ].iov_base = buffer;
+  ureq->_sge[ 0 ].iov_len = 6;
+  ureq->_sge[ 1 ].iov_base = DBR_GROUP_EMPTY;
+  ureq->_sge[ 1 ].iov_len = sizeof( DBR_Group_t );
+
+  req = dbBE_Redis_request_allocate( ureq );
+  rc += TestMove( "TestNS", sr_buf, req );
+  dbBE_Redis_request_destroy( req );
 
   free( ureq->_key );
   free( ureq );
