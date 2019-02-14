@@ -195,12 +195,15 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
       if( request->_key == NULL )
         rc = EINVAL;
       break;
+    case DBBE_OPCODE_MOVE:
+      if( request->_sge_count != 2 )
+        rc = EINVAL;
+      break;
     case DBBE_OPCODE_DIRECTORY: // only single-SGE request supported by the RedisBE
       if( request->_sge_count != 1 )
         rc = ENOTSUP;
       break;
     case DBBE_OPCODE_UNSPEC:
-    case DBBE_OPCODE_MOVE:
     case DBBE_OPCODE_CANCEL:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:

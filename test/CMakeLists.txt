@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018,2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ set(DBR_TEST_SOURCES
 	test_dbrAttach.c
 	test_dbrDelete.c
 	test_dbrPutGet.c
+	test_dbrReMove.c
 	test_dbrPutGet_ext.c
 	test_dbrPutGetA.c
 	test_delete_scan.c

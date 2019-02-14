@@ -24,6 +24,7 @@
 
 #include "sr_buffer.h"
 #include "protocol.h"
+#include "request.h"
 
 /*
  * implementation of single redis command exec
@@ -322,6 +323,46 @@ int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
   data._string._size = 4;
   len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
 
+  return len;
+}
+
+int dbBE_Redis_command_dump_create( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    char *keybuffer )
+{
+  int len = 0;
+  dbBE_Redis_data_t data;
+  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+
+  data._string._data = keybuffer;
+  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+
+  return len;
+}
+
+int dbBE_Redis_command_restore_create( dbBE_Redis_command_stage_spec_t *stage,
+                                       dbBE_Redis_sr_buffer_t *sr_buf,
+                                       char *keybuffer,
+                                       dbBE_Redis_intern_move_data_t dump_data )
+{
+  int len = 0;
+  dbBE_Redis_data_t data;
+  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+
+  data._string._data = keybuffer;
+  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+
+  data._string._data = "0";
+  data._string._size = 1;
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+
+  data._string._data = dump_data.dumped_value;
+  data._string._size = dump_data.len;
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_STRING_HEAD, &data );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_RAW, &data );
+  len += dbBE_Redis_command_create_terminate( sr_buf );
   return len;
 }
 

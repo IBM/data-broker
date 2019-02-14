@@ -85,7 +85,7 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
       break;
 
     case DBBE_OPCODE_MOVE:
-      fprintf(stderr, "ERR: not yet supported!\n");
+      rc = cpl->_status;
       break;
 
     case DBBE_OPCODE_REMOVE:

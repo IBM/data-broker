@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,14 +39,14 @@ int main( int argc, char ** argv )
 
   char buf[128];
   memset( buf, 0, 128 );
-  unsigned sge_count = 1;
+  unsigned sge_count = 2;
   dbBE_Request_t *req = (dbBE_Request_t*) calloc ( 1, sizeof(dbBE_Request_t) + sge_count * sizeof(dbBE_sge_t) );
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
-  req->_sge_count = sge_count;
+  req->_sge_count = 1;
   req->_sge[0].iov_base = (void*)buf;
   req->_sge[0].iov_len = 5;
   sprintf( req->_sge[0].iov_base, "WORLD" );
@@ -74,7 +74,7 @@ int main( int argc, char ** argv )
   req->_ns_name = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_READ;
   req->_user = req;
-  req->_sge_count = sge_count;
+  req->_sge_count = 1;
   memset( buf, 0, 128 );
   req->_sge[0].iov_base = (void*)buf;
   req->_sge[0].iov_len = 128;
@@ -95,15 +95,47 @@ int main( int argc, char ** argv )
       free( comp );
     }
   }
-
   TEST_LOG( rc, "READ:");
+
 
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "KEYSPACE";
+  req->_opcode = DBBE_OPCODE_MOVE;
+  req->_user = req;
+  req->_sge_count = 2;
+  memset( buf, 0, 128 );
+  snprintf( buf, 128, "NEWSPACE" );
+  req->_sge[0].iov_base = (void*)buf;
+  req->_sge[0].iov_len = 8;
+  req->_sge[1].iov_base = DBR_GROUP_EMPTY;
+  req->_sge[1].iov_len = sizeof( DBR_GROUP_EMPTY );
+
+  rhandle = g_dbBE.post( BE, req );
+  rc += TEST_NOT( rhandle, NULL );
+  if( rhandle != NULL )
+  {
+    dbBE_Completion_t *comp = NULL;
+    while( comp == NULL )
+      comp = g_dbBE.test_any( BE );
+    rc += TEST_NOT( comp, NULL );
+    if( comp != NULL )
+    {
+      rc += TEST( comp->_user, req->_user );
+      rc += TEST( comp->_rc, DBR_SUCCESS );
+      free( comp );
+    }
+  }
+  TEST_LOG( rc, "MOVE" );
+
+
+
+  req->_key = "HELLO";
+  req->_next = NULL;
+  req->_ns_name = "NEWSPACE";
   req->_opcode = DBBE_OPCODE_GET;
   req->_user = req;
-  req->_sge_count = sge_count;
+  req->_sge_count = 1;
   memset( buf, 0, 128 );
   req->_sge[0].iov_base = (void*)buf;
   req->_sge[0].iov_len = 128;
@@ -134,7 +166,7 @@ int main( int argc, char ** argv )
   req->_ns_name = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSCREATE;
   req->_user = req;
-  req->_sge_count = sge_count;
+  req->_sge_count = 1;
   memset( buf, 0, 128 );
   snprintf( buf, 128, "users" );
   req->_sge[0].iov_base = (void*)buf;
@@ -171,7 +203,7 @@ int main( int argc, char ** argv )
   req->_ns_name = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSATTACH;
   req->_user = req;
-  req->_sge_count = sge_count;
+  req->_sge_count = 0;
 
   // get data out
   rhandle = g_dbBE.post( BE, req );
@@ -199,7 +231,7 @@ int main( int argc, char ** argv )
   req->_ns_name = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSDETACH;
   req->_user = req;
-  req->_sge_count = sge_count;
+  req->_sge_count = 0;
 
   // get data out
   rhandle = g_dbBE.post( BE, req );
@@ -227,7 +259,7 @@ int main( int argc, char ** argv )
   req->_ns_name = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSDELETE;
   req->_user = req;
-  req->_sge_count = sge_count;
+  req->_sge_count = 0;
 
   // get data out
   rhandle = g_dbBE.post( BE, req );
