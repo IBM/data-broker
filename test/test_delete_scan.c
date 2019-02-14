@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ int insertValue( DBR_Handle_t cs_hdl, char *key )
   char *value = &val_data[ random() % ( data_len - value_len ) ];
 
   // put success test
-  int key_size = strnlen( key, DBR_MAX_KEY_LEN );
   rc += TEST( DBR_SUCCESS, dbrPut( cs_hdl, value, value_len, key, 0 ) );
 
   return rc;

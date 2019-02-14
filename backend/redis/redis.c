@@ -381,7 +381,6 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     dbBE_Redis_hash_slot_t first_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
     dbBE_Redis_hash_slot_t last_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
     char *ip = NULL;
-    int port = -1;
     dbBE_Redis_result_t *range = NULL;
 
     if( result._type == dbBE_REDIS_TYPE_ARRAY )

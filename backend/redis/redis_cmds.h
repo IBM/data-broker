@@ -88,6 +88,10 @@ int64_t dbBE_Redis_command_create_insert_value( dbBE_Redis_sr_buffer_t *sr_buf,
                                     dbBE_Redis_sr_buffer_remaining( sr_buf ),
                                     sge_count,
                                     sge );
+  // data had to be truncated
+  if( slen < 0 )
+    return -slen;
+
   return dbBE_Redis_sr_buffer_add_data( sr_buf, vallen, 1 );
 }
 
@@ -190,7 +194,7 @@ int dbBE_Redis_command_hmset_create( dbBE_Redis_command_stage_spec_t *stage,
                                      char *keybuffer )
 {
   int len = 0;
-  int rc = 1;
+  int rc = 1; // used as multiplier to len to indicate error/success
   dbBE_Redis_data_t data;
   size_t vallen = dbBE_SGE_get_len( request->_user->_sge, request->_user->_sge_count );
 

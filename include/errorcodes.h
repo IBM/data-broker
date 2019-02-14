@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ char *dbrError_table[ DBR_ERR_MAXERROR ] = {
  *
  * @return String describing the error
  */
-static const
+static inline const
 char* dbrGet_error( const DBR_Errorcode_t err )
 {
   if(( (unsigned)err % (unsigned)DBR_ERR_MAXERROR ) == (unsigned)err )

@@ -836,7 +836,6 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
     else
     {
       int item_count = result->_data._array._len;
-      dbBE_Redis_data_t item[ item_count ];
       size_t total_len = 0;
       int n;
       for( n = 0; n < item_count; ++n )

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ typedef struct dbBE_Refcounter
   //pthread_mutex_t *_mutex; // not in use yet, but will likely be needed later
 } dbBE_Refcounter_t;
 
-static
+static inline
 dbBE_Refcounter_t* dbBE_Refcounter_allocate()
 {
   dbBE_Refcounter_t *ref = (dbBE_Refcounter_t*)malloc( sizeof( dbBE_Refcounter_t ));
@@ -50,7 +50,7 @@ dbBE_Refcounter_t* dbBE_Refcounter_allocate()
   return ref;
 }
 
-static
+static inline
 int dbBE_Refcounter_destroy( dbBE_Refcounter_t *ref )
 {
   if( ref == NULL )
