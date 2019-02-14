@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,10 @@ DBR_Errorcode_t libdbrMove ( DBR_Handle_t src_cs_handle,
 
   if( src_cs->_reverse == NULL )
     return DBR_ERR_NSINVAL;
+
+  // turn into successful no-op if source and destination are the same
+  if( src_cs == dst_cs )
+    return DBR_SUCCESS;
 
   BIGLOCK_LOCK( src_cs->_reverse );
 
