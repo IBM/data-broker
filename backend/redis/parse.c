@@ -568,6 +568,14 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
     case DBBE_REDIS_MOVE_STAGE_DUMP:
       if( rc == 0 )
       {
+        if( result->_data._string._data == NULL )
+        {
+          dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
+          result->_type = dbBE_REDIS_TYPE_INT;
+          result->_data._integer = -ENOENT;
+          return -ENOENT;
+        }
+
         // create a mem-region to store the dumped data
         char *buf = (char*)calloc( result->_data._string._size + 8, sizeof( char ) );
         if( buf == NULL )

@@ -171,6 +171,7 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, "First Get" );
 
   rc += MoveTest( cs_hdl, new_cs_hdl, "testTup" );
+  rc += TEST_RC( dbrMove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "", new_cs_hdl, DBR_GROUP_EMPTY ), DBR_ERR_UNAVAIL, ret );
 
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
   rc += ReadTest( new_cs_hdl, "testTup", "HelloWorld2", 11 );
