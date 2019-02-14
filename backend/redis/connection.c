@@ -52,6 +52,8 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   }
   memset( conn, 0, sizeof( dbBE_Redis_connection_t ) );
 
+  dbBE_Redis_slot_bitmap_t *slots = NULL;
+  dbBE_Redis_s2r_queue_t *queue = NULL;
 
   dbBE_Redis_sr_buffer_t *sendb = dbBE_Redis_sr_buffer_allocate( sr_buffer_size );
   dbBE_Redis_sr_buffer_t *recvb = dbBE_Redis_sr_buffer_allocate( sr_buffer_size );
@@ -69,7 +71,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   if(( sendb == NULL ) || ( recvb == NULL ))
     conn->_status = DBBE_CONNECTION_STATUS_UNSPEC;
 
-  dbBE_Redis_s2r_queue_t *queue = dbBE_Redis_s2r_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
+  queue = dbBE_Redis_s2r_queue_create( DBBE_REDIS_WORK_QUEUE_DEPTH );
   if( queue == NULL )
   {
     rc = ENOMEM;
@@ -77,7 +79,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   }
   conn->_posted_q = queue;
 
-  dbBE_Redis_slot_bitmap_t *slots = dbBE_Redis_slot_bitmap_create();
+  slots = dbBE_Redis_slot_bitmap_create();
   if( slots == NULL )
   {
     rc = ENOMEM;
