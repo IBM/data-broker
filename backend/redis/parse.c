@@ -570,10 +570,9 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
       {
         if( result->_data._string._data == NULL )
         {
-          dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
-          result->_type = dbBE_REDIS_TYPE_INT;
-          result->_data._integer = -ENOENT;
-          return -ENOENT;
+          rc = -ENOENT;
+          return_error_clean_result( rc, result );
+          break;
         }
 
         // create a mem-region to store the dumped data
