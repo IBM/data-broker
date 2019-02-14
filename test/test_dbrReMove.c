@@ -205,6 +205,9 @@ int main( int argc, char ** argv )
   rc += TEST_RC( dbrRemove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "" ), DBR_SUCCESS, ret );
   rc += TEST_RC( dbrGet( cs_hdl, out, &outsize, "testTup", "", 0, DBR_FLAGS_NOWAIT ), DBR_ERR_UNAVAIL, ret );
 
+  // try to remove twice/an unavailable tuple
+  rc += TEST_RC( dbrRemove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "" ), DBR_ERR_UNAVAIL, ret );
+
   // delete the name space
   ret = dbrDelete( name );
   rc += TEST( DBR_SUCCESS, ret );
