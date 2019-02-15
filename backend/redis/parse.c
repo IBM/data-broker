@@ -568,6 +568,13 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
     case DBBE_REDIS_MOVE_STAGE_DUMP:
       if( rc == 0 )
       {
+        if( result->_data._string._data == NULL )
+        {
+          rc = -ENOENT;
+          return_error_clean_result( rc, result );
+          break;
+        }
+
         // create a mem-region to store the dumped data
         char *buf = (char*)calloc( result->_data._string._size + 8, sizeof( char ) );
         if( buf == NULL )
@@ -584,9 +591,33 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
         free( request->_status.move.dumped_value );
       request->_status.move.dumped_value = NULL;
       request->_status.move.len = 0;
+      if( rc != 0 )
+      {
+        if(( result->_type == dbBE_REDIS_TYPE_ERROR ) &&
+            ( result->_data._string._data != NULL ) &&
+            ( strstr( result->_data._string._data, "BUSYKEY" ) != NULL ) )
+        {
+          rc = -EEXIST;
+          return_error_clean_result( rc, result );
+        }
+      }
       break;
 
     case DBBE_REDIS_MOVE_STAGE_DEL:
+      if( rc == 0 )
+        switch( result->_data._integer )
+        {
+          case 0:
+            rc = -ENOENT; // the key had been removed in the meantime (data duplication?)
+            return_error_clean_result( rc, result );
+            break;
+          case 1:
+            break;
+          default:
+            rc = -ESTALE;  // todo: there have been modifications to the key-data!!! Potential data loss?
+            return_error_clean_result( rc, result );
+            break;
+        }
       break;
 
     default:

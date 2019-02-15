@@ -170,7 +170,19 @@ int main( int argc, char ** argv )
   rc += GetTest( cs_hdl, "testTup", "HelloWorld1", 11 );
   TEST_LOG( rc, "First Get" );
 
+  // move to itself should just succeed
+  rc += MoveTest( cs_hdl, cs_hdl, "testTup" );
+
+  // move to new cs
   rc += MoveTest( cs_hdl, new_cs_hdl, "testTup" );
+
+  // move of non-existing tuple should fail
+  rc += TEST_RC( dbrMove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "", new_cs_hdl, DBR_GROUP_EMPTY ), DBR_ERR_UNAVAIL, ret );
+
+  // try to move to a namespace where the key already exists
+  rc += PutTest( cs_hdl, "testTup", "Duplicate_to_block_move", 23 );
+  rc += TEST_RC( dbrMove( new_cs_hdl, DBR_GROUP_EMPTY, "testTup", "", cs_hdl, DBR_GROUP_EMPTY ), DBR_ERR_EXISTS, ret );
+  rc += GetTest( cs_hdl, "testTup", "Duplicate_to_block_move", 23 );
 
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
   rc += ReadTest( new_cs_hdl, "testTup", "HelloWorld2", 11 );
@@ -204,6 +216,9 @@ int main( int argc, char ** argv )
   rc += PutTest( cs_hdl, "testTup", "HelloWorld1", 11 );
   rc += TEST_RC( dbrRemove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "" ), DBR_SUCCESS, ret );
   rc += TEST_RC( dbrGet( cs_hdl, out, &outsize, "testTup", "", 0, DBR_FLAGS_NOWAIT ), DBR_ERR_UNAVAIL, ret );
+
+  // try to remove twice/an unavailable tuple
+  rc += TEST_RC( dbrRemove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "" ), DBR_ERR_UNAVAIL, ret );
 
   // delete the name space
   ret = dbrDelete( name );

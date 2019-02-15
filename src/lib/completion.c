@@ -141,25 +141,29 @@ DBR_Errorcode_t dbrProcess_completion( dbrRequestContext_t *rctx,
   if( compl->_user != rctx )
     return DBR_ERR_HANDLE;
 
+  rctx->_cpl._rc = -1;
+
   switch( compl->_rc )
   {
     case -ENOENT:
-      rctx->_cpl._rc = -1;
       rctx->_cpl._status = DBR_ERR_UNAVAIL;
-      rctx->_status = dbrSTATUS_READY;
       break;
     case -ENOTCONN:
-      rctx->_cpl._rc = -1;
       rctx->_cpl._status = DBR_ERR_NOCONNECT;
-      rctx->_status = dbrSTATUS_READY;
+      break;
+    case -EEXIST:
+      rctx->_cpl._status = DBR_ERR_EXISTS;
+      break;
+    case -ESTALE:
+      rctx->_cpl._status = DBR_ERR_NOFILE;
       break;
     default:
       rctx->_cpl._rc = compl->_rc;
       rctx->_cpl._status = compl->_status;
-      rctx->_status = dbrSTATUS_READY;
       break;
   }
 
+  rctx->_status = dbrSTATUS_READY;
   return DBR_SUCCESS;
 }
 
