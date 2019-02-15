@@ -529,7 +529,6 @@ int TestMove( const char *namespace,
 int main( int argc, char ** argv )
 {
   int rc = 0;
-  size_t keylen, vallen;
   char buffer[1024];
 
   dbBE_Redis_sr_buffer_t *sr_buf = dbBE_Redis_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );

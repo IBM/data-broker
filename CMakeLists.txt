@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018,2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ enable_language( C CXX )
 
 if(NOT DEFINED APPLE)
   add_definitions(-Werror)
-#  add_definitions(-Wall)
+  add_definitions(-Wall -Wno-missing-braces)
 endif( NOT DEFINED APPLE )
 #add_definitions(-v)
 

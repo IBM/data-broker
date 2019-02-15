@@ -181,7 +181,10 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
                                                              request->_user->_sge_count,
                                                              vallen );
       if( slen != (int64_t)vallen )
+      {
+        len = -1;
         rc = -1;
+      }
 
       dbBE_Redis_command_create_terminate( sr_buf );
 
@@ -416,7 +419,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
       {
         case DBBE_REDIS_MOVE_STAGE_RESTORE: // restore stage uses the new namespace for the key
           len = snprintf( keybuf, size, "%s%s%s",
-                          request->_user->_sge[0].iov_base, // destination namespace is in the first SGE arg
+                          (char*)request->_user->_sge[0].iov_base, // destination namespace is in the first SGE arg
                           DBBE_REDIS_NAMESPACE_SEPARATOR,
                           request->_user->_key );
           break;

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,9 +84,6 @@ int Request_insert_test()
   int rc = 0;
 
   dbrRequestContext_t *rctx = NULL;
-  dbBE_sge_t sge;
-  sge.iov_base = NULL;
-  sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
 
@@ -116,9 +113,6 @@ int Request_remove_test()
   int rc = 0;
 
   dbrRequestContext_t *rctx = NULL;
-  dbBE_sge_t sge;
-  sge.iov_base = NULL;
-  sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
 
@@ -156,9 +150,6 @@ int Request_post_test()
   int rc = 0;
 
   dbrRequestContext_t *rctx = NULL;
-  dbBE_sge_t sge;
-  sge.iov_base = NULL;
-  sge.iov_len = 0;
 
   dbrName_space_t *ns = dbrMain_create_local( "TestNameSpace" );
 

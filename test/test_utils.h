@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 
 #define TEST_BREAK( rc, text ) { if( (rc) != 0 ) { printf("%s; rc=%d. Exiting early...\n", (text), (rc) ); return (rc); } }
 
-static
+static inline
 char* generateLongMsg( const uint64_t size )
 {
   char *msg = (char*)calloc( 1, size+1 ); // +1 for terminating 0
