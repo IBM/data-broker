@@ -323,6 +323,21 @@ int main( int argc, char ** argv )
   dbBE_Redis_request_destroy( req );
 
 
+  // create a remove command
+  ureq->_opcode = DBBE_OPCODE_REMOVE;
+  ureq->_key = "TestTup";
+  ureq->_ns_name = "TestNS";
+
+  req = dbBE_Redis_request_allocate( ureq );
+  rc += TEST_NOT( req, NULL );
+
+  rc += TEST( req->_step->_stage, 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+  rc += TEST( dbBE_Redis_create_command( req, sr_buf, &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$15\r\nTestNS::TestTup\r\n",
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ), 0 );
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+  dbBE_Redis_request_destroy( req );
 
   // create a move command
   ureq->_opcode = DBBE_OPCODE_MOVE;
