@@ -224,27 +224,17 @@ int dbBE_Redis_command_del_create( dbBE_Redis_command_stage_spec_t *stage,
 
 int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
                                       dbBE_Redis_sr_buffer_t *sr_buf,
-                                      char *name_space )
+                                      char *name_space,
+                                      char *field,
+                                      char *value )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
-  const char *idbuf = "id";
+  char *args[ stage->_array_len + 1 ];
+  args[ 0 ] = name_space;
+  args[ 1 ] = field;
+  args[ 2 ] = value;
+  args[ stage->_array_len ]= NULL;
 
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = name_space;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = (char*)idbuf;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = name_space;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_argN( stage, sr_buf, args );
 }
 
 

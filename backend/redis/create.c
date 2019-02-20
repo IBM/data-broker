@@ -261,7 +261,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case 0: // HSETNX ns_name id ns_name
-          len += dbBE_Redis_command_hsetnx_create( stage, sr_buf, request->_user->_ns_name );
+          len += dbBE_Redis_command_hsetnx_create( stage, sr_buf, request->_user->_ns_name, "id", request->_user->_ns_name );
           break;
 
         case 1: // HMSET ns_name refcnt 1 groups permissions
