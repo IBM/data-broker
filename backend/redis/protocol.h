@@ -31,7 +31,7 @@
 /*
  * max length of a command string (base command without arguments)
  */
-#define DBBE_REDIS_COMMAND_LENGTH_MAX ( 32 )
+#define DBBE_REDIS_COMMAND_LENGTH_MAX ( 256 )
 
 /*
  * max number of arguments that a stage of a command can hold
