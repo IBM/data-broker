@@ -308,11 +308,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_MOVE_STAGE_RESTORE;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
-  strcpy( s->_command, "RESTORE" );
+  strcpy( s->_command, "*4\r\n$7\r\nRESTORE\r\n%0$1\r\n0\r\n%1" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_MOVE_STAGE_DEL;
