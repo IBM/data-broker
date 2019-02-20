@@ -454,6 +454,49 @@ int TestDirectory( const char *namespace,
   return rc;
 }
 
+int TestRemove( const char *namespace,
+                dbBE_Redis_sr_buffer_t *sr_buf,
+                dbBE_Redis_request_t *req )
+{
+  int rc = 0;
+  dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
+  int len = 0;
+
+  //
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  ":1\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_remove( req, &result ), 0 );
+
+  rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
+  rc += TEST( result._data._integer, 1 );
+
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  "-Error in Protocol\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_remove( req, &result ), -EBADMSG );
+
+  rc += TEST( result._type, dbBE_REDIS_TYPE_ERROR );
+
+
+  return rc;
+}
+
 int TestMove( const char *namespace,
               dbBE_Redis_sr_buffer_t *sr_buf,
               dbBE_Redis_request_t *req )
@@ -623,6 +666,14 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TestDirectory( "TestNS", sr_buf, req );
   dbBE_Redis_request_destroy( req );
+
+  memset( buffer, 0, 1024 );
+
+  ureq->_opcode = DBBE_OPCODE_REMOVE;
+  req = dbBE_Redis_request_allocate( ureq );
+  rc += TestRemove( "TestNS", sr_buf, req );
+  dbBE_Redis_request_destroy( req );
+
 
   memset( buffer, 0, 1024 );
   snprintf( buffer, 1024, "Target" );

@@ -92,6 +92,7 @@ int main( int argc, char ** argv )
     {
       rc += TEST( comp->_user, req->_user );
       rc += TEST( strncmp( buf, "WORLD", 6 ), 0 );
+      rc += TEST( comp->_rc, 5 );
       free( comp );
     }
   }
@@ -129,7 +130,6 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, "MOVE" );
 
 
-
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "NEWSPACE";
@@ -153,12 +153,72 @@ int main( int argc, char ** argv )
     {
       rc += TEST( comp->_user, req->_user );
       rc += TEST( strncmp( buf, "WORLD", 6 ), 0 );
+      rc += TEST( comp->_rc, 5 );
       free( comp );
     }
   }
 
   TEST_LOG( rc, "GET:");
 
+  memset( buf, 0, 128 );
+  req->_key = "HELLO";
+  req->_next = NULL;
+  req->_ns_name = "KEYSPACE";
+  req->_opcode = DBBE_OPCODE_PUT;
+  req->_user = req;
+  req->_sge_count = 1;
+  req->_sge[0].iov_base = (void*)buf;
+  req->_sge[0].iov_len = 5;
+  sprintf( req->_sge[0].iov_base, "WORLD" );
+
+  // put data in
+  rhandle = g_dbBE.post( BE, req );
+  rc += TEST_NOT( rhandle, NULL );
+  if( rhandle != NULL )
+  {
+    dbBE_Completion_t *comp = NULL;
+    while( comp == NULL )
+      comp = g_dbBE.test_any( BE );
+    rc += TEST_NOT( comp, NULL );
+    if( comp != NULL )
+    {
+      rc += TEST( comp->_user, req->_user );
+      rc += TEST( comp->_status, DBR_SUCCESS );
+      free( comp );
+    }
+  }
+
+  TEST_LOG( rc, "PUT2:");
+
+
+  req->_key = "HELLO";
+  req->_next = NULL;
+  req->_ns_name = "KEYSPACE";
+  req->_opcode = DBBE_OPCODE_REMOVE;
+  req->_user = req;
+  req->_sge_count = 1;
+  memset( buf, 0, 128 );
+  req->_sge[0].iov_base = NULL;
+  req->_sge[0].iov_len = 0;
+
+  // get data out
+  rhandle = g_dbBE.post( BE, req );
+  rc += TEST_NOT( rhandle, NULL );
+  if( rhandle != NULL )
+  {
+    dbBE_Completion_t *comp = NULL;
+    while( comp == NULL )
+      comp = g_dbBE.test_any( BE );
+    rc += TEST_NOT( comp, NULL );
+    if( comp != NULL )
+    {
+      rc += TEST( comp->_user, req->_user );
+      rc += TEST( comp->_status, DBR_SUCCESS );
+      free( comp );
+    }
+  }
+
+  TEST_LOG( rc, "REMOVE:");
 
   // create a namespace
   req->_key = "";
