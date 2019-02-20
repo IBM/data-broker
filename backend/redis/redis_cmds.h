@@ -120,7 +120,6 @@ int dbBE_Redis_command_put_parse( dbBE_Redis_command_stage_spec_t spec,
 static inline
 int dbBE_Redis_command_create_argN( dbBE_Redis_command_stage_spec_t *stage,
                                     dbBE_Redis_sr_buffer_t *sr_buf,
-                                    int argc,
                                     char **args )
 {
   int rc = 0;
@@ -129,7 +128,7 @@ int dbBE_Redis_command_create_argN( dbBE_Redis_command_stage_spec_t *stage,
   char *initial = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
   char *cmdend = stage->_command + strlen( stage->_command );
 
-  while((cmdptr < cmdend ) && ( n < argc ) && ( args[ n ] != NULL ))
+  while((cmdptr < cmdend ) && ( n < stage->_array_len ) && ( args[ n ] != NULL ))
   {
     // get next location of parameter
     char *loc = index( cmdptr, '%' );
@@ -158,6 +157,7 @@ int dbBE_Redis_command_create_argN( dbBE_Redis_command_stage_spec_t *stage,
     rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
 
     cmdptr = loc + 2;
+    ++n;
   }
 
   // add any remaining/trailing cmd string data
@@ -319,40 +319,27 @@ int dbBE_Redis_command_exists_create( dbBE_Redis_command_stage_spec_t *stage,
                                       dbBE_Redis_sr_buffer_t *sr_buf,
                                       char *name_space )
 {
-  int len = 0;
-
-  char *args[2];
+  char *args[ stage->_array_len + 1 ];
   args[0]= name_space;
-  args[1]= NULL;
+  args[ stage->_array_len ]= NULL;
 
-  len += dbBE_Redis_command_create_argN( stage, sr_buf, 1, args );
-  return len;
+  return dbBE_Redis_command_create_argN( stage, sr_buf, args );
 }
 
 int dbBE_Redis_command_hincrby_create( dbBE_Redis_command_stage_spec_t *stage,
                                        dbBE_Redis_sr_buffer_t *sr_buf,
-                                       char *keybuffer,
+                                       char *name_space,
                                        int increment )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
+  char incbuf[32];
+  char *args[ stage->_array_len + 1 ];
+  args[0]= name_space;
+  args[1]=incbuf;
+  if( snprintf( args[1], 31, "%d", increment ) < 0 )
+    return -E2BIG;
+  args[ stage->_array_len ]= NULL;
 
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = keybuffer;
-  sprintf( keybuffer, "refcnt" );
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = keybuffer;
-  sprintf( keybuffer, "%d", increment );
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_argN( stage, sr_buf, args );
 }
 
 int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,

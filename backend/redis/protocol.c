@@ -175,11 +175,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 1;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
-  strcpy( s->_command, "HINCRBY" );
+  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
   s->_stage = stage;
 
 
@@ -218,11 +218,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 1;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after dec
-  strcpy( s->_command, "HINCRBY" );
+  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
   s->_stage = stage;
 
   /*
@@ -236,11 +236,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_NSDELETE_STAGE_DETACH;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after dec
-  strcpy( s->_command, "HINCRBY" );
+  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDELETE_STAGE_SCAN;
