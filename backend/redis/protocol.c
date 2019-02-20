@@ -121,11 +121,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_DIRECTORY_STAGE_SCAN;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 6;
+  s->_array_len = 2;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
-  strcpy( s->_command, (const char*)"SCAN" );
+  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$4\r\n1000\r\n" );
   s->_stage = stage;
 
 
@@ -246,11 +246,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_NSDELETE_STAGE_SCAN;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 6;
+  s->_array_len = 2;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
-  strcpy( s->_command, "SCAN" );
+  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$4\r\n1000\r\n" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDELETE_STAGE_DELKEYS;
