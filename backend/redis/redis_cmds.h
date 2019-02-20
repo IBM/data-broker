@@ -299,16 +299,11 @@ int dbBE_Redis_command_hmgetall_create( dbBE_Redis_command_stage_spec_t *stage,
                                         dbBE_Redis_sr_buffer_t *sr_buf,
                                         char *name_space )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
+  char *args[ stage->_array_len + 1 ];
+  args[0]= name_space;
+  args[ stage->_array_len ]= NULL;
 
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = name_space;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_argN( stage, sr_buf, args );
 }
 
 int dbBE_Redis_command_exists_create( dbBE_Redis_command_stage_spec_t *stage,

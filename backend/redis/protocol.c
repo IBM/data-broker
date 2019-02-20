@@ -111,11 +111,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_DIRECTORY_STAGE_META;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return char buffer
-  strcpy( s->_command, (const char*)"HGETALL" );
+  strcpy( s->_command, (const char*)"*2\r\n$7\r\nHGETALL\r\n%0" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_DIRECTORY_STAGE_SCAN;
@@ -192,11 +192,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return list of kv entries of the hash
-  strcpy( s->_command, "HGETALL" );
+  strcpy( s->_command, "*2\r\n$7\r\nHGETALL\r\n%0" );
   s->_stage = stage;
 
   /*
