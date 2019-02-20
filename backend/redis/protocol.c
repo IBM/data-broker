@@ -256,21 +256,21 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_NSDELETE_STAGE_DELKEYS;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDELETE_STAGE_DELNS;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
   /*
@@ -281,11 +281,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
   /*
@@ -318,11 +318,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_MOVE_STAGE_DEL;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
 

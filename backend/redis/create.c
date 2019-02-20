@@ -160,7 +160,6 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
 
   char *writepos = dbBE_Redis_sr_buffer_get_processed_position( sr_buf ); // store position to rewind on error
   dbBE_Redis_command_stage_spec_t *stage = request->_step;
-  dbBE_Redis_data_t data;
   int len = 0;
   char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
 
@@ -307,12 +306,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
           break;
 
         case DBBE_REDIS_NSDELETE_STAGE_DELNS: // DEL ns_name
-          len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-          if( len < 0 )
-            break;
-          data._string._data = request->_user->_ns_name;
-          data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-          len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+          len += dbBE_Redis_command_del_create( stage, sr_buf, request->_user->_ns_name );
           break;
 
         default:
