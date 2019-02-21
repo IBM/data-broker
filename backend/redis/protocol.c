@@ -79,11 +79,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return char buffer
-  strcpy( s->_command, "LPOP" );
+  strcpy( s->_command, "*2\r\n$4\r\nLPOP\r\n%0" );
   s->_stage = stage;
 
   /*
@@ -94,11 +94,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 3;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return char buffer
-  strcpy( s->_command, "LINDEX" );
+  strcpy( s->_command, "*3\r\n$6\r\nLINDEX\r\n%0$1\r\n0\r\n" );
   s->_stage = stage;
 
   /*
@@ -111,21 +111,21 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_DIRECTORY_STAGE_META;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return char buffer
-  strcpy( s->_command, (const char*)"HGETALL" );
+  strcpy( s->_command, (const char*)"*2\r\n$7\r\nHGETALL\r\n%0" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_DIRECTORY_STAGE_SCAN;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 6;
+  s->_array_len = 2;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
-  strcpy( s->_command, (const char*)"SCAN" );
+  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$4\r\n1000\r\n" );
   s->_stage = stage;
 
 
@@ -138,11 +138,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 3;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return integer: number of created hashes
-  strcpy( s->_command, "HSETNX" );
+  strcpy( s->_command, "*4\r\n$6\r\nHSETNX\r\n%0%1%2" );
   s->_stage = stage;
 
   stage = 1;
@@ -165,21 +165,21 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
-  strcpy( s->_command, "EXISTS" );
+  strcpy( s->_command, "*2\r\n$6\r\nEXISTS\r\n%0" );
   s->_stage = stage;
 
   stage = 1;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
-  strcpy( s->_command, "HINCRBY" );
+  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
   s->_stage = stage;
 
 
@@ -192,11 +192,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return list of kv entries of the hash
-  strcpy( s->_command, "HGETALL" );
+  strcpy( s->_command, "*2\r\n$7\r\nHGETALL\r\n%0" );
   s->_stage = stage;
 
   /*
@@ -208,21 +208,21 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
-  strcpy( s->_command, "EXISTS" );
+  strcpy( s->_command, "*2\r\n$6\r\nEXISTS\r\n%0" );
   s->_stage = stage;
 
   stage = 1;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after dec
-  strcpy( s->_command, "HINCRBY" );
+  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
   s->_stage = stage;
 
   /*
@@ -236,41 +236,41 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_NSDELETE_STAGE_DETACH;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after dec
-  strcpy( s->_command, "HINCRBY" );
+  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDELETE_STAGE_SCAN;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 6;
+  s->_array_len = 2;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
-  strcpy( s->_command, "SCAN" );
+  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$4\r\n1000\r\n" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDELETE_STAGE_DELKEYS;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDELETE_STAGE_DELNS;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
   /*
@@ -281,11 +281,11 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
   /*
@@ -298,31 +298,31 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = DBBE_REDIS_MOVE_STAGE_DUMP;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return serialized sequence of tuple
-  strcpy( s->_command, "DUMP" );
+  strcpy( s->_command, "*2\r\n$4\r\nDUMP\r\n%0" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_MOVE_STAGE_RESTORE;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 4;
+  s->_array_len = 2;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
-  strcpy( s->_command, "RESTORE" );
+  strcpy( s->_command, "*4\r\n$7\r\nRESTORE\r\n%0$1\r\n0\r\n%1" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_MOVE_STAGE_DEL;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
-  strcpy( s->_command, "DEL" );
+  strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
 
