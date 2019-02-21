@@ -1,5 +1,5 @@
  #
- # Copyright (C) 2018 IBM Corporation
+ # Copyright (C) 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -22,23 +22,20 @@ dbr_name = "DBRtestname"
 level = dbr.DBR_PERST_VOLATILE_SIMPLE
 group_list = ffi.new('DBR_GroupList_t')
 dbr_hdl = ffi.new('DBR_Handle_t*')
-dbr_hdl = dbr.dbrCreate(dbr_name, level, group_list)
+dbr_hdl = dbr.create(dbr_name, level, group_list)
 
 
 test_in = "Hello World!"
 group = dbr.DBR_GROUP_EMPTY
-res = dbr.dbrPut(dbr_hdl, test_in, "testTup", group)
-print 'Put ' + test_in
-out_size = ffi.new('int64_t*')
-out_size[0] = 1024
+res = dbr.put(dbr_hdl, test_in, len(test_in), "testTup", group)
+print('Put ' + test_in)
 
-q = dbr.createBuf('char[]', out_size[0]) 
-res = dbr.dbrRead(dbr_hdl, q, out_size, "testTup", "", group, dbr.DBR_FLAGS_NONE)
-print 'Read returned: ' +  q[:]
+value, ret = dbr.read(dbr_hdl, "testTup", "", group, dbr.DBR_FLAGS_NONE)
+print('Read returned: ' + value + " - status: " + dbr.getErrorMessage(ret))
 
-res = dbr.dbrGet(dbr_hdl, q, out_size, "testTup", "", group, dbr.DBR_FLAGS_NONE)
-print 'Get returned: ' + q[:]
+value, ret = dbr.get(dbr_hdl, "testTup", "", group, dbr.DBR_FLAGS_NONE)
+print('Get returned: ' + value + " - status: " + dbr.getErrorMessage(ret))
 
-print 'Delete Data Broker'
-res = dbr.dbrDelete(dbr_name)
-print 'Exit Status: ' + dbr.getErrorMessage(res)
+print('Delete Data Broker')
+res = dbr.delete(dbr_name)
+print('Exit Status: ' + dbr.getErrorMessage(res))

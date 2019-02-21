@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright (C) 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -14,26 +14,31 @@
  # limitations under the License.
  #
 
-find_program(PYTHON "python")
 
-if (PYTHON)
-    set(SETUP_PY    "setup.py")
-    set(DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/dbr_module/__init__.py")
+set(Python_ADDITIONAL_VERSIONS 2.7)
+find_package(PythonInterp 3)
+find_package(PythonLibs 3)
+message(STATUS "PYTHON_LIBRARIES = ${PYTHON_LIBRARIES}")
+message(STATUS "PYTHON_EXECUTABLE = ${PYTHON_EXECUTABLE}")
 
+set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
+set(SETUP_PY    "setup.py")
+set(DEPS        "${CMAKE_CURRENT_BINARY_DIR}/dbr_module/__init__.py")
+set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/build/")
 
-   add_custom_command( OUTPUT setup_build
-                       	COMMAND ${PYTHON} ${SETUP_PY} build
-                       	DEPENDS ${DEPS}
-                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+configure_file(${SETUP_PY_IN} ${SETUP_PY})
 
-   set( INSTALL_CMD "${PYTHON} ${SETUP_PY} install")
+add_custom_command(OUTPUT ${OUTPUT}
+                   COMMAND ${PYTHON} ${SETUP_PY} build
+                   COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
+                   DEPENDS ${DEPS})
+
+set( INSTALL_CMD "${PYTHON_EXECUTABLE} ${SETUP_PY} install")
    
-   add_custom_command( OUTPUT cffi_build
-			COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/build.sh)
-
-
-   add_custom_target(PyDBR ALL DEPENDS cffi_build setup_build)
-   install(CODE "MESSAGE(\"Installing PyDBR \")")
-   install(CODE "execute_process( COMMAND ${INSTALL_CMD}
-                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} )")
-endif()
+add_custom_target(pydbr ALL DEPENDS ${OUTPUT})
+FILE(COPY test DESTINATION .)
+FILE(COPY dbr_module DESTINATION .)
+install(CODE "MESSAGE(\"Installing pydbr \")")
+install(CODE "execute_process( COMMAND ${INSTALL_CMD}
+              WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )")

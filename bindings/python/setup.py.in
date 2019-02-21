@@ -1,5 +1,5 @@
  #
- # Copyright 2018 IBM Corporation
+ # Copyright (C) 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from setuptools import setup, find_packages
 import os, sys
 
 setup(name='PyDBR',
-      version='0.2',
+      version='0.5.1',
       description='Python wrapper to the Data Broker C API',
       author='Claudia Misale',
       author_email='c.misale@ibm.com',
@@ -29,5 +29,9 @@ setup(name='PyDBR',
         # And include any *.dat files found in the 'data' subdirectory
         # of the 'mypkg' package, also:
         #'mypkg': ['data/*.dat'],
-    }
+    },
+    install_requires=[
+       'cffi',
+       'enum34'
+    ]
 )
