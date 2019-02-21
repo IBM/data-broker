@@ -186,63 +186,6 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
 }
 
 static inline
-int dbBE_Redis_command_create_argN( dbBE_Redis_command_stage_spec_t *stage,
-                                    dbBE_Redis_sr_buffer_t *sr_buf,
-                                    char **args )
-{
-  int rc = 0;
-  int n = 0;
-  char *cmdptr = stage->_command;
-  char *initial = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
-  char *cmdend = stage->_command + strlen( stage->_command );
-
-  while((cmdptr < cmdend ) && ( n < stage->_array_len ) && ( args[ n ] != NULL ))
-  {
-    // get next location of parameter
-    char *loc = index( cmdptr, '%' );
-    if(( loc == NULL ) || ( *loc != '%' ) || ( loc[1] != (char)(48+n) ))
-      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -EBADMSG, sr_buf, initial );
-
-    // insert cmd string up to position
-    char tmp = *loc;
-    *loc = '\0';
-    int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
-                        dbBE_Redis_sr_buffer_remaining( sr_buf ),
-                        "%s", cmdptr );
-    *loc = tmp;
-    if( len < 0 ) // can be 0 if 2 args appear back-to-back
-      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
-
-    rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
-
-    // insert args[n]
-    len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
-                        dbBE_Redis_sr_buffer_remaining( sr_buf ),
-                        "$%ld\r\n%s\r\n", strlen( args[ n ] ), args[ n ] );
-    if( len < 6 ) // fixed chars + single digit number + one-length argument
-      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
-
-    rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
-
-    cmdptr = loc + 2;
-    ++n;
-  }
-
-  // add any remaining/trailing cmd string data
-  if( cmdptr < cmdend )
-  {
-    int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
-                        dbBE_Redis_sr_buffer_remaining( sr_buf ),
-                        "%s", cmdptr );
-    if( len <= 0 ) // if equal to zero, then cmdptr == cmdend - can't be true here
-      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
-
-    rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
-  }
-  return rc;
-}
-
-static inline
 int dbBE_Redis_command_create_str1( dbBE_Redis_command_stage_spec_t *stage,
                                     dbBE_Redis_sr_buffer_t *sr_buf,
                                     char *buffer )
