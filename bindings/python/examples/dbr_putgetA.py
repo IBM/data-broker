@@ -35,26 +35,23 @@ res = dbr.query(dbr_hdl, dbr_state, dbr.DBR_STATE_MASK_ALL)
 test_in = "Hello World!"
 tag = dbr.putA(dbr_hdl, test_in, "testTup", group)
 
-print('Async Put tuple: ' + test_in)
-buffer_size=[32]
+print('Async Put tuple: ' + test_in + ", calling Async Get")
 
-tag,value = dbr.getA(dbr_hdl, "testTup","", group, buffer_size)
+tag,value = dbr.getA(dbr_hdl, "testTup","", group)
+dbr.read(dbr_hdl, "testTup", "", group, dbr.DBR_FLAGS_NONE)
 
-
-if (tag!=dbr.DBR_ERR_TAGERROR):
-    while True: 
-        state = dbr.test(tag) 
+if tag!=dbr.DBR_ERR_TAGERROR:
+    while True:
+        state = dbr.test(tag)
         if state == dbr.DBR_ERR_INPROGRESS:
             print("Waiting...")
             time.sleep(2)
-            break
         elif state == dbr.DBR_SUCCESS: 
             break
 else:
     print('Async Get test returned ' + dbr.getErrorMessage(state))
-print('pointer in main ' + str(value))
-print('tmp value ' + str(value[:]))
-print('Tuple return value: ' +str(pickle.loads(value[:])))
+
+print('Async get tuple return value: ' + str(dbr.decodeTuple(value)))
 
 print('Check if blocking Read fails on timeout..')
 value, res = dbr.read(dbr_hdl, "testTup", "", group, dbr.DBR_FLAGS_NONE)
