@@ -32,8 +32,8 @@ dbr_state = ffi.new('DBR_State_t*')
 res = dbr.query(dbr_hdl, dbr_state, dbr.DBR_STATE_MASK_ALL)
 
 test_in = "Hello World!"
-res = dbr.put(dbr_hdl, test_in, len(test_in), "testTup", group)
-res = dbr.put(dbr_hdl, "Goodbye!", len("Goodbye!"), "testTup", group)
+res = dbr.put(dbr_hdl, test_in, "testTup", group)
+res = dbr.put(dbr_hdl, "Goodbye!", "testTup", group)
 
 print('Put ' + test_in + ' and Goodbye!') 
 group_t = 0

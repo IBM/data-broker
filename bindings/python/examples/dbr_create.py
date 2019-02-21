@@ -27,7 +27,7 @@ dbr_hdl = dbr.create(dbr_name, level, group_list)
 
 test_in = "Hello World!"
 group = dbr.DBR_GROUP_EMPTY
-res = dbr.put(dbr_hdl, test_in, len(test_in), "testTup", group)
+res = dbr.put(dbr_hdl, test_in, "testTup", group)
 print('Put ' + test_in)
 
 value, ret = dbr.read(dbr_hdl, "testTup", "", group, dbr.DBR_FLAGS_NONE)
