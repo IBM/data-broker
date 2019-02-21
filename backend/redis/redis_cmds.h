@@ -302,12 +302,6 @@ int dbBE_Redis_command_dump_create( dbBE_Redis_command_stage_spec_t *stage,
   return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
 }
 
-
-
-
-
-
-
 int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
                                       dbBE_Redis_sr_buffer_t *sr_buf,
                                       char *name_space,
@@ -400,18 +394,22 @@ int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
                                     char *cursor )
 {
   char *startcursor = "0";
-  char *args[ stage->_array_len + 1 ];
+  dbBE_sge_t args[ stage->_array_len + 1 ];
 
   // decide the scan cursor (start or not)
-  args[ 0 ] = startcursor;
+  args[ 0 ].iov_base = startcursor;
   if( cursor != NULL )
-    args[ 0 ] = cursor;
+    args[ 0 ].iov_base = cursor;
+
+  args[ 0 ].iov_len = strlen( (char*)args[ 0 ].iov_base );
 
   // then the key
-  args[ 1 ] = keybuffer;
-  args[ stage->_array_len ]= NULL;
+  args[ 1 ].iov_base = keybuffer;
+  args[ 1 ].iov_len = strlen( keybuffer );
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
 
-  return dbBE_Redis_command_create_argN( stage, sr_buf, args );
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
 
 int dbBE_Redis_command_restore_create( dbBE_Redis_command_stage_spec_t *stage,
