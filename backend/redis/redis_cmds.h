@@ -309,6 +309,16 @@ int dbBE_Redis_command_hmset_create( dbBE_Redis_command_stage_spec_t *stage,
     rc = -1;
   len += dbBE_Redis_command_create_terminate( sr_buf );
 
+  data._string._data = keybuffer;
+  sprintf( keybuffer, "flags" );
+  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+
+  data._string._data = keybuffer;
+  sprintf( keybuffer, "0" );
+  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
+  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+
   return len * rc;
 }
 

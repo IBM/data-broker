@@ -148,7 +148,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 1;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 6;
+  s->_array_len = 8;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
