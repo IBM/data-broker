@@ -110,19 +110,103 @@ int dbBE_Redis_command_put_parse( dbBE_Redis_command_stage_spec_t spec,
 }
 
 
+#define DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( err, sr_buf, position ) \
+    { \
+      dbBE_Redis_sr_buffer_rewind_processed_to( (sr_buf), (position) ); \
+      return ( err ); \
+    }
+
+
+static inline
+int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    dbBE_sge_t *args )
+{
+  int rc = 0;
+  int n = 0;
+  char *cmdptr = stage->_command;
+  char *initial = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *cmdend = stage->_command + strlen( stage->_command );
+
+  while((cmdptr < cmdend ) && ( n < stage->_array_len ) && ( args[ n ].iov_base != NULL ))
+  {
+    // get next location of parameter
+    char *loc = index( cmdptr, '%' );
+    if(( loc == NULL ) || ( *loc != '%' ) || ( loc[1] != (char)(48+n) ))
+      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -EBADMSG, sr_buf, initial );
+
+    // insert cmd string up to position
+    char tmp = *loc;
+    *loc = '\0';
+    int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+                        dbBE_Redis_sr_buffer_remaining( sr_buf ),
+                        "%s", cmdptr );
+    *loc = tmp;
+    if( len < 0 ) // can be 0 if 2 args appear back-to-back
+      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
+
+    rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
+
+    // insert args[n]
+    len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+                    dbBE_Redis_sr_buffer_remaining( sr_buf ),
+                    "$%ld\r\n", args[ n ].iov_len );
+    if( len < 4 ) // fixed chars + single digit number + one-length argument
+      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
+
+    rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
+
+    size_t maxlen = args[ n ].iov_len;
+    if( maxlen > dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2 ) // -2 because of cmd terminator
+      maxlen = dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2;
+    memcpy( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+            args[ n ].iov_base,
+            maxlen );
+
+    rc += dbBE_Redis_sr_buffer_add_data( sr_buf, maxlen, 1 );
+    rc += dbBE_Redis_command_create_terminate( sr_buf );
+
+    cmdptr = loc + 2;
+    ++n;
+  }
+
+  // add any remaining/trailing cmd string data
+  if( cmdptr < cmdend )
+  {
+    int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+                        dbBE_Redis_sr_buffer_remaining( sr_buf ),
+                        "%s", cmdptr );
+    if( len <= 0 ) // if equal to zero, then cmdptr == cmdend - can't be true here
+      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
+
+    rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
+  }
+
+  return rc;
+}
+
+static inline
+int dbBE_Redis_command_create_str1( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    char *buffer )
+{
+  if( stage->_array_len != 1 )
+    return -EINVAL;
+
+  dbBE_sge_t sge[ 2 ];
+  sge[0].iov_base = buffer;
+  sge[0].iov_len = strlen( buffer );
+  sge[1].iov_base = NULL;
+  sge[1].iov_len = 0;
+
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, sge );
+}
+
 int dbBE_Redis_command_lpop_create( dbBE_Redis_command_stage_spec_t *stage,
                                     dbBE_Redis_sr_buffer_t *sr_buf,
                                     char *keybuffer )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
 }
 
 
@@ -130,60 +214,54 @@ int dbBE_Redis_command_lindex_create( dbBE_Redis_command_stage_spec_t *stage,
                                       dbBE_Redis_sr_buffer_t *sr_buf,
                                       char *keybuffer )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = "0"; // read list index 0
-  data._string._size = 1;
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
 }
 
 int dbBE_Redis_command_del_create( dbBE_Redis_command_stage_spec_t *stage,
                                    dbBE_Redis_sr_buffer_t *sr_buf,
                                    char *keybuffer )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-  if( len < 0 )
-    return -EINVAL;
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-  return len;
+  return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
 }
 
+int dbBE_Redis_command_hmgetall_create( dbBE_Redis_command_stage_spec_t *stage,
+                                        dbBE_Redis_sr_buffer_t *sr_buf,
+                                        char *name_space )
+{
+  return dbBE_Redis_command_create_str1( stage, sr_buf, name_space );
+}
 
-int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
+int dbBE_Redis_command_exists_create( dbBE_Redis_command_stage_spec_t *stage,
                                       dbBE_Redis_sr_buffer_t *sr_buf,
                                       char *name_space )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
-  const char *idbuf = "id";
+  return dbBE_Redis_command_create_str1( stage, sr_buf, name_space );
+}
 
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+int dbBE_Redis_command_dump_create( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    char *keybuffer )
+{
+  return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
+}
 
-  data._string._data = name_space;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
+                                      dbBE_Redis_sr_buffer_t *sr_buf,
+                                      char *name_space,
+                                      char *field,
+                                      char *value )
+{
+  dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ 0 ].iov_base = name_space;
+  args[ 0 ].iov_len = strlen( name_space );
+  args[ 1 ].iov_base = field;
+  args[ 1 ].iov_len = strlen( field );
+  args[ 2 ].iov_base = value;
+  args[ 2 ].iov_len = strlen( value );
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
 
-  data._string._data = (char*)idbuf;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = name_space;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
 
 
@@ -234,61 +312,23 @@ int dbBE_Redis_command_hmset_create( dbBE_Redis_command_stage_spec_t *stage,
   return len * rc;
 }
 
-int dbBE_Redis_command_hmgetall_create( dbBE_Redis_command_stage_spec_t *stage,
-                                        dbBE_Redis_sr_buffer_t *sr_buf,
-                                        char *name_space )
-{
-  int len = 0;
-  dbBE_Redis_data_t data;
-
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = name_space;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
-}
-
-int dbBE_Redis_command_exists_create( dbBE_Redis_command_stage_spec_t *stage,
-                                      dbBE_Redis_sr_buffer_t *sr_buf,
-                                      char *name_space )
-{
-  int len = 0;
-  dbBE_Redis_data_t data;
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = name_space;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
-}
-
 int dbBE_Redis_command_hincrby_create( dbBE_Redis_command_stage_spec_t *stage,
                                        dbBE_Redis_sr_buffer_t *sr_buf,
-                                       char *keybuffer,
+                                       char *name_space,
                                        int increment )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
+  char incbuf[32];
+  dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ 0 ].iov_base = name_space;
+  args[ 0 ].iov_len = strlen( name_space );
+  args[ 1 ].iov_base = incbuf;
+  args[ 1 ].iov_len = (size_t)snprintf( incbuf, 31, "%d", increment );
+  if( (int)args[ 1 ].iov_len < 0 )
+    return -E2BIG;
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
 
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = keybuffer;
-  sprintf( keybuffer, "refcnt" );
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = keybuffer;
-  sprintf( keybuffer, "%d", increment );
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
 
 int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
@@ -296,53 +336,23 @@ int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
                                     char *keybuffer,
                                     char *cursor )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
   char *startcursor = "0";
-  char *command = "MATCH";
-  char *count_cmd = "COUNT";
+  dbBE_sge_t args[ stage->_array_len + 1 ];
 
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  // create and insert the scan cursor
-  data._string._data = startcursor;
+  // decide the scan cursor (start or not)
+  args[ 0 ].iov_base = startcursor;
   if( cursor != NULL )
-    data._string._data = cursor;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+    args[ 0 ].iov_base = cursor;
 
-  data._string._data = command;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+  args[ 0 ].iov_len = strlen( (char*)args[ 0 ].iov_base );
 
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+  // then the key
+  args[ 1 ].iov_base = keybuffer;
+  args[ 1 ].iov_len = strlen( keybuffer );
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
 
-  data._string._data = count_cmd;
-  data._string._size = 5;
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = "1000";
-  data._string._size = 4;
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
-}
-
-int dbBE_Redis_command_dump_create( dbBE_Redis_command_stage_spec_t *stage,
-                                    dbBE_Redis_sr_buffer_t *sr_buf,
-                                    char *keybuffer )
-{
-  int len = 0;
-  dbBE_Redis_data_t data;
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  return len;
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
 
 int dbBE_Redis_command_restore_create( dbBE_Redis_command_stage_spec_t *stage,
@@ -350,24 +360,16 @@ int dbBE_Redis_command_restore_create( dbBE_Redis_command_stage_spec_t *stage,
                                        char *keybuffer,
                                        dbBE_Redis_intern_move_data_t dump_data )
 {
-  int len = 0;
-  dbBE_Redis_data_t data;
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
+  dbBE_sge_t args[ stage->_array_len + 1 ];
 
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
+  args[0].iov_base = keybuffer;
+  args[0].iov_len = strnlen( keybuffer, DBR_MAX_KEY_LEN );
+  args[1].iov_base = dump_data.dumped_value;
+  args[1].iov_len = dump_data.len;
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
 
-  data._string._data = "0";
-  data._string._size = 1;
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._string._data = dump_data.dumped_value;
-  data._string._size = dump_data.len;
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_STRING_HEAD, &data );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_RAW, &data );
-  len += dbBE_Redis_command_create_terminate( sr_buf );
-  return len;
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
 
 #endif /* BACKEND_REDIS_REDIS_CMDS_H_ */
