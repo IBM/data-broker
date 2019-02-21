@@ -74,7 +74,7 @@ def getErrorCode(error_code):
 
 def getErrorMessage(error_code):
     if error_code < DBR_ERR_MAXERROR:
-    	return ERRORTABLE.getErrorMessage(error_code).decode()
+        return ERRORTABLE.getErrorMessage(error_code).decode()
     return "Unknown Error"
 
 def createBuf(buftype, bufsize):
@@ -111,7 +111,11 @@ def removeUnits(dbr_handle, units):
     return retval
 
 def put(dbr_hdl, tuple_val, tuple_name, group):
-    dumpedtuple = pickle.dumps(tuple_val)
+    dumpedtuple = None
+    if type(tuple_val) is str:
+        dumpedtuple = tuple_val.encode()
+    else:
+        dumpedtuple = pickle.dumps(tuple_val)
     size = len(dumpedtuple)
     retval = libdatabroker.dbrPut(dbr_hdl, dumpedtuple, size, tuple_name.encode(), group.encode())
     return retval
@@ -126,7 +130,12 @@ def read(dbr_hdl, tuple_name, match_template, group, flag, buffer_size=None):
     if retval != 0:
         return None, retval
     buffer_size[0] = out_size[0]
-    return pickle.loads(out_buffer[:]), retval
+    result = None
+    try:
+        result = pickle.loads(out_buffer[:])
+    except:
+        result = out_buffer[:].decode()
+    return result, retval
 
 def get(dbr_hdl, tuple_name, match_template, group, flag, buffer_size=None):
     out_size = ffi.new('int64_t*')
@@ -138,9 +147,15 @@ def get(dbr_hdl, tuple_name, match_template, group, flag, buffer_size=None):
     if retval != 0:
         return None, retval
     buffer_size[0] = out_size[0]
-    return pickle.loads(out_buffer[:]), retval
+    result = None
+    try:
+        result = pickle.loads(out_buffer[:])
+    except:
+        result = out_buffer[:].decode()
+    return result, retval
+    #return pickle.loads(out_buffer[:]), retval
 
-def readA(dbr_hdl, tuple_name, match_template, group, returned_val=None, buffer_size=None):
+def readA(dbr_hdl, tuple_name, match_template, group, buffer_size=None):
     out_size = ffi.new('int64_t*')
     if buffer_size is None :
         buffer_size=[128]
@@ -148,23 +163,37 @@ def readA(dbr_hdl, tuple_name, match_template, group, returned_val=None, buffer_
     out_buffer = createBuf('char[]', out_size[0])
     tag = libdatabroker.dbrReadA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode())
     buffer_size[0] = out_size[0]
-    return tag, pickle.loads(out_buffer[:])
+    return tag, out_buffer 
 
 def putA(dbr_hdl, tuple_val, tuple_name, group):
-    dumpedtuple = pickle.dumps(tuple_val)
+    #dumpedtuple = pickle.dumps(tuple_val)
+    dumpedtuple = None
+    if type(tuple_val) is str:
+        dumpedtuple = tuple_val.encode()
+    else:
+        dumpedtuple = pickle.dumps(tuple_val)
     size = len(dumpedtuple)
     tag = libdatabroker.dbrPutA(dbr_hdl, dumpedtuple, size, tuple_name.encode(), group.encode())
     return tag
 
-def getA(dbr_hdl, tuple_name, match_template, group, returned_val=None, buffer_size=None):
+def getA(dbr_hdl, tuple_name, match_template, group, buffer_size=None):
     out_size = ffi.new('int64_t*')
     if buffer_size is None :
         buffer_size=[128]
     out_size[0] = buffer_size[0]
     out_buffer = createBuf('char[]', out_size[0])
-    tag = libdatabroker.dbrGetA(dbr_hdl, ffi.from_buffer(out_buffer), buffer_size, tuple_name.encode(), match_template.encode(), group.encode())
+    tag = libdatabroker.dbrGetA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode())
     buffer_size[0] = out_size[0]
-    return tag, out_buffer   #pickle.loads(out_buffer[:]) 
+    return tag, out_buffer # pickle.loads(out_buffer[:]) 
+
+def decodeTuple(tuple_buffer):
+    result = None
+    try:
+        result = pickle.loads(tuple_buffer[:])
+    except:
+        result = tuple_buffer[:].decode()
+    return result
+    #return pickle.loads(tuple_buffer[:])
 
 def testKey(dbr_hdl, tuple_name):
     retval = libdatabroker.dbrTestKey(dbr_hdl, tuple_name)

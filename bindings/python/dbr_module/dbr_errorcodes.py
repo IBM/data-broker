@@ -47,7 +47,7 @@ class Errors(object):
         self.DBR_SUCCESS = lib.DBR_SUCCESS # no error, clean result, operation successful
         self.DBR_ERR_GENERIC = lib.DBR_ERR_GENERIC # a general or unknown error has occurred
         self.DBR_ERR_INVALID = lib.DBR_ERR_INVALID # an invalid parameter was passed into a function or other general error
-       	self.DBR_ERR_HANDLE = lib.DBR_ERR_HANDLE # an invalid handle was encountered
+        self.DBR_ERR_HANDLE = lib.DBR_ERR_HANDLE # an invalid handle was encountered
         self.DBR_ERR_INPROGRESS = lib.DBR_ERR_INPROGRESS # a request is still in progress, check again later
         self.DBR_ERR_TIMEOUT = lib.DBR_ERR_TIMEOUT # a timeout occurred
         self.DBR_ERR_UBUFFER = lib.DBR_ERR_UBUFFER # provided user buffer problem (too small, not available)
