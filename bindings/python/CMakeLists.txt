@@ -15,30 +15,42 @@
  #
 
 
-set(Python_ADDITIONAL_VERSIONS 2.7)
-find_package(PythonInterp 3)
-find_package(PythonLibs 3)
+set(PACKAGE_FIND_VERSION_MAJOR 3)
+set(PACKAGE_FIND_VERSION_MINOR 6)
+find_package(PythonInterp ${PACKAGE_FIND_VERSION_MAJOR}.${PACKAGE_FIND_VERSION_MINOR})
+find_package(PythonLibs ${PACKAGE_FIND_VERSION_MAJOR}.${PACKAGE_FIND_VERSION_MINOR})
+
 message(STATUS "PYTHON_LIBRARIES = ${PYTHON_LIBRARIES}")
 message(STATUS "PYTHON_EXECUTABLE = ${PYTHON_EXECUTABLE}")
 
-set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
-set(SETUP_PY    "setup.py")
-set(DEPS        "${CMAKE_CURRENT_BINARY_DIR}/dbr_module/__init__.py")
-set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/build/")
+if (NOT EXISTS ${PYTHON_EXECUTABLE})
+    set(Python_ADDITIONAL_VERSIONS 2.7)
+    find_package(PythonInterp 2)
+    find_package(PythonLibs 2) 
+endif()
+
+set( PYTHON ${PYTHON_EXECUTABLE})
+
+if (PYTHON)
+	set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
+	set(SETUP_PY    "setup.py")
+	set(DEPS        "${CMAKE_CURRENT_BINARY_DIR}/dbr_module/__init__.py")
+	set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/build/")
 
  
-configure_file(${SETUP_PY_IN} ${SETUP_PY})
+	configure_file(${SETUP_PY_IN} ${SETUP_PY})
 
-add_custom_command(OUTPUT ${OUTPUT}
+	add_custom_command(OUTPUT ${OUTPUT}
                    COMMAND ${PYTHON} ${SETUP_PY} build
                    COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
                    DEPENDS ${DEPS})
 
-set( INSTALL_CMD "${PYTHON_EXECUTABLE} ${SETUP_PY} install")
+	set( INSTALL_CMD "${PYTHON} ${CMAKE_CURRENT_BINARY_DIR}/${SETUP_PY} install")
    
-add_custom_target(pydbr ALL DEPENDS ${OUTPUT})
-FILE(COPY test DESTINATION .)
-FILE(COPY dbr_module DESTINATION .)
-install(CODE "MESSAGE(\"Installing pydbr \")")
-install(CODE "execute_process( COMMAND ${INSTALL_CMD}
+	add_custom_target(pydbr ALL DEPENDS ${OUTPUT})
+	FILE(COPY examples DESTINATION .)
+	FILE(COPY dbr_module DESTINATION .)
+	install(CODE "MESSAGE(\"Installing pydbr \")")
+	install(CODE "execute_process( COMMAND ${INSTALL_CMD}
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )")
+endif()

@@ -19,8 +19,9 @@ libbackend = ffi.dlopen("libdbbe_redis.so", ffi.RTLD_GLOBAL|ffi.RTLD_NOW)
 libdatabroker = ffi.dlopen("libdatabroker.so")
 import _cffi_backend
 from dbr_module.dbr_errorcodes import Errors
-
-
+import io
+import numpy as np
+import ctypes
 ERRORTABLE = Errors()
 
 # Copy for direct access
@@ -108,6 +109,27 @@ def addUnits(dbr_handle, units):
 def removeUnits(dbr_handle, units):
     retval = libdatabroker.dbrRemoveUnits(dbr_handle, units)
     return retval
+
+def put_numpy(dbr_hdl, np_array, ctype, tuple_name, group):
+    cffi_arr = ffi.cast(ffi.getctype(ctype, "*"), np_array.ctypes.data)
+    size = np_array.size*np_array.dtype.itemsize
+    retval = libdatabroker.dbrPut(dbr_hdl, cffi_arr, size, tuple_name.encode(), group.encode())
+    return retval
+
+def get_numpy(dbr_hdl, tuple_name, ctype, match_template, group, flag, buffer_size=None):
+    out_size = ffi.new('int64_t*')
+    if buffer_size is None :
+        buffer_size=[128]
+    out_size[0] = buffer_size[0]
+    out_buffer = createBuf('char[]', out_size[0])
+    retval = libdatabroker.dbrGet(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode(), flag)
+    buffer_size[0] = out_size[0]
+    cffi_arr = ffi.cast(ffi.getctype(ctype, "*"), ffi.from_buffer(out_buffer))
+    c_buffer = ffi.buffer(cffi_arr, buffer_size[0])
+    np_arr = np.frombuffer(c_buffer)
+    
+    return np_arr, retval 
+
 
 def put(dbr_hdl, tuple_val, size, tuple_name, group):
     retval = libdatabroker.dbrPut(dbr_hdl, tuple_val.encode(), size, tuple_name.encode(), group.encode())
