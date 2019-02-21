@@ -1,5 +1,5 @@
  #
- # Copyright (C) 2018 IBM Corporation
+ # Copyright (C) 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ libbackend = ffi.dlopen("libdbbe_redis.so", ffi.RTLD_GLOBAL|ffi.RTLD_NOW)
 libdatabroker = ffi.dlopen("libdatabroker.so")
 import _cffi_backend
 from dbr_module.dbr_errorcodes import Errors
-
+import pickle
 
 ERRORTABLE = Errors()
 
@@ -66,98 +66,161 @@ DBR_GROUP_EMPTY = '0'      #libdatabroker.DBR_GROUP_EMPTY
 # Mask
 DBR_STATE_MASK_ALL = libdatabroker.DBR_STATE_MASK_ALL
 
+
+# Utility
 def getErrorCode(error_code):
-    return ERRORTABLE.getErrorCode(error_code)
+    return ERRORTABLE.getErrorCode(error_code).decode()
 
 def getErrorMessage(error_code):
     if error_code < DBR_ERR_MAXERROR:
-    	return ERRORTABLE.getErrorMessage(error_code)
+        return ERRORTABLE.getErrorMessage(error_code).decode()
     return "Unknown Error"
-
 
 def createBuf(buftype, bufsize):
     retval = ffi.buffer(ffi.new(buftype, bufsize))
     return retval
 
-def dbrCreate(dbrname, level, groups):
-    dbr_hdl = libdatabroker.dbrCreate(dbrname, level, groups)
+# Data Broker
+def create(dbrname, level, groups):
+    dbr_hdl = libdatabroker.dbrCreate(dbrname.encode(), level, groups)
     return dbr_hdl
 
-def dbrAttach(dbr_name):
-    dbr_hdl = libdatabroker.dbrAttach(dbr_name)
+def attach(dbr_name):
+    dbr_hdl = libdatabroker.dbrAttach(dbr_name.encode())
     return dbr_hdl
 
-def dbrDelete(dbr_name):
-    retval = libdatabroker.dbrDelete(dbr_name)
+def delete(dbr_name):
+    retval = libdatabroker.dbrDelete(dbr_name.encode())
     return retval
 
-def dbrDetach(dbr_handle):
+def detach(dbr_handle):
     retval = libdatabroker.dbrDetach(dbr_handle)
     return retval
 
-def dbrQuery(dbr_handle, dbr_state, state_mask):
+def query(dbr_handle, dbr_state, state_mask):
     retval =  libdatabroker.dbrQuery(dbr_handle, dbr_state, state_mask)
     return retval
 
-def dbrAddUnits(dbr_handle, units):
+def addUnits(dbr_handle, units):
     retval = libdatabroker.dbrAddUnits(dbr_handle, units)
     return retval 
 
-def dbrRemoveUnits(dbr_handle, units):
+def removeUnits(dbr_handle, units):
     retval = libdatabroker.dbrRemoveUnits(dbr_handle, units)
     return retval
 
-def dbrPut(dbr_hdl, tuple_val, tuple_name, group):
-    retval = libdatabroker.dbrPut(dbr_hdl, tuple_val, len(tuple_val), tuple_name, group)
+def put(dbr_hdl, tuple_val, tuple_name, group):
+    dumpedtuple = None
+    if type(tuple_val) is str:
+        dumpedtuple = tuple_val.encode()
+    else:
+        dumpedtuple = pickle.dumps(tuple_val)
+    size = len(dumpedtuple)
+    retval = libdatabroker.dbrPut(dbr_hdl, dumpedtuple, size, tuple_name.encode(), group.encode())
     return retval
 
-def dbrRead(dbr_hdl, out_buffer, buffer_size, tuple_name, match_template, group, flag):
-    retval = libdatabroker.dbrRead(dbr_hdl, ffi.from_buffer(out_buffer), buffer_size, tuple_name, match_template, group, flag)
-    return retval
+def read(dbr_hdl, tuple_name, match_template, group, flag, buffer_size=None):
+    out_size = ffi.new('int64_t*')
+    if buffer_size is None :
+        buffer_size=[256]
+    out_size[0] = buffer_size[0]
+    out_buffer = createBuf('char[]', out_size[0])
+    retval = libdatabroker.dbrRead(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode(), flag)
+    if retval != 0:
+        return None, retval
+    buffer_size[0] = out_size[0]
+    result = None
+    try:
+        result = pickle.loads(out_buffer[:])
+    except:
+        result = out_buffer[:].decode()
+    return result, retval
 
-def dbrGet(dbr_hdl, out_buffer, buffer_size, tuple_name, match_template, group, flag):
-    retval = libdatabroker.dbrGet(dbr_hdl, ffi.from_buffer(out_buffer), buffer_size, tuple_name, match_template, group, flag)
-    return retval
+def get(dbr_hdl, tuple_name, match_template, group, flag, buffer_size=None):
+    out_size = ffi.new('int64_t*')
+    if buffer_size is None :
+        buffer_size=[128]
+    out_size[0] = buffer_size[0]
+    out_buffer = createBuf('char[]', out_size[0])
+    retval = libdatabroker.dbrGet(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode(), flag)
+    if retval != 0:
+        return None, retval
+    buffer_size[0] = out_size[0]
+    result = None
+    try:
+        result = pickle.loads(out_buffer[:])
+    except:
+        result = out_buffer[:].decode()
+    return result, retval
+    #return pickle.loads(out_buffer[:]), retval
 
-def dbrReadA(dbr_hdl, out_buffer, buffer_size, tuple_name, match_template, group):
-    tag = libdatabroker.dbrReadA(dbr_hdl, ffi.from_buffer(out_buffer), buffer_size, tuple_name,  match_template, group)
+def readA(dbr_hdl, tuple_name, match_template, group, buffer_size=None):
+    out_size = ffi.new('int64_t*')
+    if buffer_size is None :
+        buffer_size=[128]
+    out_size[0] = buffer_size[0]
+    out_buffer = createBuf('char[]', out_size[0])
+    tag = libdatabroker.dbrReadA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode())
+    buffer_size[0] = out_size[0]
+    return tag, out_buffer 
+
+def putA(dbr_hdl, tuple_val, tuple_name, group):
+    #dumpedtuple = pickle.dumps(tuple_val)
+    dumpedtuple = None
+    if type(tuple_val) is str:
+        dumpedtuple = tuple_val.encode()
+    else:
+        dumpedtuple = pickle.dumps(tuple_val)
+    size = len(dumpedtuple)
+    tag = libdatabroker.dbrPutA(dbr_hdl, dumpedtuple, size, tuple_name.encode(), group.encode())
     return tag
 
-def dbrPutA(dbr_hdl, tuple_val, tuple_name, group):
-    tag = libdatabroker.dbrPutA(dbr_hdl, tuple_val, len(tuple_val), tuple_name, group)
-    return tag
+def getA(dbr_hdl, tuple_name, match_template, group, buffer_size=None):
+    out_size = ffi.new('int64_t*')
+    if buffer_size is None :
+        buffer_size=[128]
+    out_size[0] = buffer_size[0]
+    out_buffer = createBuf('char[]', out_size[0])
+    tag = libdatabroker.dbrGetA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode())
+    buffer_size[0] = out_size[0]
+    return tag, out_buffer # pickle.loads(out_buffer[:]) 
 
-def dbrGetA(dbr_hdl, out_buffer, buffer_size, tuple_name, match_template, group):
-    tag = libdatabroker.dbrGetA(dbr_hdl, ffi.from_buffer(out_buffer), buffer_size, tuple_name, match_template, group)
-    return tag
+def decodeTuple(tuple_buffer):
+    result = None
+    try:
+        result = pickle.loads(tuple_buffer[:])
+    except:
+        result = tuple_buffer[:].decode()
+    return result
+    #return pickle.loads(tuple_buffer[:])
 
-def dbrTestKey(dbr_hdl, tuple_name):
+def testKey(dbr_hdl, tuple_name):
     retval = libdatabroker.dbrTestKey(dbr_hdl, tuple_name)
     return retval
 
-
-def dbrDirectory(dbr_hdl, match_template, group, count, size, ret_size):
+def directory(dbr_hdl, match_template, group, count, size):
     tbuf = createBuf('char[]',size)
-    retval = libdatabroker.dbrDirectory(dbr_hdl, match_template, group, count, ffi.from_buffer(tbuf), ffi.cast('const size_t',size), ret_size)
-    result_buffer=(tbuf[0:ret_size[0]].split('\n'))
-    return retval, result_buffer
+    rsize = ffi.new('int64_t*')
+    retval = libdatabroker.dbrDirectory(dbr_hdl, match_template.encode(), group.encode(), count, ffi.from_buffer(tbuf), ffi.cast('const size_t',size), rsize)
+    result_buffer=(tbuf[0:rsize[0]].decode().split('\n'))
+    return result_buffer, rsize[0], retval
 
-def dbrMove(src_DBRHandle, src_group, tuple_name, match_template, dest_DBRHandle, dest_group):
-    retval = libdatabroker.dbrMove(src_DBRHandle, src_group, tuple_name, match_template, dest_DBRHandle, dest_group)
+def move(src_DBRHandle, src_group, tuple_name, match_template, dest_DBRHandle, dest_group):
+    retval = libdatabroker.dbrMove(src_DBRHandle, src_group.encode(), tuple_name.encode(), match_template.encode(), dest_DBRHandle, dest_group.encode())
     return retval
 
-def dbrRemove(dbr_hdl, group, tuple_name, match_template):
-    retval = libdatabroker.dbrRemove(dbr_hdl, group, tuple_name, match_template)
+def remove(dbr_hdl, group, tuple_name, match_template):
+    retval = libdatabroker.dbrRemove(dbr_hdl, group.encode(), tuple_name.encode(), match_template.encode())
     return retval
 
-def dbrTest(tag):
+def test(tag):
     retval = libdatabroker.dbrTest(tag)
     return retval
 
-def dbrCancel(tag):
+def cancel(tag):
     retval = libdatabroker.dbrCancel(tag)
     return retval
 
-def dbrEval(dbr_hdl, tuple_val, tuple_name, group, fn_ptr):
-    retval = libdatabroker.dbrEval(dbr_hdl, tuple_val, len(tuple_val), tuple_name, group, fn_ptr)
+def eval(dbr_hdl, tuple_val, tuple_name, size, group, fn_ptr):
+    retval = libdatabroker.dbrEval(dbr_hdl, tuple_val.encode(), size, tuple_name.encode(), group.encode(), fn_ptr)
     return retval

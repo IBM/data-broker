@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright (C) 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -164,8 +164,7 @@ DBR_Tag_t dbrReadA( DBR_Handle_t cs_handle,
                     DBR_Tuple_template_t match_template,
                     DBR_Group_t group );
 
-DBR_Errorcode_t dbrTestKey( DBR_Handle_t cs_handle,
-			    DBR_Tuple_name_t tuple_name );
+DBR_Errorcode_t dbrTestKey( DBR_Handle_t cs_handle, DBR_Tuple_name_t tuple_name );
 
 DBR_Errorcode_t dbrDirectory( DBR_Handle_t cs_handle,
                               DBR_Tuple_template_t match_template,
@@ -173,7 +172,7 @@ DBR_Errorcode_t dbrDirectory( DBR_Handle_t cs_handle,
                               const unsigned count,
                               char *result_buffer,
                               const size_t size,
-			      int64_t *ret_size );
+                              int64_t *ret_size );
 
 
 DBR_Errorcode_t dbrMove( DBR_Handle_t src_cs_handle,
