@@ -381,14 +381,17 @@ int dbBE_Redis_command_hincrby_create( dbBE_Redis_command_stage_spec_t *stage,
                                        int increment )
 {
   char incbuf[32];
-  char *args[ stage->_array_len + 1 ];
-  args[0]= name_space;
-  args[1]=incbuf;
-  if( snprintf( args[1], 31, "%d", increment ) < 0 )
+  dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ 0 ].iov_base = name_space;
+  args[ 0 ].iov_len = strlen( name_space );
+  args[ 1 ].iov_base = incbuf;
+  args[ 1 ].iov_len = (size_t)snprintf( incbuf, 31, "%d", increment );
+  if( (int)args[ 1 ].iov_len < 0 )
     return -E2BIG;
-  args[ stage->_array_len ]= NULL;
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
 
-  return dbBE_Redis_command_create_argN( stage, sr_buf, args );
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
 
 int dbBE_Redis_command_scan_create( dbBE_Redis_command_stage_spec_t *stage,
