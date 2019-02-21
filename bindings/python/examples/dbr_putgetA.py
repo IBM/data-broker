@@ -18,7 +18,6 @@ import sys
 from _dbr_interface import ffi
 from dbr_module import dbr
 import time
-import pickle 
 
 dbr_name = "DBRtestname"
 level = dbr.DBR_PERST_VOLATILE_SIMPLE

@@ -19,9 +19,8 @@ libbackend = ffi.dlopen("libdbbe_redis.so", ffi.RTLD_GLOBAL|ffi.RTLD_NOW)
 libdatabroker = ffi.dlopen("libdatabroker.so")
 import _cffi_backend
 from dbr_module.dbr_errorcodes import Errors
-import io
-import numpy as np
 import pickle
+
 ERRORTABLE = Errors()
 
 # Copy for direct access
