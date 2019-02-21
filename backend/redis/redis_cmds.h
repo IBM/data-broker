@@ -314,13 +314,17 @@ int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
                                       char *field,
                                       char *value )
 {
-  char *args[ stage->_array_len + 1 ];
-  args[ 0 ] = name_space;
-  args[ 1 ] = field;
-  args[ 2 ] = value;
-  args[ stage->_array_len ]= NULL;
+  dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ 0 ].iov_base = name_space;
+  args[ 0 ].iov_len = strlen( name_space );
+  args[ 1 ].iov_base = field;
+  args[ 1 ].iov_len = strlen( field );
+  args[ 2 ].iov_base = value;
+  args[ 2 ].iov_len = strlen( value );
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
 
-  return dbBE_Redis_command_create_argN( stage, sr_buf, args );
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
 
 
