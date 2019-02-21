@@ -17,7 +17,8 @@ import os
 import sys
 from _dbr_interface import ffi
 from dbr_module import dbr
-
+import time
+import pickle 
 
 dbr_name = "DBRtestname"
 level = dbr.DBR_PERST_VOLATILE_SIMPLE
@@ -32,9 +33,9 @@ res = dbr.query(dbr_hdl, dbr_state, dbr.DBR_STATE_MASK_ALL)
 
 
 test_in = "Hello World!"
-tag = dbr.putA(dbr_hdl, test_in, len(test_in), "testTup", group)
+tag = dbr.putA(dbr_hdl, test_in, "testTup", group)
 
-print('Async oh Put tuple: ' + test_in)
+print('Async Put tuple: ' + test_in)
 buffer_size=[32]
 
 tag,value = dbr.getA(dbr_hdl, "testTup","", group, buffer_size)
@@ -45,12 +46,15 @@ if (tag!=dbr.DBR_ERR_TAGERROR):
         state = dbr.test(tag) 
         if state == dbr.DBR_ERR_INPROGRESS:
             print("Waiting...")
+            time.sleep(2)
+            break
         elif state == dbr.DBR_SUCCESS: 
             break
 else:
     print('Async Get test returned ' + dbr.getErrorMessage(state))
-
-print('Tuple return value: ' + value)
+print('pointer in main ' + str(value))
+print('tmp value ' + str(value[:]))
+print('Tuple return value: ' +str(pickle.loads(value[:])))
 
 print('Check if blocking Read fails on timeout..')
 value, res = dbr.read(dbr_hdl, "testTup", "", group, dbr.DBR_FLAGS_NONE)
