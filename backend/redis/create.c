@@ -320,7 +320,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case 0:
-          len += dbBE_Redis_command_exists_create( stage, sr_buf, request->_user->_ns_name );
+          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
           break;
 
         case 1:

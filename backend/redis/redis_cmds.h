@@ -231,6 +231,13 @@ int dbBE_Redis_command_hmgetall_create( dbBE_Redis_command_stage_spec_t *stage,
   return dbBE_Redis_command_create_str1( stage, sr_buf, name_space );
 }
 
+int dbBE_Redis_command_hmget_create( dbBE_Redis_command_stage_spec_t *stage,
+                                     dbBE_Redis_sr_buffer_t *sr_buf,
+                                     char *name_space )
+{
+  return dbBE_Redis_command_create_str1( stage, sr_buf, name_space );
+}
+
 int dbBE_Redis_command_exists_create( dbBE_Redis_command_stage_spec_t *stage,
                                       dbBE_Redis_sr_buffer_t *sr_buf,
                                       char *name_space )

@@ -201,21 +201,28 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
 
   /*
    * DetachNS
+   * - HMGET ns_name FLAGS REFCNT
+   *      check for DELETED flag
    * - HINCRBY ns_name refcnt -1
    * -   check return for >= 1
+   *
+   * - SCAN 0 MATCH ns_name::*          start the scan on all connections
+   * - SCAN <cursor> MATCH ns_name::*   repeat until return from server is 0, delete each returned key
+   *
+   * - DEL remaining keys
    */
   op = DBBE_OPCODE_NSDETACH;
-  stage = 0;
+  stage = DBBE_REDIS_NSDETACH_STAGE_DELCHECK;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
   s->_final = 0;
   s->_result = 0;
-  s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
-  strcpy( s->_command, "*2\r\n$6\r\nEXISTS\r\n%0" );
+  s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return an array of the field values
+  strcpy( s->_command, "*4\r\n$5\r\nHMGET\r\n%0$6\r\nrefcnt\r\n$5\r\nflags\r\n" );
   s->_stage = stage;
 
-  stage = 1;
+  stage = DBBE_REDIS_NSDETACH_STAGE_DETACH;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;

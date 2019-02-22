@@ -48,6 +48,18 @@ typedef enum
   DBBE_REDIS_DIRECTORY_STAGE_SCAN = 1
 } dbBE_Redis_directory_stages_t;
 
+
+/*
+ * enumeration of the name space detach stages
+ */
+typedef enum
+{
+  DBBE_REDIS_NSDETACH_STAGE_DELCHECK = 0,
+  DBBE_REDIS_NSDETACH_STAGE_DETACH = 1,
+  DBBE_REDIS_NSDETACH_STAGE_DESKEYS = 2,
+  DBBE_REDIS_NSDETACH_STAGE_DELNS = 3
+} dbBE_Redis_nsdetach_stages_t;
+
 /*
  * enumeration of the name space delete stages
  */

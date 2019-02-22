@@ -946,17 +946,70 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t *request,
 
   switch( request->_step->_stage )
   {
-    case 0:
+    case DBBE_REDIS_NSDETACH_STAGE_DELCHECK:
       if( rc == 0 )
       {
-        if( result->_data._integer == 0 ) // if the return signals: not existent, return error
+        if( result->_data._integer < 0 )
         {
-          rc = -EEXIST;
+          rc = -EOVERFLOW;
           result->_data._integer = rc;
+        }
+        else
+        {
+          if(( result->_type != dbBE_REDIS_TYPE_ARRAY ) || ( result->_data._array._len != 2 ))
+          {
+            return_error_clean_result( -EINVAL, result );
+            break;
+          }
+
+          // parse the result array check the refcount and the flags
+          int n;
+          int to_delete = 0x3; // 2 bits to make sure we only delete if refcnt==0 and marked deleted
+          for( n=0; n<result->_data._array._len; ++n )
+          {
+            dbBE_Redis_result_t *nres = &result->_data._array._data[n];
+            char *value = NULL;
+            if( nres->_type == dbBE_REDIS_TYPE_CHAR )
+              value = nres->_data._string._data;
+            else
+            {
+              return_error_clean_result( -EINVAL, result );
+              break;
+            }
+
+#define DBBE_REDIS_META_DELETE_FLAG ( 0x1 )
+
+#define DBBE_REDIS_DETACH_REFCNT_MASK ( 0x1 )
+#define DBBE_REDIS_DETACH_DELETE_MASK ( 0x2 )
+
+            switch( n )
+            {
+              case 0: // refcnt field
+              {
+                int refcnt = strtol( value, NULL, 10 );
+                if( refcnt > 1 )
+                  to_delete &= ~DBBE_REDIS_DETACH_REFCNT_MASK; // unset bit 0 because we cannot delete
+                else
+                  LOG( DBG_ALL, stdout, "RefCnt hit 0. Ready to delete if marked accordingly\n" );
+                break;
+              }
+              case 1: // flags field
+              {
+                int flags = strtol( value, NULL, 10 );
+                if( ! ( flags & DBBE_REDIS_META_DELETE_FLAG ))
+                  to_delete &= ~DBBE_REDIS_DETACH_DELETE_MASK; // unset bit 1 because we cannot delete
+                break;
+              }
+            }
+          }
+          if( to_delete == 0x3 )
+          {
+            LOG( DBG_ALL, stdout, "RefCnt and DeleteMark apply: DELETING Namespace\n" );
+          }
         }
       }
       break;
-    case 1:
+    case DBBE_REDIS_NSDETACH_STAGE_DETACH:
       if( rc == 0 )
       {
         if( result->_data._integer < 0 )
