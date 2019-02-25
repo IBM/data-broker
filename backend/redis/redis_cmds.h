@@ -252,11 +252,14 @@ int dbBE_Redis_command_dump_create( dbBE_Redis_command_stage_spec_t *stage,
   return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
 }
 
-int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
-                                      dbBE_Redis_sr_buffer_t *sr_buf,
-                                      char *name_space,
-                                      char *field,
-                                      char *value )
+
+
+static inline
+int dbBE_Redis_command_create_str3( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    char *name_space,
+                                    char *field,
+                                    char *value )
 {
   dbBE_sge_t args[ stage->_array_len + 1 ];
   args[ 0 ].iov_base = name_space;
@@ -270,6 +273,25 @@ int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
 
   return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
+
+int dbBE_Redis_command_hsetnx_create( dbBE_Redis_command_stage_spec_t *stage,
+                                      dbBE_Redis_sr_buffer_t *sr_buf,
+                                      char *name_space,
+                                      char *field,
+                                      char *value )
+{
+  return dbBE_Redis_command_create_str3( stage, sr_buf, name_space, field, value );
+}
+
+int dbBE_Redis_command_hset_create( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    char *name_space,
+                                    char *field,
+                                    char *value )
+{
+  return dbBE_Redis_command_create_str3( stage, sr_buf, name_space, field, value );
+}
+
 
 
 int dbBE_Redis_command_hmset_create( dbBE_Redis_command_stage_spec_t *stage,
