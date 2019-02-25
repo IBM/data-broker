@@ -180,7 +180,7 @@ int TestNSDetach( const char *namespace,
   // create a response that would trigger the delete path: refcnt=1 flags=1
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
-                  "+OK\r\n+QUEUED\r\n+QUEUED\r\n*2\r\n:0\r\n*2\r\n$1\r\n1\r\n$1\r\n1\r\n");
+                  "+OK\r\n+QUEUED\r\n+QUEUED\r\n*2\r\n:0\r\n*2\r\n$1\r\n0\r\n$1\r\n1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
@@ -286,7 +286,7 @@ int TestNSDetach( const char *namespace,
   // just stage 3 output (skipping multi and queued response)
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
-                  "*2\r\n:3\r\n*2\r\n$1\r\n2\r\n$1\r\n1\r\n");
+                  "*2\r\n:3\r\n*2\r\n$1\r\n3\r\n$1\r\n1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
