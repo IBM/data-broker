@@ -63,6 +63,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 3;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return integer of inserted keys
@@ -80,6 +81,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return char buffer
@@ -95,6 +97,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return char buffer
@@ -112,6 +115,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return char buffer
@@ -122,6 +126,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
@@ -132,13 +137,14 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   /*
    * CreateNS ( 2-stage )
    * - HSETNX ns_name id ns_name
-   * - if return 1: HMSET ns_name refcnt 1 groups permissions
+   * - if return 1: HMSET ns_name refcnt 1 groups permissions flags 0
    */
   op = DBBE_OPCODE_NSCREATE;
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 3;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return integer: number of created hashes
@@ -149,6 +155,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 8;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
@@ -166,6 +173,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
@@ -176,6 +184,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
@@ -193,6 +202,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return list of kv entries of the hash
@@ -254,6 +264,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
@@ -264,6 +275,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
@@ -274,6 +286,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
@@ -289,6 +302,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
@@ -306,6 +320,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return serialized sequence of tuple
@@ -316,6 +331,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
@@ -326,6 +342,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1

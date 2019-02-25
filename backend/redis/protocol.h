@@ -91,6 +91,7 @@ typedef struct dbBE_Redis_command_stage_spec
 {
   uint8_t _stage; // number of this stage
   uint8_t _array_len; // number of args for this stage
+  uint8_t _resp_cnt; // number of responses expected (see MULTI cmds)
   uint8_t _final; // is it the last stage of this command?
   uint8_t _result; // is it the result-stage of this command?
   dbBE_REDIS_DATA_TYPE _expect; // what result type to expect for this stage
