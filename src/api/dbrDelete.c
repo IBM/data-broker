@@ -116,7 +116,11 @@ libdbrDelete(DBR_Name_t db_name)
 
   // detach after marking deletable
   if( rc == DBR_SUCCESS )
+  {
+    BIGLOCK_UNLOCK( ctx );
     rc = libdbrDetach( cs );
+    BIGLOCK_LOCK( ctx );
+  }
 
   BIGLOCK_UNLOCKRETURN( ctx, rc );
 
