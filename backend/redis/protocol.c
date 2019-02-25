@@ -234,7 +234,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return an array of results from HINCRBY and HMGET with the field values
-  strcpy( s->_command, "*1\r\n$5\r\nMULTI\r\n*2\r\n*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1*4\r\n$5\r\nHMGET\r\n%2$6\r\nrefcnt\r\n$5\r\nflags\r\n*1\r\n$4\r\nEXEC\r\n" );
+  strcpy( s->_command, "*1\r\n$5\r\nMULTI\r\n*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1*4\r\n$5\r\nHMGET\r\n%2$6\r\nrefcnt\r\n$5\r\nflags\r\n*1\r\n$4\r\nEXEC\r\n" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDETACH_STAGE_SCAN;

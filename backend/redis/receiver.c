@@ -285,6 +285,10 @@ process_next_item:
         if( request == NULL )
           break;
 
+        // do not attempt to queue a new request until all responses have been
+        if(( responses_remain > 0 ) && ( ! dbBE_Redis_sr_buffer_empty( conn->_recvbuf ) ))
+          break;
+
         if( rc >= 0 )
         {
           // if this is the result stage, create upper layer completion

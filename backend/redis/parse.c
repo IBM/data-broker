@@ -964,7 +964,7 @@ int dbBE_Redis_process_nsdetach_check_delete( dbBE_Redis_result_t *hincrby, dbBE
       {
         int refcnt = strtol( value, NULL, 10 );
         int refcnt_inc = hincrby->_data._integer;
-        if(( refcnt > 1 ) || ( refcnt_inc > 0 ))
+        if(( refcnt > 0 ) || ( refcnt_inc > 0 ))
           to_delete &= ~DBBE_REDIS_DETACH_REFCNT_MASK; // unset bit 0 because we cannot delete
         else
           LOG( DBG_ALL, stdout, "RefCnt hit 0. Ready to delete if marked accordingly\n" );

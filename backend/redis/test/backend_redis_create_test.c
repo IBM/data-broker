@@ -243,7 +243,7 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*1\r\n$5\r\nMULTI\r\n*2\r\n*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$2\r\n-1\r\n*4\r\n$5\r\nHMGET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$5\r\nflags\r\n*1\r\n$4\r\nEXEC\r\n",
+  rc += TEST( strcmp( "*1\r\n$5\r\nMULTI\r\n*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$2\r\n-1\r\n*4\r\n$5\r\nHMGET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$5\r\nflags\r\n*1\r\n$4\r\nEXEC\r\n",
                       dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
               0 );
 
