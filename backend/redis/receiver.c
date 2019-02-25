@@ -120,11 +120,28 @@ void* dbBE_Redis_receiver( void *args )
   dbBE_Redis_result_t result;
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
+  // assume this is a new request
+  int responses_remain = 0;
+
 process_next_item:
 
   // when we received something:
   // fetch first request from sender's request queue
-  request = dbBE_Redis_s2r_queue_pop( conn->_posted_q );
+  if( responses_remain <= 0 )
+    request = dbBE_Redis_s2r_queue_pop( conn->_posted_q );
+
+  if( request == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Serious backend protocol error. Expected posted request, but nothing found\n" );
+    // todo: instead of skipping, generate an asynchronous error (i.e. one that doesn't belong to a request)
+    // alternative: cancell all requests
+    goto skip_receiving;
+  }
+
+  if( responses_remain <= 0 )
+    responses_remain = request->_step->_resp_cnt - 1;
+  else
+    --responses_remain;
 
   // parse buffer for next complete response including nested arrays
   dbBE_Redis_result_cleanup( &result, 0 );
@@ -245,14 +262,15 @@ process_next_item:
             break;
 
           case DBBE_OPCODE_NSDETACH:
-            rc = dbBE_Redis_process_nsdetach( request, &result );
+            rc = dbBE_Redis_process_nsdetach( &request, &result,
+                                              input->_backend->_retry_q,
+                                              input->_backend->_conn_mgr,
+                                              responses_remain );
             break;
 
           case DBBE_OPCODE_NSDELETE:
-            rc = dbBE_Redis_process_nsdelete( &request,
-                                              &result,
-                                              input->_backend->_retry_q,
-                                              input->_backend->_conn_mgr );
+            rc = dbBE_Redis_process_nsdelete( request,
+                                              &result );
             break;
 
           default:
