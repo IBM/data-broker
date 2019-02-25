@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@
 #include "util/lock_tools.h"
 #include "libdatabroker.h"
 #include "libdatabroker_int.h"
+#include "libdbrAPI.h"
 
 #include <errno.h>
 #include <stddef.h>
 
 DBR_Errorcode_t
-libdbrDelete (DBR_Name_t db_name)
+libdbrDelete(DBR_Name_t db_name)
 {
   if( db_name == NULL )
   {
@@ -112,6 +113,10 @@ libdbrDelete (DBR_Name_t db_name)
   dbrRemove_request( cs, rctx );
   if( dbrMain_delete( ctx, cs ) != 0 )
     rc = DBR_ERR_NSINVAL;
+
+  // detach after marking deletable
+  if( rc == DBR_SUCCESS )
+    rc = libdbrDetach( cs );
 
   BIGLOCK_UNLOCKRETURN( ctx, rc );
 
