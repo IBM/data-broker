@@ -319,7 +319,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case DBBE_REDIS_NSDETACH_STAGE_DELCHECK:
-          len += dbBE_Redis_command_create_str3( stage, sr_buf, request->_user->_ns_name, "-1", request->_user->_ns_name );
+          len += dbBE_Redis_command_create_str2( stage, sr_buf, request->_user->_ns_name, "-1" );
           break;
 
         case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
