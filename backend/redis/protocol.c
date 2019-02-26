@@ -272,18 +272,31 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
 
   /*
    * DeleteNS
+   * - HMGET refcnt flags: required for error handling purposes
+   * - HSET flags 1: delete marker
    * - Only mark as: to delete
    * - upper layers are required to call detach after delete
    */
   op = DBBE_OPCODE_NSDELETE;
+  stage = DBBE_REDIS_NSDELETE_STAGE_EXIST;
+  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
+  s = &specs[ index ];
+  s->_array_len = 1;
+  s->_resp_cnt = 1;
+  s->_final = 0;
+  s->_result = 1;
+  s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return refcnt and flags as array
+  strcpy( s->_command, "*4\r\n$5\r\nHMGET\r\n%0$6\r\nrefcnt\r\n$5\r\nflags\r\n" );
+  s->_stage = stage;
+
   stage = DBBE_REDIS_NSDELETE_STAGE_SETFLAG;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 3;
   s->_resp_cnt = 1;
   s->_final = 1;
-  s->_result = 1;
-  s->_expect = dbBE_REDIS_TYPE_INT; // will return number of set keys
+  s->_result = 0;
+  s->_expect = dbBE_REDIS_TYPE_INT; // needs to return 0 for 'updated existing entry'
   strcpy( s->_command, "*4\r\n$4\r\nHSET\r\n%0%1%2" );
   s->_stage = stage;
 

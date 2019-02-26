@@ -65,7 +65,8 @@ typedef enum
  */
 typedef enum
 {
-  DBBE_REDIS_NSDELETE_STAGE_SETFLAG = 0
+  DBBE_REDIS_NSDELETE_STAGE_EXIST = 0,
+  DBBE_REDIS_NSDELETE_STAGE_SETFLAG = 1
 } dbBE_Redis_nsdelete_stages_t;
 
 /*

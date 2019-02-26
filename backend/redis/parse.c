@@ -1243,21 +1243,67 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request,
                                  dbBE_Redis_result_t *result )
 {
   int rc = 0;
+
   rc = dbBE_Redis_process_general( request, result );
 
   switch( request->_step->_stage )
   {
-    case DBBE_REDIS_NSDELETE_STAGE_SETFLAG:
-      if( rc == 0 )
+    case DBBE_REDIS_NSDELETE_STAGE_EXIST:
+    {
+      if( rc != 0 )
+        break;
+      if(  result->_data._array._len != 2 )
       {
-        if(( result->_data._integer != 1 ) && ( result->_data._integer != 0 ))
-        {
-          rc = -ENOENT;
-          result->_data._integer = rc;
-        }
-        result->_data._integer = rc; // set the result/return code for upper layers
+        rc = return_error_clean_result( -EPROTO, result );
+        break;
+      }
+
+      dbBE_Redis_result_t *refcnt_data = &result->_data._array._data[ 0 ];
+      dbBE_Redis_result_t *flags_data = &result->_data._array._data[ 1 ];
+
+      if( (( refcnt_data == NULL ) || ( refcnt_data->_type != dbBE_REDIS_TYPE_CHAR )) ||
+          (( flags_data == NULL ) || ( flags_data->_type != dbBE_REDIS_TYPE_CHAR )) )
+      {
+        return_error_clean_result( -ENOENT, result );
+        break;
+      }
+
+      int refcnt = strtoll( refcnt_data->_data._string._data, NULL, 10 );
+      int flags = strtoll( flags_data->_data._string._data, NULL, 10 );
+
+      if( ( flags & DBBE_REDIS_META_DELETE_FLAG) != 0 )
+      {
+        // transition since we're done, the flag is already set
+        dbBE_Redis_result_cleanup( result, 0 );
+        result->_type = dbBE_REDIS_TYPE_INT;
+        result->_data._integer = 0;
+      }
+
+      if( refcnt > 1 )
+      {
+        dbBE_Redis_result_cleanup( result, 0 );
+        result->_type = dbBE_REDIS_TYPE_INT;
+        result->_data._integer = -EBUSY;
       }
       break;
+    }
+
+    case DBBE_REDIS_NSDELETE_STAGE_SETFLAG:
+      if( rc != 0 )
+        break;
+
+      if( result->_data._integer != 0 )
+      {
+        LOG( DBG_ERR, stderr, "Namespace deletion detected a non-existing namespace. Possible data inconsistency.\n" );
+        return_error_clean_result( -ENOENT, result );
+        break;
+      }
+
+      dbBE_Redis_result_cleanup( result, 0 );
+      result->_type = dbBE_REDIS_TYPE_INT;
+      result->_data._integer = DBR_SUCCESS;
+      break;
+
     default:
       break;
   }

@@ -304,6 +304,18 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_EXIST );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*4\r\n$5\r\nHMGET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$5\r\nflags\r\n",
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_SETFLAG );
   dbBE_Redis_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,

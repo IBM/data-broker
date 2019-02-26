@@ -317,14 +317,16 @@ int TestNSDelete( const char *namespace,
   dbBE_Redis_result_t result;
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
-  // create return data to test result of stage 1 (HSET)
-  // return needs to be 1 or 0 (or it's an error)
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_EXIST );
+
+  // create return data to test result of stage 0 (HMGET refcnt flags)
+  // return needs to be <=1 and 0 (or it's an error)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Redis_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
-                  ":1\r\n");
+                  "*2\r\n$1\r\n1\r\n$1\r\n0\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
@@ -332,8 +334,42 @@ int TestNSDelete( const char *namespace,
   rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
 
 
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  // create BUSY error situation with refcnt > 1
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  "*2\r\n$1\r\n2\r\n$1\r\n0\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
+  rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
+  rc += TEST( result._data._integer, -EBUSY );
+
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  // create situation with refcnt = 1; flags set
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  "*2\r\n$1\r\n1\r\n$1\r\n1\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
+  rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
+  rc += TEST( result._data._integer, 0 );
+
+
   // create return data to test result of stage 1 (HSET)
-  // return needs to be 1 or 0 (or it's an error)
+  // return needs to be 0 (or it's an error)
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_SETFLAG );
+
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Redis_sr_buffer_reset( sr_buf );
 
@@ -345,7 +381,24 @@ int TestNSDelete( const char *namespace,
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
   rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
+  rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
+  rc += TEST( result._data._integer, 0 );
 
+  // create return data to test non-existing namespace in stage 1 (HSET)
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  LOG( DBG_ALL, stderr, "Testing non-existing namespace failure:\n" );
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  ":1\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
+  rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
+  rc += TEST( result._data._integer, -ENOENT );
 
   return rc;
 }

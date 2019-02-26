@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ int main( int argc, char ** argv )
   rc += TEST( DBR_SUCCESS, ret );
 
   // test if creating again fails as expected
-  LOG( DBG_ALL, stderr, "This needs to fail and find an existing namespace: ");
+  LOG( DBG_ALL, stderr, "This needs to fail and find an existing namespace: \n");
   cs_hdl2 = dbrCreate( name, level, groups );
   rc += TEST( NULL, cs_hdl2 );
 
