@@ -57,10 +57,6 @@ libdbrDelete(DBR_Name_t db_name)
     BIGLOCK_UNLOCKRETURN( ctx, DBR_ERR_NSINVAL );
   }
 
-  // don't bother deleting yet because we have some other parties attached
-  if( cs->_ref_count > 1 )
-    BIGLOCK_UNLOCKRETURN( ctx, DBR_ERR_NSBUSY );
-
   if( ctx->_be_ctx == NULL )
   {
     errno = ENOTCONN;
