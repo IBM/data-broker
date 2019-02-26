@@ -116,7 +116,6 @@ void* dbBE_Redis_receiver( void *args )
   }
 
   dbBE_Redis_request_t *request = NULL;
-  dbBE_Completion_t *completion = NULL;
   dbBE_Redis_result_t result;
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
@@ -198,7 +197,7 @@ process_next_item:
         if( dest == NULL )
         {
           // unable to recreate connection, failing the request
-          completion = dbBE_Redis_complete_error(
+          dbBE_Completion_t *completion = dbBE_Redis_complete_error(
               request,
               &result,
               -ENOTCONN );
@@ -292,16 +291,17 @@ process_next_item:
         if( rc >= 0 )
         {
           // if this is the result stage, create upper layer completion
+          // don't push the completion until the final stage!!
           if( request->_step->_result != 0 )
           {
-            completion = dbBE_Redis_complete_command(
+            request->_completion = dbBE_Redis_complete_command(
                 request,
                 &result,
                 rc );
 
-            if( completion == NULL )
+            if( request->_completion == NULL )
             {
-              fprintf( stderr, "RedisBE: Failed to create completion.\n");
+              LOG( DBG_ERR, stderr, "RedisBE: Failed to create completion.\n");
               dbBE_Redis_result_cleanup( &result, 0 );
               dbBE_Redis_request_destroy( request );
               goto skip_receiving;
@@ -314,12 +314,18 @@ process_next_item:
             dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
             dbBE_Redis_request_stage_transition( request );
           }
-          else
+          else // final stage
           {
+            if( dbBE_Completion_queue_push( input->_backend->_compl_q, request->_completion ) != 0 )
+            {
+              free( request->_completion );
+              dbBE_Redis_request_destroy( request );
+              LOG( DBG_ERR, stderr, "RedisBE: Failed to queue completion in final request stage.\n" );
+              // todo: save the status to mark the request for cleanup during the next stages
+            }
             dbBE_Redis_request_destroy( request );
             request = NULL;
           }
-
         }
         else // handle errors
         {
@@ -330,10 +336,17 @@ process_next_item:
             goto skip_receiving;
           }
 
-          completion = dbBE_Redis_complete_error(
-              request,
-              &result,
-              rc );
+          // first pull any potentially existing completion from previous result stage(s) and clean it up
+          dbBE_Completion_t *completion = request->_completion;
+          if( completion != NULL )
+          {
+            memset( completion, 0, sizeof( dbBE_Completion_t ) );
+            free( completion );
+          }
+
+          completion = dbBE_Redis_complete_error( request,
+                                                  &result,
+                                                  rc );
           dbBE_Redis_request_destroy( request );
           if( completion == NULL )
           {
@@ -341,9 +354,6 @@ process_next_item:
             dbBE_Redis_result_cleanup( &result, 0 );
             goto skip_receiving;
           }
-        }
-        if( completion != NULL )
-        {
           if( dbBE_Completion_queue_push( input->_backend->_compl_q, completion ) != 0 )
           {
             free( completion );
@@ -351,9 +361,7 @@ process_next_item:
             fprintf( stderr, "RedisBE: Failed to queue completion.\n" );
             // todo: save the status to mark the request for cleanup during the next stages
           }
-          break;
         }
-
       }
       else
       {

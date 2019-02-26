@@ -53,6 +53,7 @@ void dbBE_Redis_request_destroy( dbBE_Redis_request_t *request )
   if( request == NULL )
     return;
 
+  // do not destroy any potential completion here because completions live longer than requests
   memset( request, 0, sizeof( dbBE_Redis_request_t ) );
   free( request );
 }

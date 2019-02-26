@@ -54,6 +54,7 @@ typedef struct dbBE_Redis_request
   dbBE_Redis_intern_data_t _status;  // allows to keep some state to keep track of multistage-multinode request processing
   dbBE_Request_t *_user;
   dbBE_Redis_command_stage_spec_t *_step;
+  dbBE_Completion_t *_completion;  // multi-stage requests with early completions need to hold that here
   int _conn_index;
   struct dbBE_Redis_request *_next;
 } dbBE_Redis_request_t;
