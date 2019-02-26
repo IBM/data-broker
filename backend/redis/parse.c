@@ -967,7 +967,7 @@ int dbBE_Redis_process_nsdetach_check_delete( dbBE_Redis_result_t *hincrby, dbBE
         if(( refcnt > 0 ) || ( refcnt_inc > 0 ))
           to_delete &= ~DBBE_REDIS_DETACH_REFCNT_MASK; // unset bit 0 because we cannot delete
         else
-          LOG( DBG_ALL, stdout, "RefCnt hit 0. Ready to delete if marked accordingly\n" );
+          LOG( DBG_VERBOSE, stdout, "RefCnt hit 0. Ready to delete if marked accordingly\n" );
         break;
       }
       case 1: // flags field
@@ -1043,7 +1043,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
 
       if( to_delete == 0x3 )
       {
-        LOG( DBG_ALL, stdout, "RefCnt and DeleteMark apply: DELETING Namespace\n" );
+        LOG( DBG_VERBOSE, stdout, "RefCnt and DeleteMark apply: DELETING Namespace\n" );
 
         // allocate a memory area to count inflight deletes and scans to know when the request is complete
         request->_status.nsdetach.reference = dbBE_Refcounter_allocate();
