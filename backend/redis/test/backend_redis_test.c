@@ -337,6 +337,33 @@ int main( int argc, char ** argv )
       free( comp );
     }
   }
+
+  // deletion of namespace requires subsequent detach cmd:
+  req->_key = NULL;
+  req->_next = NULL;
+  req->_opcode = DBBE_OPCODE_NSDETACH;
+  req->_user = req;
+  req->_sge_count = 0;
+
+  // get data out
+  rhandle = g_dbBE.post( BE, req );
+  rc += TEST_NOT( rhandle, NULL );
+  if( rhandle != NULL )
+  {
+    dbBE_Completion_t *comp = NULL;
+    while( comp == NULL )
+      comp = g_dbBE.test_any( BE );
+    rc += TEST_NOT( comp, NULL );
+    if( comp != NULL )
+    {
+      rc += TEST( comp->_status, DBR_SUCCESS );
+      rc += TEST( comp->_user, req->_user );
+      free( comp );
+    }
+  }
+
+
+
   TEST_LOG( rc, "DELETE:");
 
   g_dbBE.exit( BE );

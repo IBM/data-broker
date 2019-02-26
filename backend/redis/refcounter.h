@@ -64,6 +64,8 @@ int dbBE_Refcounter_destroy( dbBE_Refcounter_t *ref )
 static inline
 uint64_t dbBE_Refcounter_get( dbBE_Refcounter_t *ref )
 {
+  if( ref == NULL )
+    return -1;
   return ( ref->_up - ref->_down );
 }
 

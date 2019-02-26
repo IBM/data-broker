@@ -23,11 +23,12 @@
 #include "protocol.h"
 #include "refcounter.h"
 
-typedef struct dbBE_Redis_intern_delete_data
+typedef struct dbBE_Redis_intern_detach_data
 {
   dbBE_Refcounter_t *reference;
   char *scankey;
-} dbBE_Redis_intern_delete_data_t;
+  int to_delete;
+} dbBE_Redis_intern_detach_data_t;
 
 typedef struct dbBE_Redis_intern_directory_data
 {
@@ -42,7 +43,7 @@ typedef struct dbBE_Redis_intern_move_data
 
 typedef union dbBE_Redis_intern_data
 {
-  dbBE_Redis_intern_delete_data_t  nsdelete;
+  dbBE_Redis_intern_detach_data_t  nsdetach;
   dbBE_Redis_intern_directory_data_t directory;
   dbBE_Redis_intern_move_data_t move;
 } dbBE_Redis_intern_data_t;

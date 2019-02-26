@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,21 @@ int dbBE_Redis_request_stage_transition( dbBE_Redis_request_t *request )
   if( request->_step->_final == 1 )
     return -EALREADY;
 
-  ++stage;
+  switch( request->_user->_opcode )
+  {
+    case DBBE_OPCODE_NSDETACH:
+      // the detach might skip
+      if(( request->_step->_stage == DBBE_REDIS_NSDETACH_STAGE_DELCHECK ) &&
+          ( request->_status.nsdetach.to_delete == 0 ))
+        stage = DBBE_REDIS_NSDETACH_STAGE_DELNS;
+      else
+        ++stage;
+      break;
+    default:
+      //any other request is just transitioning to the next stage
+      ++stage;
+      break;
+  }
   request->_step = &gRedis_command_spec[ request->_user->_opcode * DBBE_REDIS_COMMAND_STAGE_MAX + stage ];
   return 0;
 }

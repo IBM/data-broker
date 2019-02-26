@@ -173,7 +173,7 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*6\r\n$5\r\nHMSET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$1\r\n1\r\n$6\r\ngroups\r\n$13\r\nusers, admins\r\n",
+  rc += TEST( strcmp( "*8\r\n$5\r\nHMSET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$1\r\n1\r\n$6\r\ngroups\r\n$13\r\nusers, admins\r\n$5\r\nflags\r\n$1\r\n0\r\n",
                       dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
               0 );
 
@@ -243,17 +243,54 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*2\r\n$6\r\nEXISTS\r\n$6\r\nTestNS\r\n",
+  rc += TEST( strcmp( "*1\r\n$5\r\nMULTI\r\n*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$2\r\n-1\r\n*4\r\n$5\r\nHMGET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$5\r\nflags\r\n*1\r\n$4\r\nEXEC\r\n",
                       dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
               0 );
 
+  rc += TEST_NOT( dbBE_Redis_sr_buffer_available( sr_buf ) < DBBE_REDIS_COMMAND_LENGTH_MAX, 0 );
+
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  req->_status.nsdetach.scankey = strdup( "0" );
+  req->_status.nsdetach.to_delete = 1;  // make sure we go down the delete path
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_SCAN );
   dbBE_Redis_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$2\r\n-1\r\n",
+  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  if( req->_status.nsdetach.scankey != NULL )
+    free( req->_status.nsdetach.scankey );
+  req->_status.nsdetach.scankey = strdup( "bla" );
+
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELKEYS );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$3\r\nbla\r\n", // delkeys uses the key only (the prefix is already in the key, internally)
+                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
+
+  if( req->_status.nsdetach.scankey != NULL )
+    free( req->_status.nsdetach.scankey );
+  req->_status.nsdetach.scankey = NULL;
+
+  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELNS );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+  rc += TEST( dbBE_Redis_create_command( req,
+                                         sr_buf,
+                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$6\r\nTestNS\r\n",
                       dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
               0 );
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
@@ -265,58 +302,14 @@ int main( int argc, char ** argv )
   ureq->_key = NULL;
 
   req = dbBE_Redis_request_allocate( ureq );
-  req->_status.nsdelete.scankey = strdup( "0" );
   rc += TEST_NOT( req, NULL );
 
-  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_DETACH );
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_SETFLAG );
   dbBE_Redis_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$2\r\n-1\r\n",
-                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
-              0 );
-
-  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
-
-  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
-  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_SCAN );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
-                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
-              0 );
-
-  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
-
-  if( req->_status.nsdelete.scankey != NULL )
-    free( req->_status.nsdelete.scankey );
-  req->_status.nsdelete.scankey = strdup( "bla" );
-
-  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
-  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_DELKEYS );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$3\r\nbla\r\n", // delkeys uses the key only (the prefix is already in the key, internally)
-                      dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
-              0 );
-  TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
-
-  if( req->_status.nsdelete.scankey != NULL )
-    free( req->_status.nsdelete.scankey );
-  req->_status.nsdelete.scankey = NULL;
-
-  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
-  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_DELNS );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
-  rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$6\r\nTestNS\r\n",
+  rc += TEST( strcmp( "*4\r\n$4\r\nHSET\r\n$6\r\nTestNS\r\n$5\r\nflags\r\n$1\r\n1\r\n",
                       dbBE_Redis_sr_buffer_get_start( sr_buf ) ),
               0 );
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
