@@ -268,21 +268,37 @@ int dbBE_Redis_command_dump_create( dbBE_Redis_command_stage_spec_t *stage,
 }
 
 
+static inline
+int dbBE_Redis_command_create_str2( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    char *arg1,
+                                    char *arg2 )
+{
+  dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ 0 ].iov_base = arg1;
+  args[ 0 ].iov_len = strlen( arg1 );
+  args[ 1 ].iov_base = arg2;
+  args[ 1 ].iov_len = strlen( arg2 );
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
+
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
+}
 
 static inline
 int dbBE_Redis_command_create_str3( dbBE_Redis_command_stage_spec_t *stage,
                                     dbBE_Redis_sr_buffer_t *sr_buf,
-                                    char *name_space,
-                                    char *field,
-                                    char *value )
+                                    char *arg1,
+                                    char *arg2,
+                                    char *arg3 )
 {
   dbBE_sge_t args[ stage->_array_len + 1 ];
-  args[ 0 ].iov_base = name_space;
-  args[ 0 ].iov_len = strlen( name_space );
-  args[ 1 ].iov_base = field;
-  args[ 1 ].iov_len = strlen( field );
-  args[ 2 ].iov_base = value;
-  args[ 2 ].iov_len = strlen( value );
+  args[ 0 ].iov_base = arg1;
+  args[ 0 ].iov_len = strlen( arg1 );
+  args[ 1 ].iov_base = arg2;
+  args[ 1 ].iov_len = strlen( arg2 );
+  args[ 2 ].iov_base = arg3;
+  args[ 2 ].iov_len = strlen( arg3 );
   args[ stage->_array_len ].iov_base = NULL;
   args[ stage->_array_len ].iov_len = 0;
 
