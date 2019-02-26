@@ -1033,10 +1033,16 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
 
       if(( hincrby_res == NULL ) || ( hmget_res == NULL ) ||
           ( hincrby_res->_type != dbBE_REDIS_TYPE_INT ) || ( hmget_res->_type != dbBE_REDIS_TYPE_ARRAY ))
+      {
         return_error_clean_result( -EPROTO, result );
+        break;
+      }
 
       if( hincrby_res->_data._integer < 0 )
+      {
         return_error_clean_result( -EOVERFLOW, result );
+        break;
+      }
 
       // parse the result array check the refcount and the flags
       int to_delete = dbBE_Redis_process_nsdetach_check_delete( hincrby_res, hmget_res );
@@ -1048,7 +1054,10 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
         // allocate a memory area to count inflight deletes and scans to know when the request is complete
         request->_status.nsdetach.reference = dbBE_Refcounter_allocate();
         if( request->_status.nsdetach.reference == NULL )
+        {
           return_error_clean_result( -ENOMEM, result );
+          break;
+        }
 
         request->_status.nsdetach.to_delete = 1;
         dbBE_Redis_request_t *scan_list = dbBE_Redis_connection_mgr_request_each( conn_mgr, request );
@@ -1064,6 +1073,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
           // whith no deletiong, no more need to do extra transitions here. it's handled in the transition fnct
           request->_status.nsdetach.to_delete = 0;
           return_error_clean_result( -ENOTCONN, result );
+          break;
         }
 
           // now iterate the new requests for each connection
@@ -1090,6 +1100,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
       else if ( to_delete < 0 )
       {
         return_error_clean_result( -EINVAL, result );
+        break;
       }
       else
       {
