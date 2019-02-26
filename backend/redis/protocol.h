@@ -48,15 +48,24 @@ typedef enum
   DBBE_REDIS_DIRECTORY_STAGE_SCAN = 1
 } dbBE_Redis_directory_stages_t;
 
+
+/*
+ * enumeration of the name space detach stages
+ */
+typedef enum
+{
+  DBBE_REDIS_NSDETACH_STAGE_DELCHECK = 0,
+  DBBE_REDIS_NSDETACH_STAGE_SCAN = 1,
+  DBBE_REDIS_NSDETACH_STAGE_DELKEYS = 2,
+  DBBE_REDIS_NSDETACH_STAGE_DELNS = 3
+} dbBE_Redis_nsdetach_stages_t;
+
 /*
  * enumeration of the name space delete stages
  */
 typedef enum
 {
-  DBBE_REDIS_NSDELETE_STAGE_DETACH = 0,
-  DBBE_REDIS_NSDELETE_STAGE_SCAN = 1,
-  DBBE_REDIS_NSDELETE_STAGE_DELKEYS = 2,
-  DBBE_REDIS_NSDELETE_STAGE_DELNS = 3
+  DBBE_REDIS_NSDELETE_STAGE_SETFLAG = 0
 } dbBE_Redis_nsdelete_stages_t;
 
 /*
@@ -79,6 +88,7 @@ typedef struct dbBE_Redis_command_stage_spec
 {
   uint8_t _stage; // number of this stage
   uint8_t _array_len; // number of args for this stage
+  uint8_t _resp_cnt; // number of responses expected (see MULTI cmds)
   uint8_t _final; // is it the last stage of this command?
   uint8_t _result; // is it the result-stage of this command?
   dbBE_REDIS_DATA_TYPE _expect; // what result type to expect for this stage

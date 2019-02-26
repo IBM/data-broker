@@ -63,6 +63,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 3;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return integer of inserted keys
@@ -80,6 +81,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return char buffer
@@ -95,6 +97,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return char buffer
@@ -112,6 +115,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return char buffer
@@ -122,6 +126,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
@@ -132,13 +137,14 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   /*
    * CreateNS ( 2-stage )
    * - HSETNX ns_name id ns_name
-   * - if return 1: HMSET ns_name refcnt 1 groups permissions
+   * - if return 1: HMSET ns_name refcnt 1 groups permissions flags 0
    */
   op = DBBE_OPCODE_NSCREATE;
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 3;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return integer: number of created hashes
@@ -148,7 +154,8 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 1;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 6;
+  s->_array_len = 8;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
@@ -166,6 +173,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
@@ -176,6 +184,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
@@ -193,6 +202,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return list of kv entries of the hash
@@ -200,77 +210,81 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   s->_stage = stage;
 
   /*
-   * DetachNS
-   * - HINCRBY ns_name refcnt -1
-   * -   check return for >= 1
-   */
-  op = DBBE_OPCODE_NSDETACH;
-  stage = 0;
-  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
-  s = &specs[ index ];
-  s->_array_len = 1;
-  s->_final = 0;
-  s->_result = 0;
-  s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
-  strcpy( s->_command, "*2\r\n$6\r\nEXISTS\r\n%0" );
-  s->_stage = stage;
-
-  stage = 1;
-  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
-  s = &specs[ index ];
-  s->_array_len = 2;
-  s->_final = 1;
-  s->_result = 1;
-  s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after dec
-  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
-  s->_stage = stage;
-
-  /*
-   * DeleteNS ( multi-stage !! )
-   * - HINCRBY ns_name refcnt -1
-   * -   check return for refcnt == 0
+   * DetachNS (serves as delete determined by refcount and delete flag
+   * - HMGET ns_name FLAGS REFCNT       check for DELETED flag then transition to
+   *     DETACH or SCAN
+   *
    * - SCAN 0 MATCH ns_name::*          start the scan on all connections
    * - SCAN <cursor> MATCH ns_name::*   repeat until return from server is 0, delete each returned key
+   *
+   * - DEL remaining keys
+   * - HINCRBY ns_name refcnt -1        check return for >= 0
+   *
+   *  request has 2 final stages because it might go 2 different paths
+   *   - delete namespace with all content or
+   *   - just decrease the refcount
+   *
    */
-  op = DBBE_OPCODE_NSDELETE;
-  stage = DBBE_REDIS_NSDELETE_STAGE_DETACH;
+  op = DBBE_OPCODE_NSDETACH;
+  stage = DBBE_REDIS_NSDETACH_STAGE_DELCHECK;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 2;
+  s->_array_len = 3;
+  s->_resp_cnt = 4;
   s->_final = 0;
   s->_result = 0;
-  s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after dec
-  strcpy( s->_command, "*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1" );
+  s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return an array of results from HINCRBY and HMGET with the field values
+  strcpy( s->_command, "*1\r\n$5\r\nMULTI\r\n*4\r\n$7\r\nHINCRBY\r\n%0$6\r\nrefcnt\r\n%1*4\r\n$5\r\nHMGET\r\n%2$6\r\nrefcnt\r\n$5\r\nflags\r\n*1\r\n$4\r\nEXEC\r\n" );
   s->_stage = stage;
 
-  stage = DBBE_REDIS_NSDELETE_STAGE_SCAN;
+  stage = DBBE_REDIS_NSDETACH_STAGE_SCAN;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
   strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$4\r\n1000\r\n" );
   s->_stage = stage;
 
-  stage = DBBE_REDIS_NSDELETE_STAGE_DELKEYS;
+  stage = DBBE_REDIS_NSDETACH_STAGE_DELKEYS;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
   strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
-  stage = DBBE_REDIS_NSDELETE_STAGE_DELNS;
+  stage = DBBE_REDIS_NSDETACH_STAGE_DELNS;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
   strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
+  s->_stage = stage;
+
+  /*
+   * DeleteNS
+   * - Only mark as: to delete
+   * - upper layers are required to call detach after delete
+   */
+  op = DBBE_OPCODE_NSDELETE;
+  stage = DBBE_REDIS_NSDELETE_STAGE_SETFLAG;
+  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
+  s = &specs[ index ];
+  s->_array_len = 3;
+  s->_resp_cnt = 1;
+  s->_final = 1;
+  s->_result = 1;
+  s->_expect = dbBE_REDIS_TYPE_INT; // will return number of set keys
+  strcpy( s->_command, "*4\r\n$4\r\nHSET\r\n%0%1%2" );
   s->_stage = stage;
 
   /*
@@ -282,6 +296,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1
@@ -299,6 +314,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return serialized sequence of tuple
@@ -309,6 +325,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 2;
+  s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
@@ -319,6 +336,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
   s->_array_len = 1;
+  s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return number of deleted keys: 1

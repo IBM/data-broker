@@ -156,58 +156,8 @@ int TestNSDetach( const char *namespace,
   dbBE_Redis_result_t result;
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
-  // create return data struct to test result of stage one (EXISTS)
-  // returns number of found keys (integer)
-  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
-
-  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
-                  ":1\r\n");
-  rc += TEST_NOT( len, -1 );
-  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
-
-  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_nsdetach( req, &result ), 0 );
-
-  // transition to next stage
-  rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
-
-  // create return data to test result of stage 2 (HINCRBY)
-  // returns new (increased) value (integer)
-  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
-
-  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
-                  ":5\r\n");
-  rc += TEST_NOT( len, -1 );
-  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
-
-  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_nsdetach( req, &result ), 0 );
-
-  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-
-  return rc;
-}
-
-
-int TestNSDelete( const char *namespace,
-                  dbBE_Redis_sr_buffer_t *sr_buf,
-                  dbBE_Redis_request_t *req )
-{
-  int rc = 0;
-  int len;
-  rc += TEST_NOT( req, NULL );
-
   // make a copy of the request because delete processing messes around with the redis request
   dbBE_Redis_request_t *req_io = dbBE_Redis_request_allocate( req->_user );
-
-  rc += TEST_NOT( req_io, NULL );
-  TEST_BREAK( rc, "NULL-ptr request in TestNSCreate()." );
-  dbBE_Redis_result_t result;
-  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   // create a dummy connection mgr (for scan)
   dbBE_Redis_connection_mgr_t *cmr = dbBE_Redis_connection_mgr_init();
@@ -222,26 +172,41 @@ int TestNSDelete( const char *namespace,
   dbBE_Redis_s2r_queue_t *post_queue = dbBE_Redis_s2r_queue_create( 12 );
 
 
-  // create return data to test result of stage 1 (HINCRBY)
-  // return new (decreased) value (integer)
+  // create return data struct to test result of stage one (HMGET refcnt flags)
+  // returns array: 1 1
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Redis_sr_buffer_reset( sr_buf );
 
+  // create a response that would trigger the delete path: refcnt=1 flags=1
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
-                  ":5\r\n");
+                  "+OK\r\n+QUEUED\r\n+QUEUED\r\n*2\r\n:0\r\n*2\r\n$1\r\n0\r\n$1\r\n1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_nsdelete( &req_io, &result, post_queue, cmr ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdetach( &req_io, &result, post_queue, cmr, 3 ), 0 );
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
 
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdetach( &req_io, &result, post_queue, cmr, 2 ), 0 );
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdetach( &req_io, &result, post_queue, cmr, 1 ), 0 );
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdetach( &req_io, &result, post_queue, cmr, 0 ), 0 );
+
+  rc += TEST( req_io, NULL ); // the returned request should be NULL because new SCAN requests had been pushed to the s2r queue
+
+  // no transition, because a bunch of new requests have been pushed to s2r queue
+  // rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   req_io = dbBE_Redis_s2r_queue_pop( post_queue );
   rc += TEST_NOT( req_io, NULL );
+  rc += TEST( req_io->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_SCAN );
   TEST_BREAK( rc, "no request in scan queue");
-
-  // no need to transition the request because the request is prepared already
-  //rc += TEST( dbBE_Redis_request_stage_transition( req_io ), 0 );
 
   // create return data to test result of stage 2 (SCAN)
   // returns array with cursor (integer) and array of keys (bulk strings)
@@ -255,7 +220,7 @@ int TestNSDelete( const char *namespace,
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_nsdelete( &req_io, &result, post_queue, cmr ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdetach( &req_io, &result, post_queue, cmr, 0 ), 0 );
 
   rc += TEST( dbBE_Redis_s2r_queue_len( post_queue ), 5 );
 
@@ -266,6 +231,8 @@ int TestNSDelete( const char *namespace,
     req_io = dbBE_Redis_s2r_queue_pop( post_queue );
     rc += TEST_NOT( req_io, NULL );
     TEST_BREAK( rc, "no request in scan queue");
+
+    rc += TEST( req_io->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELKEYS );
 
     // create return data to test result of stage 3 (DEL)
     // returns the number of deleted keys
@@ -279,7 +246,7 @@ int TestNSDelete( const char *namespace,
     rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
     rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-    rc += TEST( dbBE_Redis_process_nsdelete( &req_io, &result, post_queue, cmr ), 0 );
+    rc += TEST( dbBE_Redis_process_nsdetach( &req_io, &result, post_queue, cmr, 0 ), 0 );
 
     if( dbBE_Redis_s2r_queue_len( post_queue ) != 0 )
       rc += TEST( req_io, NULL );
@@ -289,6 +256,7 @@ int TestNSDelete( const char *namespace,
   rc += TEST( dbBE_Redis_s2r_queue_len( post_queue ), 0 );
 
   rc += TEST( dbBE_Redis_request_stage_transition( req_io ), 0 );
+  rc += TEST( req_io->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELNS );
 
   // create return data to test result of stage 4 (DEL)
   // returns the number of deleted keys
@@ -302,14 +270,82 @@ int TestNSDelete( const char *namespace,
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_nsdelete( &req_io, &result, post_queue, cmr ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdetach( &req_io, &result, post_queue, cmr, 0 ), 0 );
 
+  // using only req below here
+  dbBE_Redis_request_destroy( req_io );
+  req_io = NULL;
+
+  // reset the request stage
+  req->_step = &gRedis_command_spec[ DBBE_OPCODE_NSDETACH * DBBE_REDIS_COMMAND_STAGE_MAX + 0 ];
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELCHECK );
+  // Set the first stage response to go the detach-path
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  // just stage 3 output (skipping multi and queued response)
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  "*2\r\n:3\r\n*2\r\n$1\r\n3\r\n$1\r\n1\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdetach( &req, &result, post_queue, cmr, 0 ), 0 );
+
+  // detach only needs to come back with final stage (which has no command at all
+  rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELNS );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
 
   dbBE_Redis_s2r_queue_destroy( post_queue );
   dbBE_Redis_connection_mgr_exit( cmr );
-  dbBE_Redis_request_destroy( req_io );
+
+  return rc;
+}
+
+
+int TestNSDelete( const char *namespace,
+                  dbBE_Redis_sr_buffer_t *sr_buf,
+                  dbBE_Redis_request_t *req )
+{
+  int rc = 0;
+  int len;
+  rc += TEST_NOT( req, NULL );
+
+  dbBE_Redis_result_t result;
+  memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
+
+  // create return data to test result of stage 1 (HSET)
+  // return needs to be 1 or 0 (or it's an error)
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  ":1\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
+
+
+  // create return data to test result of stage 1 (HSET)
+  // return needs to be 1 or 0 (or it's an error)
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Redis_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
+                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  ":0\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
+
 
   return rc;
 }

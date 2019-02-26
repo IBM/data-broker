@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -208,11 +208,5 @@ int dbrMain_delete( dbrMain_context_t *libctx, dbrName_space_t *cs )
     return -EBADF;
 
   cs->_status = dbrNS_STATUS_DELETED;
-
-  if( dbrMain_detach( libctx, cs ) != 0 )
-  {
-    LOG( DBG_WARN, stderr, "Reference count error while deleting namespace. Deleting anyway.\n" );
-  }
-
   return 0;
 }

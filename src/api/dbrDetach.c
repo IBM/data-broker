@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@ DBR_Errorcode_t
 libdbrDetach (DBR_Handle_t cs_handle)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
-  if(( cs == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
+  if(( cs == NULL ) || ( cs->_reverse == NULL ) ||
+      (( cs->_status != dbrNS_STATUS_REFERENCED ) && ( cs->_status != dbrNS_STATUS_DELETED ) ))
     return DBR_ERR_INVALID;
 
   BIGLOCK_LOCK( cs->_reverse );

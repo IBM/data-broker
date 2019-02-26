@@ -136,16 +136,17 @@ int dbBE_Redis_process_nsattach( dbBE_Redis_request_t *request,
 /*
  * process the response data of a name space detach request
  */
-int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t *request,
-                                 dbBE_Redis_result_t *result );
+int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
+                                 dbBE_Redis_result_t *result,
+                                 dbBE_Redis_s2r_queue_t *post_queue,
+                                 dbBE_Redis_connection_mgr_t *conn_mgr,
+                                 int remaining_responses );
 
 /*
  * process the response data/stages of a name space delete request
  */
-int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t **in_out_request, // request might be dropped/modified
-                                 dbBE_Redis_result_t *result,
-                                 dbBE_Redis_s2r_queue_t *post_queue,
-                                 dbBE_Redis_connection_mgr_t *conn_mgr );
+int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request, // request might be dropped/modified
+                                 dbBE_Redis_result_t *result );
 
 /*
  * the nsquery processing will receive an array with all data from the name space hash
