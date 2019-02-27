@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,40 @@
 #include <stdio.h>
 #include <string.h>
 
+int DetachTest()
+{
+  int rc = 0;
+
+  DBR_Name_t name = strdup( "DetachTest" );
+
+  DBR_Handle_t ns = NULL;
+  DBR_Handle_t ns2 = NULL;
+  DBR_Errorcode_t ret = DBR_SUCCESS;
+  DBR_GroupList_t groups = DBR_GROUP_LIST_EMPTY;
+  DBR_Tuple_persist_level_t level = DBR_PERST_VOLATILE_SIMPLE;
+
+  ns = dbrCreate (name, level, groups);
+  rc += TEST_NOT( ns, NULL );
+
+  ns2 = dbrAttach( name );
+  rc += TEST_NOT( ns2, NULL );
+
+  rc += TEST_RC( dbrDelete( name ), DBR_ERR_NSBUSY, ret );
+
+  rc += TEST_RC( dbrDetach( ns2 ), DBR_SUCCESS, ret );
+
+  free( name );
+  return rc;
+}
+
+
 int main( int argc, char ** argv )
 {
   int rc = 0;
 
   DBR_Name_t name = strdup("cstestname");
   DBR_Tuple_persist_level_t level = DBR_PERST_VOLATILE_SIMPLE;
-  DBR_GroupList_t groups = 0;
+  DBR_GroupList_t groups = DBR_GROUP_LIST_EMPTY;
 
   DBR_Handle_t cs_hdl = NULL;
   DBR_Errorcode_t ret = DBR_SUCCESS;
@@ -90,6 +117,8 @@ int main( int argc, char ** argv )
   dbrDetach( cs_hdl );
 
   free( name );
+
+  rc += DetachTest();
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

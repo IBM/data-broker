@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ int dbBE_Redis_s2r_queue_push( dbBE_Redis_s2r_queue_t *queue,
                                  dbBE_Redis_request_t *request )
 {
   if(( queue == NULL ) || ( request == NULL ))
-    return EINVAL;
+    return -EINVAL;
 
   if( queue->_head == NULL )
     queue->_head = request;
