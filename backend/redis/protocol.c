@@ -176,7 +176,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   s->_resp_cnt = 1;
   s->_final = 0;
   s->_result = 0;
-  s->_expect = dbBE_REDIS_TYPE_INT; // will return new value after inc
+  s->_expect = dbBE_REDIS_TYPE_INT; // will return 1 if exists
   strcpy( s->_command, "*2\r\n$6\r\nEXISTS\r\n%0" );
   s->_stage = stage;
 
