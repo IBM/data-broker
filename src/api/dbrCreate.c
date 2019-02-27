@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ libdbrCreate (DBR_Name_t db_name,
 
   if( dbrCheck_response( rctx ) != DBR_SUCCESS )
   {
-    if( rctx->_cpl._rc == -EEXIST )
+    if( rctx->_cpl._rc == DBR_ERR_EXISTS )
       fprintf(stderr, "name space already exists: %"PRId64"\n", rctx->_cpl._rc );
     else
       fprintf(stderr, "name space creation error: %"PRId64"\n", rctx->_cpl._rc );

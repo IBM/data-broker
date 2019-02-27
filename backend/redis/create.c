@@ -285,6 +285,10 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     {
       switch( stage->_stage )
       {
+        case DBBE_REDIS_NSDELETE_STAGE_EXIST:
+          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
+          break;
+
         case DBBE_REDIS_NSDELETE_STAGE_SETFLAG: // HSET flags 1
           dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
           len += dbBE_Redis_command_hset_create( stage, sr_buf, keybuffer, "flags", "1" );
@@ -319,7 +323,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case DBBE_REDIS_NSDETACH_STAGE_DELCHECK:
-          len += dbBE_Redis_command_create_str3( stage, sr_buf, request->_user->_ns_name, "-1", request->_user->_ns_name );
+          len += dbBE_Redis_command_create_str2( stage, sr_buf, request->_user->_ns_name, "-1" );
           break;
 
         case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*

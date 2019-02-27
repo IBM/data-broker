@@ -128,15 +128,30 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
   char *initial = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
   char *cmdend = stage->_command + strlen( stage->_command );
 
-  while((cmdptr < cmdend ) && ( n < stage->_array_len ) && ( args[ n ].iov_base != NULL ))
+  while((cmdptr < cmdend ))
   {
     // get next location of parameter
     char *loc = index( cmdptr, '%' );
-    if(( loc == NULL ) || ( *loc != '%' ) || ( loc[1] != (char)(48+n) ))
+
+    // no more parameters. break and add the remaining cmd string
+    if( loc == NULL )
+      break;
+
+    // index() did something funky...
+    if(( loc > cmdend ) || ( *loc != '%' ))
+      DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -EBADMSG, sr_buf, initial );
+
+    // what positional arg to insert?
+    int idx = (int)loc[1] - 48;
+    if(( idx < 0 )  ||  ( idx >= stage->_array_len )  || ( args[ idx ].iov_base == NULL ))
       DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -EBADMSG, sr_buf, initial );
 
     // insert cmd string up to position
     char tmp = *loc;
+    /*
+     *  todo: note this changes the cmd buffer and thus is not thread-safe
+     *        in case there are multiple threads creating commands
+     */
     *loc = '\0';
     int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
                         dbBE_Redis_sr_buffer_remaining( sr_buf ),
@@ -150,17 +165,17 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
     // insert args[n]
     len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
                     dbBE_Redis_sr_buffer_remaining( sr_buf ),
-                    "$%ld\r\n", args[ n ].iov_len );
+                    "$%ld\r\n", args[ idx ].iov_len );
     if( len < 4 ) // fixed chars + single digit number + one-length argument
       DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
 
     rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
 
-    size_t maxlen = args[ n ].iov_len;
+    size_t maxlen = args[ idx ].iov_len;
     if( maxlen > dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2 ) // -2 because of cmd terminator
       maxlen = dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2;
     memcpy( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
-            args[ n ].iov_base,
+            args[ idx ].iov_base,
             maxlen );
 
     rc += dbBE_Redis_sr_buffer_add_data( sr_buf, maxlen, 1 );
@@ -253,21 +268,37 @@ int dbBE_Redis_command_dump_create( dbBE_Redis_command_stage_spec_t *stage,
 }
 
 
+static inline
+int dbBE_Redis_command_create_str2( dbBE_Redis_command_stage_spec_t *stage,
+                                    dbBE_Redis_sr_buffer_t *sr_buf,
+                                    char *arg1,
+                                    char *arg2 )
+{
+  dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ 0 ].iov_base = arg1;
+  args[ 0 ].iov_len = strlen( arg1 );
+  args[ 1 ].iov_base = arg2;
+  args[ 1 ].iov_len = strlen( arg2 );
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
+
+  return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
+}
 
 static inline
 int dbBE_Redis_command_create_str3( dbBE_Redis_command_stage_spec_t *stage,
                                     dbBE_Redis_sr_buffer_t *sr_buf,
-                                    char *name_space,
-                                    char *field,
-                                    char *value )
+                                    char *arg1,
+                                    char *arg2,
+                                    char *arg3 )
 {
   dbBE_sge_t args[ stage->_array_len + 1 ];
-  args[ 0 ].iov_base = name_space;
-  args[ 0 ].iov_len = strlen( name_space );
-  args[ 1 ].iov_base = field;
-  args[ 1 ].iov_len = strlen( field );
-  args[ 2 ].iov_base = value;
-  args[ 2 ].iov_len = strlen( value );
+  args[ 0 ].iov_base = arg1;
+  args[ 0 ].iov_len = strlen( arg1 );
+  args[ 1 ].iov_base = arg2;
+  args[ 1 ].iov_len = strlen( arg2 );
+  args[ 2 ].iov_base = arg3;
+  args[ 2 ].iov_len = strlen( arg3 );
   args[ stage->_array_len ].iov_base = NULL;
   args[ stage->_array_len ].iov_len = 0;
 

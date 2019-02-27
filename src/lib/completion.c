@@ -106,17 +106,7 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
         rc = cpl->_status;
       break;
     case DBBE_OPCODE_NSDELETE:
-      // good if the completion rc is 0
-      if( cpl->_rc != 0 )
-      {
-        if( cpl->_status == DBR_SUCCESS )
-        {
-          fprintf( stderr, "BUG in interaction with system library. Empty user-ptr in completion.\n" );
-          rc = DBR_ERR_BE_GENERAL;  // this is a backend protocol error (if rc != 0, then it should not be successful)
-        }
-        else
-          rc = cpl->_status;
-      }
+      // nothing
       break;
     case DBBE_OPCODE_NSQUERY:
       // good if the completion rc is > 0 with the sge locations containing the name space meta data
@@ -130,7 +120,6 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
   return rc;
 }
 
-
 DBR_Errorcode_t dbrProcess_completion( dbrRequestContext_t *rctx,
                                     dbBE_Completion_t *compl )
 {
@@ -143,6 +132,8 @@ DBR_Errorcode_t dbrProcess_completion( dbrRequestContext_t *rctx,
 
   rctx->_cpl._rc = -1;
 
+  // mapping of several back-end errors to DBR_Errorcode_t
+  // this cannot return DBR_ERR_INVALID or DBR_ERR_HANDLE because those are already used above
   switch( compl->_rc )
   {
     case -ENOENT:
@@ -156,6 +147,12 @@ DBR_Errorcode_t dbrProcess_completion( dbrRequestContext_t *rctx,
       break;
     case -ESTALE:
       rctx->_cpl._status = DBR_ERR_NOFILE;
+      break;
+    case -EBUSY:
+      rctx->_cpl._status = DBR_ERR_NSBUSY;
+      break;
+    case -EPROTO:
+      rctx->_cpl._status = DBR_ERR_BE_GENERAL;
       break;
     default:
       rctx->_cpl._rc = compl->_rc;

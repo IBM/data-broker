@@ -1,3 +1,11 @@
+ * python binding upgrade for cffi compatibility with python3
+ * python API simplified and less C-style
+ * python support for  binary data and numpy arrays
+ * detach/delete reference counting and deletion properly implemented
+ * implementation of dbrRemove()
+ * implementation of dbrMove()
+ * extended API with scatter/gather support
+
 version 0.5.1
  * directory command introduced (initial version only, count argument has no effect yet)
  * automated multi-backend build enabled
