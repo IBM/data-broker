@@ -99,24 +99,24 @@ libdbrDelete(DBR_Name_t db_name)
     goto error;
   }
 
-  rc = dbrWait_request( cs, del_handle, 0 );
-  if( rc == DBR_ERR_INVALID )
+  DBR_Errorcode_t delrc = dbrWait_request( cs, del_handle, 0 );
+  if( delrc == DBR_ERR_INVALID )
     goto error;
 
-  rc = dbrCheck_response( rctx );
   // keep going here, even with error, we need to remove the request and delete/detach locally
 
   dbrRemove_request( cs, rctx );
   if( dbrMain_delete( ctx, cs ) != 0 )
-    rc = DBR_ERR_NSINVAL;
+    delrc = DBR_ERR_NSINVAL;
 
-  // detach after marking deletable
-  if( rc == DBR_SUCCESS )
-  {
-    BIGLOCK_UNLOCK( ctx );
-    rc = libdbrDetach( cs );
-    BIGLOCK_LOCK( ctx );
-  }
+  // detach after marking deleted (regardless of current rc)
+  BIGLOCK_UNLOCK( ctx );
+  rc = libdbrDetach( cs );
+  BIGLOCK_LOCK( ctx );
+
+  // retrieve any errors that might have appeared from the delete
+  if( delrc != DBR_SUCCESS )
+    rc = delrc;
 
   BIGLOCK_UNLOCKRETURN( ctx, rc );
 

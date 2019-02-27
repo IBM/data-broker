@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,8 +114,13 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_NSDELETE:
       if( spec->_result != 0 )
       {
-        if( rc != 0 )
+        if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
+        {
+          completion->_rc = result->_data._integer; // will be mapped by client lib // todo: error exchange between client lib and backend!!
+        }
+        else
           completion->_status = DBR_ERR_BE_GENERAL;
+
       }
       break;
     case DBBE_OPCODE_NSQUERY:
