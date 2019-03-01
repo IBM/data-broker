@@ -25,15 +25,17 @@ from subprocess import Popen, PIPE, call
 from collections import OrderedDict
 #
 # global variables
-launchnode = "<lsf launch node>"
-cwd = "<path to your working directory>"
+# user should customize these global variables to their own installations needs
+launchnode = "c699launch01"
+cwd = "./"
 os.chdir(cwd)
-redisclient = "<path to redis distro>/redis/bin/redis-cli"
-redisserver = "<path to redist distro>/redis/bin/redis-server"
-rdb = "<path to redis distro>/redis/bin/rdb"
+redisclient = "redis-cli"
+redisserver = "redis-server"
+rdb = "rdb"
 rdir = ""
 # redis configuration values
-pw = "<your password>"
+# user should customize these values to their own needs
+pw = "foobared"
 replicas = 0
 timeout = 150000
 port = 1601
@@ -511,6 +513,8 @@ def restore(options):
 
 
 # argument processing
+print 'Script for starting, stoping, saving, and restoring a Redis cluster'
+print 'Users should modify script to customize launch node, current working directory and path to redis binaries'
 parser = argparse.ArgumentParser(description='start/stop/save/restore Redis clusters')
 subparsers = parser.add_subparsers(metavar='{start,stop,save,restore,}',help='sub-command help')
 start_parser = subparsers.add_parser('start', help='start -n <nodecnt> -r <servers per node>')
