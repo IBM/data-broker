@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,6 +77,11 @@ int main( int argc, char ** argv )
   rc += TEST( addr, NULL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
   fprintf(stderr,"6.rc=%d, host=%s, port=%s, auth=%s\n", rc, host, port, auth);
+
+  addr = dbBE_Redis_connection_link( conn, "sock://localhost:6300", port, auth );
+  rc += TEST_NOT( addr, NULL );
+  rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_INITIALIZED );
+  fprintf(stderr,"3. rc=%d, host=%s, auth=%s\n", rc, host, auth);
 
 
   // now we should be able to link

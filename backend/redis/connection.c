@@ -36,6 +36,7 @@
 #include "utility.h"
 #include "definitions.h"
 #include "connection.h"
+#include "common/resolve_addr.h"
 
 /*
  * create a Redis connection object, initialize with default/uninitialized values
@@ -167,6 +168,7 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
   return 0;
 }
 
+
 /*
  * connect to a Redis instance given by the address
  */
@@ -186,21 +188,15 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   }
 
   int s;
-  struct addrinfo hints, *addrs, *iface;
-  memset( &hints, 0, sizeof( struct addrinfo ) );
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
+  int rc = ENOTCONN;
+  struct addrinfo *addrs = dbBE_Common_resolve_address( host );
 
-  LOG( DBG_VERBOSE, stdout, "Getting AddrInfo for host=%s port=%s\n", host, port );
-  int rc = getaddrinfo( host, port,
-                        &hints,
-                        &addrs);
-  if( rc != 0 )
+  if( addrs == NULL )
   {
+    LOG( DBG_ERR, stderr, "connection_link: unable to connect to: %s\n", host );
     return NULL;
   }
-
-  iface = addrs;
+  struct addrinfo *iface = addrs;
   while( iface != NULL )
   {
     s = socket( iface->ai_family, iface->ai_socktype, iface->ai_protocol );
@@ -223,7 +219,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
     iface = iface->ai_next;
   }
 
-  freeaddrinfo( addrs );
+  dbBE_Common_release_addrinfo( &addrs );
 
   if( conn->_status != DBBE_CONNECTION_STATUS_CONNECTED )
   {
