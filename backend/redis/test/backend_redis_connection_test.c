@@ -39,64 +39,58 @@ int main( int argc, char ** argv )
   fprintf(stderr,"0. rc=%d\n", rc);
 
 
-  char *host = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
-  rc += TEST_NOT( host, NULL );
-  char *port = dbBE_Redis_extract_env( DBR_SERVER_PORT_ENV, DBR_SERVER_DEFAULT_PORT );
-  rc += TEST_NOT( port, NULL );
+  char *url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+  rc += TEST_NOT( url, NULL );
   char *auth = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   rc += TEST_NOT( auth, NULL );
 
-  fprintf(stderr,"host=%s, port=%s, auth=%s\n", host, port, auth);
+  fprintf(stderr,"url=%s, auth=%s\n", url, auth);
 
   // try unlink without being connected
   rc += TEST_NOT( dbBE_Redis_connection_unlink( conn ), 0 );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_INITIALIZED );
   fprintf(stderr,"1. rc=%d\n", rc);
 
-  addr = dbBE_Redis_connection_link( conn, "NON_EXSTHOST", port, auth );
+  addr = dbBE_Redis_connection_link( conn, "NON_EXSTHOST", auth );
   rc += TEST( addr, NULL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_INITIALIZED );
-  fprintf(stderr,"2. rc=%d,  port=%s, auth=%s\n", rc, port, auth);
+  fprintf(stderr,"2. rc=%d, url=%s, auth=%s\n", rc, url, auth);
 
-  addr = dbBE_Redis_connection_link( conn, host, "0000", auth );
-  rc += TEST( addr, NULL );
-  rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_INITIALIZED );
-  fprintf(stderr,"3. rc=%d, host=%s, auth=%s\n", rc, host, auth);
-
-  addr = dbBE_Redis_connection_link( conn, host, port, "NON_EXISTFILE" );
+  addr = dbBE_Redis_connection_link( conn, url, "NON_EXISTFILE" );
   rc += TEST( addr, NULL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
-  fprintf(stderr,"4.rc=%d, host=%s, port=%s\n", rc, host, port);
+  fprintf(stderr,"3.rc=%d, url=%s\n", rc, url);
 
-  addr = dbBE_Redis_connection_link( conn, "NON_EXSTHOST", port, auth );
+  addr = dbBE_Redis_connection_link( conn, "sock://NON_EXSTHOST", auth );
   rc += TEST( addr, NULL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
-  fprintf(stderr,"5. rc=%d, port=%s, auth=%s\n",  rc, port, auth);
 
-  addr = dbBE_Redis_connection_link( conn, host, "0000", auth );
+  addr = dbBE_Redis_connection_link( conn, "://INVALIDURL", auth );
   rc += TEST( addr, NULL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
-  fprintf(stderr,"6.rc=%d, host=%s, port=%s, auth=%s\n", rc, host, port, auth);
 
-  addr = dbBE_Redis_connection_link( conn, "sock://localhost:6300", port, auth );
-  rc += TEST_NOT( addr, NULL );
-  rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_INITIALIZED );
-  fprintf(stderr,"3. rc=%d, host=%s, auth=%s\n", rc, host, auth);
+  addr = dbBE_Redis_connection_link( conn, "sock://localhost:INVPORT", auth );
+  rc += TEST( addr, NULL );
+  rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
+
+  addr = dbBE_Redis_connection_link( conn, "sock://localhost:", auth );
+  rc += TEST( addr, NULL );
+  rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
 
 
   // now we should be able to link
   fprintf(stderr,"7.conn->_status = %u\n", conn->_status);
-  addr = dbBE_Redis_connection_link( conn, host, port, auth );
+  addr = dbBE_Redis_connection_link( conn, url, auth );
   rc += TEST_NOT( addr, NULL );
-  fprintf(stderr,"7a.rc=%d, host=%s, port=%s, auth=%s\n", rc, host, port, auth);
+  fprintf(stderr,"7a.rc=%d, url=%s, auth=%s\n", rc, url, auth);
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_AUTHORIZED );
-  fprintf(stderr,"7b.rc=%d, host=%s, port=%s, auth=%s\n", rc, host, port, auth);
+  fprintf(stderr,"7b.rc=%d, url=%s, auth=%s\n", rc, url, auth);
 
   // connecting twice should not work
-  addr2 = dbBE_Redis_connection_link( conn, host, port, auth );
+  addr2 = dbBE_Redis_connection_link( conn, url, auth );
   rc += TEST( addr2, NULL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_AUTHORIZED );
-  fprintf(stderr,"8.rc=%d, host=%s, port=%s, auth=%s\n", rc, host, port, auth);
+  fprintf(stderr,"8.rc=%d, url=%s, auth=%s\n", rc, url, auth);
 
   dbBE_Redis_connection_fail( conn );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_FAILED );
@@ -111,15 +105,14 @@ int main( int argc, char ** argv )
 
   // now we should be able to link
   fprintf(stderr,"8.conn->_status = %u\n", conn->_status);
-  addr = dbBE_Redis_connection_link( conn, host, port, auth );
+  addr = dbBE_Redis_connection_link( conn, url, auth );
   rc += TEST_NOT( addr, NULL );
-  fprintf(stderr,"8a.rc=%d, host=%s, port=%s, auth=%s\n", rc, host, port, auth);
+  fprintf(stderr,"8a.rc=%d, url=%s, auth=%s\n", rc, url, auth);
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_AUTHORIZED );
-  fprintf(stderr,"8b.rc=%d, host=%s, port=%s, auth=%s\n", rc, host, port, auth);
+  fprintf(stderr,"8b.rc=%d, url=%s, auth=%s\n", rc, url, auth);
 
   free( auth );
-  free( port );
-  free( host );
+  free( url );
 
   if( rc != 0 )
   {

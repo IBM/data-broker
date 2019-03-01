@@ -152,7 +152,7 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connectio
     goto exit_connect;
   }
 
-  dbBE_Redis_address_t *srv_addr = dbBE_Redis_connection_link( new_conn, host, port, authfile );
+  dbBE_Redis_address_t *srv_addr = dbBE_Redis_connection_link( new_conn, host, authfile );
   if( srv_addr == NULL )
   {
     rc = -ENOTCONN;

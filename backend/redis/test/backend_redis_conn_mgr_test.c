@@ -114,7 +114,7 @@ int main( int argc, char ** argv )
   // adding connection with socket = 0 should fail
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn ), -EINVAL );
 
-  rc += TEST_NOT( dbBE_Redis_connection_link( conn, host, port, auth ), NULL );
+  rc += TEST_NOT( dbBE_Redis_connection_link( conn, host, auth ), NULL );
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn ), 0 );
 
 
@@ -132,7 +132,7 @@ int main( int argc, char ** argv )
   {
     carray[ i ] = dbBE_Redis_connection_create( 512 );
     rc += TEST_NOT( carray[ i ], NULL );
-    rc += TEST_NOT( dbBE_Redis_connection_link( carray[ i ], host, port, auth ), NULL );
+    rc += TEST_NOT( dbBE_Redis_connection_link( carray[ i ], host, auth ), NULL );
     rc += TEST( dbBE_Redis_connection_mgr_add( mgr, carray[ i ] ), 0 );
   }
   TEST_LOG( rc, "After adding connections" );
@@ -144,7 +144,7 @@ int main( int argc, char ** argv )
   // try to add one more and fail
   dbBE_Redis_connection_t *conn2 = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn2, NULL );
-  rc += TEST_NOT( dbBE_Redis_connection_link( conn2, host, port, auth ), NULL );
+  rc += TEST_NOT( dbBE_Redis_connection_link( conn2, host, auth ), NULL );
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn2 ), -ENOMEM );
   rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), DBBE_REDIS_MAX_CONNECTIONS );
   rc += TEST( dbBE_Redis_connection_unlink( conn2 ), 0 );

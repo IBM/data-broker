@@ -173,27 +173,26 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
  * connect to a Redis instance given by the address
  */
 dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
-                                                  const char *host,
-                                                  const char *port,
+                                                  const char *url,
                                                   const char *authfile )
 {
-  LOG( DBG_VERBOSE, stderr, "LINK: conn=%p, host=%s, port=%s, authfile=%s\n", conn, host, port, authfile );
+  LOG( DBG_VERBOSE, stderr, "LINK: conn=%p, url=%s, authfile=%s\n", conn, url, authfile );
   if(( conn == NULL ) ||
       (( conn->_status != DBBE_CONNECTION_STATUS_INITIALIZED ) &&
        ( conn->_status != DBBE_CONNECTION_STATUS_DISCONNECTED )) )
   {
-    LOG( DBG_ERR, stderr, "connection_link: invalid arguments/status conn=%p, host=%s, port=%s, authfile=%s\n", conn, host, port, authfile );
+    LOG( DBG_ERR, stderr, "connection_link: invalid arguments/status conn=%p, url=%s, authfile=%s\n", conn, url, authfile );
     errno = EINVAL;
     return NULL;
   }
 
   int s;
   int rc = ENOTCONN;
-  struct addrinfo *addrs = dbBE_Common_resolve_address( host );
+  struct addrinfo *addrs = dbBE_Common_resolve_address( url );
 
   if( addrs == NULL )
   {
-    LOG( DBG_ERR, stderr, "connection_link: unable to connect to: %s\n", host );
+    LOG( DBG_ERR, stderr, "connection_link: unable to connect to: %s\n", url );
     return NULL;
   }
   struct addrinfo *iface = addrs;
@@ -209,7 +208,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
       conn->_socket = s;
       conn->_address = dbBE_Redis_address_copy( iface->ai_addr, iface->ai_addrlen );
       conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
-      LOG( DBG_VERBOSE, stdout, "Connected to %s\n", host );
+      LOG( DBG_VERBOSE, stdout, "Connected to %s\n", url );
       break;
     }
 
