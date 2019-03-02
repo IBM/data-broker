@@ -132,8 +132,7 @@ int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
 }
 
 dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                                            char *host,
-                                                            char *port )
+                                                            char *url )
 {
   int rc = 0;
   if( conn_mgr == NULL )
@@ -152,7 +151,7 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connectio
     goto exit_connect;
   }
 
-  dbBE_Redis_address_t *srv_addr = dbBE_Redis_connection_link( new_conn, host, authfile );
+  dbBE_Redis_address_t *srv_addr = dbBE_Redis_connection_link( new_conn, url, authfile );
   if( srv_addr == NULL )
   {
     rc = -ENOTCONN;

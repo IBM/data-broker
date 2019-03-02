@@ -84,18 +84,11 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( host, NULL );
   TEST_BREAK( rc, "host env failed");
 
-  char *port = dbBE_Redis_extract_env( DBR_SERVER_PORT_ENV, DBR_SERVER_DEFAULT_PORT );
-  rc += TEST_NOT( port, NULL );
-  if( rc != 0 )
-    free( host );
-  TEST_BREAK( rc, "port env failed");
-
   char *auth = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   rc += TEST_NOT( auth, NULL );
   if( rc != 0 )
   {
     free( host );
-    free( port );
   }
   TEST_BREAK( rc, "auth env failed");
 
@@ -179,7 +172,6 @@ int main( int argc, char ** argv )
   // dbBE_Redis_connection_destroy( conn );
 
   free( auth );
-  free( port );
   free( host );
 
   printf( "Test exiting with rc=%d\n", rc );
