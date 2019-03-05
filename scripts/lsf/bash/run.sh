@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright © 2018 IBM Corporation
+# Copyright © 2019 IBM Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+#
 set -e
 export REPLICAS=0
 export PW=foobared
@@ -25,7 +25,7 @@ export REDISDUMP=<path to rdb files that you would like to save/restore>
 export LAUNCHNODE=<name of your launch node>
 export WORKDIR=<path to the working directory>
 export nodes=<number of nodes in cluster>
-
+##
 ## Build script to start redis servers across nodes
 cat  >redis-start.sh  << 'EOR'
 LAUNCHNODE=<name of launch node>
@@ -40,8 +40,8 @@ NUM=$(cat $HOSTS | sed /$LAUNCHNODE/d | sort -u | grep -n $myhost | cut -d: -f1)
 myhost="$myhost-ib0"
 echo $myhost $NUM
 ((NUM=NUM-1))
-
-
+#
+#
 ${REDISHOME}/bin/redis-server --requirepass $PW --bind $myhost   \
 --port $PORT --cluster-enabled yes --cluster-config-file nodes-${NUM}:${PORT}.conf       \
 --cluster-node-timeout $TIMEOUT --appendonly yes                                            \
@@ -49,7 +49,7 @@ ${REDISHOME}/bin/redis-server --requirepass $PW --bind $myhost   \
 --logfile ${NUM}:${PORT}.log --daemonize no
 EOR
 chmod +x redis-start.sh
-
+#
 cat  >saverdb.sh  << 'EOS'
 HOST=$1
 REDISHOME=$2
@@ -65,10 +65,10 @@ do
 done
 echo "RC=$RC;LASTSAVE=$LASTSAVE"
 exit
-
+#
 EOS
 chmod +x saverdb.sh
-
+#
 ## Build script to submit redis-start.sh script
 cat >batchjob  << 'EOF'
 #BSUB -o %J.out
@@ -78,17 +78,16 @@ cat >batchjob  << 'EOF'
 #BSUB -W 30
 #BSUB -cwd `pwd`
 ulimit -s 10240
-
-
+#
+#
 echo $LSB_JOBID > lsbjobid
 echo $LSB_DJOB_HOSTFILE > lsbdjobhostfile
 # could pass ENV vars in redis.conf file
 /opt/ibm/spectrum_mpi/jsm_pmix/bin/jsrun --smpiargs “none” --rs_per_host 1 ./redis-start.sh ${REDISHOME} $PW $TIMEOUT $PORT $LSB_DJOB_HOSTFILE
 EOF
-
+#
 # submit job
 bsub < batchjob
-
 until [ -e lsbjobid ]; do
     echo "lsbjobid  doesn't exist as of yet..."
     sleep 1
@@ -99,9 +98,8 @@ until [ -e lsbdjobhostfile ]; do
     sleep 1
 done
 LSB_DJOB_HOSTFILE=`cat lsbdjobhostfile`
-
 waiting=true
-while [ "$waiting" = true ] 
+while [ "$waiting" = true ]
 do
     state=$(bjobs $LSB_JOBID 2>&1)
     if [[ $state = *"RUN"* ]]; then
@@ -127,7 +125,6 @@ do
             CLUSTER="$CLUSTER $myip:$PORT"
             cnt=$((cnt + 1))
         done
-        
         savehosts=${savehosts%?}
         thehost='\`hostname\`'
         echo "pdsh -w $USER@$savehosts ${WORKDIR}/saverdb.sh %h ${REDISHOME} $PW $PORT" >>redis-save-rdb.sh
@@ -138,19 +135,19 @@ do
         chmod +x redis-save-rdb.sh
         chmod +x redis-restore-rdb.sh
         chmod +x redis-restore-aof.sh
-
+#
         # confirm that all redis-servers are communicating before creating cluster
         noping=true
-        while [ "$noping" = true ] 
+        while [ "$noping" = true ]
         do
             cnt=0
             for i in `echo $splithosts`
             do
                 myhost=${i%%.*}
                 myhost="$myhost-ib0"
-                rc=$(${REDISHOME}/bin/redis-cli -h $myhost -p $PORT -a $PW ping)  ||  rc="FAILED" 
+                rc=$(${REDISHOME}/bin/redis-cli -h $myhost -p $PORT -a $PW ping)  ||  rc="FAILED"
                 if [ $rc == "PONG" ]; then
-                    cnt=$((cnt + 1)) 
+                    cnt=$((cnt + 1))
                 fi
             done
             echo $cnt
@@ -161,13 +158,13 @@ do
             fi
             sleep 2
         done
-
+#
         ${REDISHOME}/bin/redis-cli --cluster create -a $PW --cluster-replicas $REPLICAS $CLUSTER
         waiting=false
     fi
 done
-
-
+#
+#
 # safer to remove these so they won't accidentally be picked up by next job
 rm  lsbjobid
 rm  lsbdjobhostfile
