@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,8 +44,6 @@ int main( int argc, char **argv )
 
   char *host = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
   rc += TEST_NOT( host, NULL );
-  char *port = dbBE_Redis_extract_env( DBR_SERVER_PORT_ENV, DBR_SERVER_DEFAULT_PORT );
-  rc += TEST_NOT( port, NULL );
   char *auth = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   rc += TEST_NOT( auth, NULL );
 
@@ -106,7 +104,7 @@ int main( int argc, char **argv )
   rc += TEST_NOT( mgr, NULL );
   conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
-  dbBE_Redis_address_t *addr = dbBE_Redis_connection_link( conn, host, port, auth );
+  dbBE_Redis_address_t *addr = dbBE_Redis_connection_link( conn, host, auth );
   rc += TEST_NOT( addr, NULL );
 
   conn->_index = 0;
@@ -137,14 +135,12 @@ int main( int argc, char **argv )
 
 
 
-
   rc += TEST( dbBE_Redis_event_mgr_exit( mgr ), 0 );
 
   rc += TEST( dbBE_Redis_connection_unlink( conn ), 0 );
   dbBE_Redis_connection_destroy( conn );
 
   free( auth );
-  free( port );
   free( host );
 
   printf( "Test exiting with rc=%d\n", rc );

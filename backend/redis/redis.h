@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ dbBE_Completion_t* Redis_test_any( dbBE_Handle_t be );
  */
 
 /*
- * create the initial connection to Redis with srbuffers by extracting the host and port from the ENV variables
+ * create the initial connection to Redis with srbuffers by extracting the url from the ENV variable
  */
 int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx );
 

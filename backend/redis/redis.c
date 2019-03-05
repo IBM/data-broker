@@ -321,7 +321,7 @@ dbBE_Completion_t* Redis_test_any( dbBE_Handle_t be )
 }
 
 /*
- * create the initial connection to Redis with srbuffers by extracting the host and port from the ENV variables
+ * create the initial connection to Redis with srbuffers by extracting the url from the ENV variable
  */
 int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 {
@@ -332,12 +332,11 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     return -1;
   }
 
-  char *host = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
-  char *port = dbBE_Redis_extract_env( DBR_SERVER_PORT_ENV, DBR_SERVER_DEFAULT_PORT );
+  char *url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
 
-  LOG(DBG_VERBOSE, stderr, "host=%s, port=%s\n", host, port );
+  LOG(DBG_VERBOSE, stderr, "url=%s\n", url );
 
-  dbBE_Redis_connection_t *initial_conn = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, host, port );
+  dbBE_Redis_connection_t *initial_conn = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, url );
   if( initial_conn == NULL )
   {
     rc = -ENOTCONN;
@@ -401,18 +400,20 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
         if( node_info == NULL )
           continue;
 
+        // todo: ip and port are returned from Redis, and current address uses host:port
         ip = node_info->_data._array._data[ 0 ]._data._string._data;
-        char port[ 10 ];
-        snprintf( port, 10, "%"PRId64, node_info->_data._array._data[ 1 ]._data._integer );
-        snprintf( address, 1024, "%s:%s", ip, port );
+        int64_t port = node_info->_data._array._data[ 1 ]._data._integer;
+        snprintf( address, 1024, "%s:%"PRId64, ip, port );
 
         // check and create connection
         // check connection exists,
         dbBE_Redis_connection_t *dest =
             dbBE_Redis_connection_mgr_get_connection_to( ctx->_conn_mgr, address );
 
+        // reform address to url
+        snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s:%"PRId64, ip, port );
         if( dest == NULL )
-          dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, ip, port );
+          dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, address );
 
         if( dest == NULL )
         {
@@ -447,7 +448,6 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 
 
 exit_connect:
-  free( host );
-  free( port );
+  free( url );
   return rc;
 }
