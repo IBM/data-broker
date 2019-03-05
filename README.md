@@ -101,7 +101,7 @@ variables:
       Points to one of the Redis instances that is part of the
       backend in a URL-kind of way. Users specify
        `<protocol>://<destination>` with protocol being `sock`
-       and destination consisting of `<host>:<pont>`
+       and destination consisting of `<host>:<port>`
        If not set, it defaults to `sock://localhost:6379`.
 
 - `DBR_AUTHFILE`
