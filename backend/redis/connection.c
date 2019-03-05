@@ -36,6 +36,7 @@
 #include "utility.h"
 #include "definitions.h"
 #include "connection.h"
+#include "common/resolve_addr.h"
 
 /*
  * create a Redis connection object, initialize with default/uninitialized values
@@ -167,40 +168,34 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
   return 0;
 }
 
+
 /*
  * connect to a Redis instance given by the address
  */
 dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
-                                                  const char *host,
-                                                  const char *port,
+                                                  const char *url,
                                                   const char *authfile )
 {
-  LOG( DBG_VERBOSE, stderr, "LINK: conn=%p, host=%s, port=%s, authfile=%s\n", conn, host, port, authfile );
+  LOG( DBG_VERBOSE, stderr, "LINK: conn=%p, url=%s, authfile=%s\n", conn, url, authfile );
   if(( conn == NULL ) ||
       (( conn->_status != DBBE_CONNECTION_STATUS_INITIALIZED ) &&
        ( conn->_status != DBBE_CONNECTION_STATUS_DISCONNECTED )) )
   {
-    LOG( DBG_ERR, stderr, "connection_link: invalid arguments/status conn=%p, host=%s, port=%s, authfile=%s\n", conn, host, port, authfile );
+    LOG( DBG_ERR, stderr, "connection_link: invalid arguments/status conn=%p, url=%s, authfile=%s\n", conn, url, authfile );
     errno = EINVAL;
     return NULL;
   }
 
   int s;
-  struct addrinfo hints, *addrs, *iface;
-  memset( &hints, 0, sizeof( struct addrinfo ) );
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
+  int rc = ENOTCONN;
+  struct addrinfo *addrs = dbBE_Common_resolve_address( url );
 
-  LOG( DBG_VERBOSE, stdout, "Getting AddrInfo for host=%s port=%s\n", host, port );
-  int rc = getaddrinfo( host, port,
-                        &hints,
-                        &addrs);
-  if( rc != 0 )
+  if( addrs == NULL )
   {
+    LOG( DBG_ERR, stderr, "connection_link: unable to connect to: %s\n", url );
     return NULL;
   }
-
-  iface = addrs;
+  struct addrinfo *iface = addrs;
   while( iface != NULL )
   {
     s = socket( iface->ai_family, iface->ai_socktype, iface->ai_protocol );
@@ -213,7 +208,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
       conn->_socket = s;
       conn->_address = dbBE_Redis_address_copy( iface->ai_addr, iface->ai_addrlen );
       conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
-      LOG( DBG_VERBOSE, stdout, "Connected to %s\n", host );
+      LOG( DBG_VERBOSE, stdout, "Connected to %s\n", url );
       break;
     }
 
@@ -223,7 +218,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
     iface = iface->ai_next;
   }
 
-  freeaddrinfo( addrs );
+  dbBE_Common_release_addrinfo( &addrs );
 
   if( conn->_status != DBBE_CONNECTION_STATUS_CONNECTED )
   {

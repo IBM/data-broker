@@ -107,12 +107,11 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
 
 
 /*
- * connect to a Redis instance given by the host and port
+ * connect to a Redis instance given by the destination url
  * it will connect and then return the created Redis address type
  */
 dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
-                                                  const char *host,
-                                                  const char *port,
+                                                  const char *url,
                                                   const char *authfile );
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,13 +39,11 @@
 #define DBBE_REDIS_MAX_KEY_LEN ( 2 * DBR_MAX_KEY_LEN + 2 )
 
 #define DBR_SERVER_HOST_ENV "DBR_SERVER"
-#define DBR_SERVER_PORT_ENV "DBR_PORT"
 #define DBR_SERVER_AUTHFILE_ENV "DBR_AUTHFILE"
-#define DBR_SERVER_DEFAULT_HOST "localhost"
-#define DBR_SERVER_DEFAULT_PORT "6379"
+#define DBR_SERVER_DEFAULT_HOST "sock://localhost:6379"
 #define DBR_SERVER_DEFAULT_AUTHFILE ".redis.auth"
 
-
+#define DBR_SERVER_URL_MAX_LENGTH ( 1024 )
 /*
  * max number of Redis connections that can be handled simultaneously by the library
  */

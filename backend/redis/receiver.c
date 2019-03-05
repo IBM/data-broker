@@ -190,10 +190,10 @@ process_next_item:
       }
       else
       {
-        char *host = result._data._location._address;
-        char *port = dbBE_Redis_address_split( host );
+        char address[ DBR_SERVER_URL_MAX_LENGTH ];
+        snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s", result._data._location._address );
 
-        dest = dbBE_Redis_connection_mgr_newlink( input->_backend->_conn_mgr, host, port );
+        dest = dbBE_Redis_connection_mgr_newlink( input->_backend->_conn_mgr, address );
         if( dest == NULL )
         {
           // unable to recreate connection, failing the request
