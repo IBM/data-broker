@@ -388,7 +388,7 @@ ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn )
 
   ssize_t rc = dbBE_Redis_connection_recv_base( conn );
 
-  LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%"PRId64"; avail/rem=%"PRId64"/%"PRId64"\n",
+  LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%zd; avail/rem=%zd/%zd\n",
        conn->_socket, rc, dbBE_Redis_sr_buffer_available( conn->_recvbuf ), dbBE_Redis_sr_buffer_remaining( conn->_recvbuf ) );
   LOG( DBG_TRACE, stdout, "recv_more: conn=%d:%s", conn->_socket, dbBE_Redis_sr_buffer_get_start( conn->_recvbuf ) );
 
