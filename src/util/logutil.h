@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,15 @@
 #define DEBUG_LEVEL DBG_INFO
 #endif
 
-#define LOG( level, stream, logging... ) { if( ( level ) <= DEBUG_LEVEL ) { struct timeval tv; gettimeofday( &tv, NULL ); fprintf( (stream), "%ld.%ld : ", tv.tv_sec, tv.tv_usec ); fprintf( (stream), logging ); }}
+#ifdef APPLE
+#define TIME_FORMAT "%ld.%d : "
+#else
+#define TIME_FORMAT "%ld.%ld : "
+#endif
+
+#define LOG( level, stream, logging... ) { if( ( level ) <= DEBUG_LEVEL ) { \
+  struct timeval tv; gettimeofday( &tv, NULL ); \
+  fprintf( (stream), TIME_FORMAT, \
+           tv.tv_sec, tv.tv_usec ); fprintf( (stream), logging ); }}
 
 #endif /* SRC_LOGUTIL_H_ */
