@@ -200,7 +200,22 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   {
     s = socket( iface->ai_family, iface->ai_socktype, iface->ai_protocol );
     if( s < 0 )
-      continue;
+    {
+      switch( errno )
+      {
+        case ENFILE:
+          LOG( DBG_ERR, stderr, "Open File Descriptor limit exceeded\n" );
+          return NULL;
+
+        case ENOBUFS:
+        case ENOMEM:
+          LOG( DBG_ERR, stderr, "Ran out of memory\n" );
+          return NULL;
+
+        default:
+          continue;
+      }
+    }
 
     rc = connect( s, iface->ai_addr, iface->ai_addrlen );
     if( rc == 0 )
