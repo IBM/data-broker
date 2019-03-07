@@ -28,11 +28,24 @@
 #endif
 #include <string.h>
 
-#ifdef __clang__
-void *(* volatile memset_s)(void *s, int c, size_t n) = memset;
-#else
-#define memset_s memset
-#endif
+
+/* crazy work-around for memset_s being pretty much un-portable */
+static
+volatile void* memzero( void *buf, int val, size_t s )
+{
+  char *b = (char*)buf;
+  memset( b, val, s );
+  size_t n;
+  uint64_t sum = 0;
+  for( n=0; n < s; ++n )
+    sum += (uint64_t)b[n];
+  if(  sum != 0 )
+  {
+    LOG( DBG_ERR, stderr, "Failed to zero-out memory\n" );
+    return NULL;
+  }
+  return buf;
+}
 
 uint32_t dbrMain_find( dbrMain_context_t *libctx, DBR_Name_t name )
 {
@@ -154,12 +167,12 @@ dbrMain_delete_local( dbrMain_context_t *libctx, dbrName_space_t *cs )
   }
 
   uint32_t idx = cs->_idx;
-  memset_s( cs->_db_name, 0, strlen( cs->_db_name ) );
+  memzero( cs->_db_name, 0, strlen( cs->_db_name ) );
   if( cs->_db_name[0] != 0 )
     rc = -EFAULT;
 
   free( cs->_db_name );
-  memset_s( cs, 0, sizeof( dbrName_space_t ) );
+  memzero( cs, 0, sizeof( dbrName_space_t ) );
   if(( cs->_ref_count != 0 )||( cs->_idx != 0 )||(cs->_status != dbrNS_STATUS_UNDEFINED))
     rc = -EFAULT;
 

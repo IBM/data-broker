@@ -23,6 +23,9 @@
 #endif
 #include <string.h>
 
+#include <sys/time.h>      // rlimit
+#include <sys/resource.h>  // rlimit
+
 #include "../backend/redis/utility.h"
 #include "../backend/redis/request.h"
 #include "../backend/redis/conn_mgr.h"
@@ -90,7 +93,18 @@ int main( int argc, char ** argv )
   {
     free( host );
   }
-  TEST_BREAK( rc, "auth env failed");
+
+  // get limit for open file descriptors
+  int64_t flimit = DBBE_REDIS_MAX_CONNECTIONS;
+  struct rlimit sh_limit;
+  rc += TEST( getrlimit( RLIMIT_NOFILE, & sh_limit ), 0 );
+
+  TEST_BREAK( rc, "auth/env/limits failed");
+
+  // set the max number of connections for this test
+  flimit = ( (int64_t)sh_limit.rlim_cur <= flimit + 10 ) ? (int64_t)sh_limit.rlim_cur - 10 : flimit;
+  LOG( DBG_ALL, stdout, "Connections limited to #%ld\n", flimit );
+
 
   mgr = dbBE_Redis_connection_mgr_init();
 
@@ -121,8 +135,9 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), 0 );
 
   // fill the connmgr with connections
-  for( i = 0; i < DBBE_REDIS_MAX_CONNECTIONS; ++i )
+  for( i = 0; i < flimit; ++i )
   {
+    LOG( DBG_ALL, stdout, "=== Connection #%d ===\n", i );
     carray[ i ] = dbBE_Redis_connection_create( 512 );
     rc += TEST_NOT( carray[ i ], NULL );
     rc += TEST_NOT( dbBE_Redis_connection_link( carray[ i ], host, auth ), NULL );
@@ -130,18 +145,33 @@ int main( int argc, char ** argv )
   }
   TEST_LOG( rc, "After adding connections" );
 
-  rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), DBBE_REDIS_MAX_CONNECTIONS );
+  rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), flimit );
 
   rc += test_request_each( mgr );
 
   // try to add one more and fail
   dbBE_Redis_connection_t *conn2 = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn2, NULL );
-  rc += TEST_NOT( dbBE_Redis_connection_link( conn2, host, auth ), NULL );
-  rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn2 ), -ENOMEM );
-  rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), DBBE_REDIS_MAX_CONNECTIONS );
-  rc += TEST( dbBE_Redis_connection_unlink( conn2 ), 0 );
-  dbBE_Redis_connection_destroy( conn2 );
+
+  // if the conn_mgr has more space than ulimit, adding another connection will succeed
+  // so we have to branch the test here...
+  if( flimit < DBBE_REDIS_MAX_CONNECTIONS )
+  {
+    rc += TEST_NOT( dbBE_Redis_connection_link( conn2, host, auth ), NULL );
+    rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn2 ), 0 );
+    rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), flimit + 1 );
+    rc += TEST( dbBE_Redis_connection_unlink( conn2 ), 0 );
+    rc += TEST( dbBE_Redis_connection_mgr_rm( mgr, conn2 ), 0 );
+    dbBE_Redis_connection_destroy( conn2 );
+  }
+  else
+  {
+    rc += TEST_NOT( dbBE_Redis_connection_link( conn2, host, auth ), NULL );
+    rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn2 ), -ENOMEM );
+    rc += TEST( dbBE_Redis_connection_mgr_get_connections( mgr ), flimit );
+    rc += TEST( dbBE_Redis_connection_unlink( conn2 ), 0 );
+    dbBE_Redis_connection_destroy( conn2 );
+  }
 
   // fail one connection and try to recover
   dbBE_Redis_connection_t *dconn = carray[ 10 ];
@@ -150,7 +180,7 @@ int main( int argc, char ** argv )
 
 
   // remove all connections
-  for( i = 0; i < DBBE_REDIS_MAX_CONNECTIONS; ++i )
+  for( i = 0; i < flimit; ++i )
   {
     rc += TEST( dbBE_Redis_connection_mgr_rm( mgr, carray[ i ] ), 0 );
     rc += TEST( dbBE_Redis_connection_unlink( carray[ i ] ), 0 );

@@ -200,7 +200,22 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   {
     s = socket( iface->ai_family, iface->ai_socktype, iface->ai_protocol );
     if( s < 0 )
-      continue;
+    {
+      switch( errno )
+      {
+        case ENFILE:
+          LOG( DBG_ERR, stderr, "Open File Descriptor limit exceeded\n" );
+          return NULL;
+
+        case ENOBUFS:
+        case ENOMEM:
+          LOG( DBG_ERR, stderr, "Ran out of memory\n" );
+          return NULL;
+
+        default:
+          continue;
+      }
+    }
 
     rc = connect( s, iface->ai_addr, iface->ai_addrlen );
     if( rc == 0 )
@@ -388,7 +403,7 @@ ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn )
 
   ssize_t rc = dbBE_Redis_connection_recv_base( conn );
 
-  LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%"PRId64"; avail/rem=%"PRId64"/%"PRId64"\n",
+  LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%zd; avail/rem=%zd/%zd\n",
        conn->_socket, rc, dbBE_Redis_sr_buffer_available( conn->_recvbuf ), dbBE_Redis_sr_buffer_remaining( conn->_recvbuf ) );
   LOG( DBG_TRACE, stdout, "recv_more: conn=%d:%s", conn->_socket, dbBE_Redis_sr_buffer_get_start( conn->_recvbuf ) );
 
