@@ -1,7 +1,10 @@
- * environment variable DBR_PORT dropped, using DBR_SERVER as URL including protocol, host, port, etc
+version 0.6.0
  * python binding upgrade for cffi compatibility with python3
  * python API simplified and less C-style
  * python support for  binary data and numpy arrays
+
+version 0.5.99
+ * environment variable DBR_PORT dropped, using DBR_SERVER as URL including protocol, host, port, etc
  * detach/delete reference counting and deletion properly implemented
  * implementation of dbrRemove()
  * implementation of dbrMove()
