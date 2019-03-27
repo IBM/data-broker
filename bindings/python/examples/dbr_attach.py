@@ -1,5 +1,5 @@
  #
- # Copyright (C) 2018 IBM Corporation
+ # Copyright (C) 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -25,27 +25,27 @@ dbr_hdl = ffi.new('DBR_Handle_t*')
 level = dbr.DBR_PERST_VOLATILE_SIMPLE
 
 # Create the Data Broker
-dbr_hdl = dbr.dbrCreate(dbr_name, level, group_list)
+dbr_hdl = dbr.create(dbr_name, level, group_list)
 # Query the Data Broker 
 dbr_state = ffi.new('DBR_State_t*')
-res = dbr.dbrQuery(dbr_hdl, dbr_state, dbr.DBR_STATE_MASK_ALL)
+res = dbr.query(dbr_hdl, dbr_state, dbr.DBR_STATE_MASK_ALL)
 
 # Test if we can attach multiple times
 for n in range(10):
-    dbr_hdl = dbr.dbrAttach(dbr_name)
+    dbr_hdl = dbr.attach(dbr_name)
     assert dbr_hdl != None  
 
 # test detach 
 for n in range(10):
-    res = dbr.dbrDetach(dbr_hdl)
-    print 'Detach #' + str(n+1) + ': ' + dbr.getErrorMessage(res)
+    res = dbr.detach(dbr_hdl)
+    print('Detach #' + str(n+1) + ': ' + dbr.getErrorMessage(res))
     assert (res == dbr.DBR_SUCCESS)
 
 # Delete the Data Broker    
-print 'Delete Data Broker'
-res = dbr.dbrDelete(dbr_name)
+print('Delete Data Broker')
+res = dbr.delete(dbr_name)
 
 # try to attach to the deleted Data Broker
-dbr_hdl = dbr.dbrAttach(dbr_name)
+dbr_hdl = dbr.attach(dbr_name)
 assert dbr_hdl != None
-print 'Exit Status: ' + dbr.getErrorMessage(res)
+print('Exit Status: ' + dbr.getErrorMessage(res))
