@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ extern "C"
  *@}
  */
 #define DBR_MAJOR_VERSION ( 0 )
-#define DBR_MINOR_VERSION ( 5 )
-#define DBR_PATCH_VERSION ( 1 )
+#define DBR_MINOR_VERSION ( 6 )
+#define DBR_PATCH_VERSION ( 0 )
 
 /**
  * @addtogroup api
