@@ -261,7 +261,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     return -EINVAL;
   }
 
-  if( dbBE_Redis_sr_buffer_empty( sr_buf ) )
+  if( dbBE_Transport_sr_buffer_empty( sr_buf ) )
   {
     result->_data._integer = -ENODATA;
     result->_type = dbBE_REDIS_TYPE_INVALID;

@@ -285,7 +285,7 @@ process_next_item:
           break;
 
         // do not attempt to queue a new request until all responses have been
-        if(( responses_remain > 0 ) && ( ! dbBE_Redis_sr_buffer_empty( conn->_recvbuf ) ))
+        if(( responses_remain > 0 ) && ( ! dbBE_Transport_sr_buffer_empty( conn->_recvbuf ) ))
           break;
 
         if( rc >= 0 )
@@ -375,7 +375,7 @@ process_next_item:
   // can only complete out-of-order because Gets would block the whole completion queue
 
   // repeat if the receive buffer contains more responses
-  if( ! dbBE_Redis_sr_buffer_empty( conn->_recvbuf ) )
+  if( ! dbBE_Transport_sr_buffer_empty( conn->_recvbuf ) )
     goto process_next_item;
   dbBE_Redis_result_cleanup( &result, 0 );
 

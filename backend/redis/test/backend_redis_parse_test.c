@@ -536,7 +536,7 @@ int TestRedis_parse_ctx_buffer_errors()
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len + 7 );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, 0 );
-  rc += TEST( dbBE_Redis_sr_buffer_empty( sr_buf ), 1 );
+  rc += TEST( dbBE_Transport_sr_buffer_empty( sr_buf ), 1 );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len + 7 );
   rc += TEST( result._type, dbBE_REDIS_TYPE_ARRAY );
   rc += TEST( result._data._array._len, 2 );

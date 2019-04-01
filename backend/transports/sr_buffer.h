@@ -86,7 +86,7 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * check if the buffer contains any remaining unprocessed data
  */
-#define dbBE_Redis_sr_buffer_empty( sr_buf ) (( (sr_buf)->_available == 0 ) || ( (sr_buf)->_available - (sr_buf)->_processed <= 0 ))
+#define dbBE_Transport_sr_buffer_empty( sr_buf ) (( (sr_buf)->_available == 0 ) || ( (sr_buf)->_available - (sr_buf)->_processed <= 0 ))
 
 /*
  * check if the buffer has remaining space for a given number of bytes

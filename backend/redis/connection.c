@@ -368,7 +368,7 @@ ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn )
   if( ! dbBE_Redis_connection_RTR( conn ) )
     return -ENOTCONN;
 
-  int empty = dbBE_Redis_sr_buffer_empty( conn->_recvbuf );
+  int empty = dbBE_Transport_sr_buffer_empty( conn->_recvbuf );
   if( ! empty )
     return -ENOTEMPTY;
 
