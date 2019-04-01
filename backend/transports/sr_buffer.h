@@ -71,7 +71,7 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * retrieve the buffer's starting position
  */
-#define dbBE_Redis_sr_buffer_get_start( sr_buf ) ( (sr_buf)->_start )
+#define dbBE_Transport_sr_buffer_get_start( sr_buf ) ( (sr_buf)->_start )
 
 /*
  * retrieve the current read/write position of the buffer

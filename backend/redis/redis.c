@@ -344,7 +344,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   }
 
   // retrieve cluster info and initialize
-  char *sbuf = dbBE_Redis_sr_buffer_get_start( initial_conn->_sendbuf );
+  char *sbuf = dbBE_Transport_sr_buffer_get_start( initial_conn->_sendbuf );
   int64_t buf_space = dbBE_Redis_sr_buffer_remaining( initial_conn->_sendbuf );
 
   // send cluster-info request

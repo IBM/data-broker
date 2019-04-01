@@ -380,12 +380,12 @@ ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn )
   dbBE_Transport_sr_buffer_reset( conn->_recvbuf );
   ssize_t rc = dbBE_Redis_connection_recv_base( conn );
 
-  LOG( DBG_TRACE, stdout, "RECV: conn=%d:%s", conn->_socket, dbBE_Redis_sr_buffer_get_start( conn->_recvbuf ) );
+  LOG( DBG_TRACE, stdout, "RECV: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( conn->_recvbuf ) );
 
 #ifdef DEBUG_REDIS_PROTOCOL
   if( dbBE_Redis_sr_buffer_available( conn->_recvbuf ) > 1000 )
   {
-    char *logptr = dbBE_Redis_sr_buffer_get_start( conn->_recvbuf );
+    char *logptr = dbBE_Transport_sr_buffer_get_start( conn->_recvbuf );
     logptr += dbBE_Redis_sr_buffer_available( conn->_recvbuf ) - 4;
     LOG( DBG_ALL, stderr, "RECV last bytes: %x %x %x %x (total:%"PRId64"\n",
          logptr[0], logptr[1], logptr[2], logptr[3], dbBE_Redis_sr_buffer_available( conn->_recvbuf ) );
@@ -405,12 +405,12 @@ ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn )
 
   LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%zd; avail/rem=%zd/%zd\n",
        conn->_socket, rc, dbBE_Redis_sr_buffer_available( conn->_recvbuf ), dbBE_Redis_sr_buffer_remaining( conn->_recvbuf ) );
-  LOG( DBG_TRACE, stdout, "recv_more: conn=%d:%s", conn->_socket, dbBE_Redis_sr_buffer_get_start( conn->_recvbuf ) );
+  LOG( DBG_TRACE, stdout, "recv_more: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( conn->_recvbuf ) );
 
 #ifdef DEBUG_REDIS_PROTOCOL
   if( dbBE_Redis_sr_buffer_available( conn->_recvbuf ) > 1000 )
   {
-    char *logptr = dbBE_Redis_sr_buffer_get_start( conn->_recvbuf );
+    char *logptr = dbBE_Transport_sr_buffer_get_start( conn->_recvbuf );
     logptr += dbBE_Redis_sr_buffer_available( conn->_recvbuf ) - 4;
     LOG( DBG_ALL, stderr, "RECV last bytes: %x %x %x %x (total:%"PRId64"\n",
          logptr[0], logptr[1], logptr[2], logptr[3], dbBE_Redis_sr_buffer_available( conn->_recvbuf ) );
@@ -432,16 +432,16 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn )
 #ifdef DEBUG_REDIS_PROTOCOL
   if( dbBE_Redis_sr_buffer_available( conn->_sendbuf ) > 1000 )
   {
-    char *logptr = dbBE_Redis_sr_buffer_get_start( conn->_sendbuf );
+    char *logptr = dbBE_Transport_sr_buffer_get_start( conn->_sendbuf );
     logptr += dbBE_Redis_sr_buffer_available( conn->_sendbuf ) - 4;
     LOG( DBG_ALL, stderr, "SEND last bytes: %x %x %x %x\n", logptr[0], logptr[1], logptr[2], logptr[3] );
   }
   else
-    LOG( DBG_ALL, stderr, "SEND: conn=%d:%s", conn->_socket, dbBE_Redis_sr_buffer_get_start( conn->_sendbuf ) );
+    LOG( DBG_ALL, stderr, "SEND: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( conn->_sendbuf ) );
 
 #endif
   ssize_t rc = send( conn->_socket,
-                     dbBE_Redis_sr_buffer_get_start( conn->_sendbuf ),
+                     dbBE_Transport_sr_buffer_get_start( conn->_sendbuf ),
                      dbBE_Redis_sr_buffer_available( conn->_sendbuf ),
                      MSG_WAITALL );
   if( rc == (ssize_t)dbBE_Redis_sr_buffer_available( conn->_sendbuf ))
@@ -517,7 +517,7 @@ int dbBE_Redis_connection_auth( dbBE_Redis_connection_t *conn, const char *authf
     if( rc > 0 )
     {
       authbuf[ rc ] = '\0'; // terminate the authbuf and remove and newlines
-      int len = snprintf( dbBE_Redis_sr_buffer_get_start( conn->_sendbuf ),
+      int len = snprintf( dbBE_Transport_sr_buffer_get_start( conn->_sendbuf ),
                           dbBE_Redis_sr_buffer_remaining( conn->_sendbuf ),
                           "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", rc, authbuf );
       if( len > 0 )
