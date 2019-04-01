@@ -185,7 +185,7 @@ int main( int argc, char ** argv )
   // create an nsquery
   ureq->_opcode = DBBE_OPCODE_NSQUERY;
   ureq->_sge[0].iov_base = dbBE_Redis_sr_buffer_get_start( data_buf );
-  ureq->_sge[0].iov_len = dbBE_Redis_sr_buffer_get_size( data_buf );
+  ureq->_sge[0].iov_len = dbBE_Transport_sr_buffer_get_size( data_buf );
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );

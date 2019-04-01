@@ -57,7 +57,7 @@ int TestNSCreate( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -75,7 +75,7 @@ int TestNSCreate( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                       "+OK\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -108,7 +108,7 @@ int TestNSAttach( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -126,7 +126,7 @@ int TestNSAttach( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":5\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -179,7 +179,7 @@ int TestNSDetach( const char *namespace,
 
   // create a response that would trigger the delete path: refcnt=1 flags=1
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "+OK\r\n+QUEUED\r\n+QUEUED\r\n*2\r\n:0\r\n*2\r\n$1\r\n0\r\n$1\r\n1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -214,7 +214,7 @@ int TestNSDetach( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "*2\r\n$1\r\n0\r\n*5\r\n$3\r\nbla\r\n$2\r\nhi\r\n$5\r\nfasel\r\n$4\r\nfoob\r\n$6\r\ngnartz\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -240,7 +240,7 @@ int TestNSDetach( const char *namespace,
     dbBE_Transport_sr_buffer_reset( sr_buf );
 
     len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                    dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                    dbBE_Transport_sr_buffer_get_size( sr_buf ),
                     ":1\r\n");
     rc += TEST_NOT( len, -1 );
     rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -264,7 +264,7 @@ int TestNSDetach( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -285,7 +285,7 @@ int TestNSDetach( const char *namespace,
 
   // just stage 3 output (skipping multi and queued response)
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "*2\r\n:3\r\n*2\r\n$1\r\n3\r\n$1\r\n1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -325,7 +325,7 @@ int TestNSDelete( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "*2\r\n$1\r\n1\r\n$1\r\n0\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -339,7 +339,7 @@ int TestNSDelete( const char *namespace,
 
   // create BUSY error situation with refcnt > 1
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "*2\r\n$1\r\n2\r\n$1\r\n0\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -354,7 +354,7 @@ int TestNSDelete( const char *namespace,
 
   // create situation with refcnt = 1; flags set
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "*2\r\n$1\r\n1\r\n$1\r\n1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -374,7 +374,7 @@ int TestNSDelete( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":0\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -390,7 +390,7 @@ int TestNSDelete( const char *namespace,
 
   LOG( DBG_ALL, stderr, "Testing non-existing namespace failure:\n" );
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -421,7 +421,7 @@ int TestPut( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -453,7 +453,7 @@ int TestRead( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "$12\r\nReturnString\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -500,7 +500,7 @@ int TestDirectory( const char *namespace,
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Transport_sr_buffer_reset( sr_buf );
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "*3\r\n$6\r\nTestNS\r\n$5\r\ncount\r\n$1\r\n7\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -521,7 +521,7 @@ int TestDirectory( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "*2\r\n$1\r\n0\r\n*5\r\n$11\r\nTestNS::bla\r\n$10\r\nTestNS::hi\r\n$13\r\nTestNS::fasel\r\n$12\r\nTestNS::foob\r\n$14\r\nTestNS::gnartz\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -557,7 +557,7 @@ int TestRemove( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -572,7 +572,7 @@ int TestRemove( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "-Error in Protocol\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -601,7 +601,7 @@ int TestMove( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "$10\r\nDumpedData\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -621,7 +621,7 @@ int TestMove( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   "$2\r\nOK\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
@@ -642,7 +642,7 @@ int TestMove( const char *namespace,
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
-                  dbBE_Redis_sr_buffer_get_size( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
                   ":1\r\n");
   rc += TEST_NOT( len, -1 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );

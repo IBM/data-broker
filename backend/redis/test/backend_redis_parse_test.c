@@ -42,14 +42,14 @@ int TestReset_buffer( char *buf, const char *content )
 int TestReset_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, const char *content )
 {
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  memset( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ), 0, dbBE_Redis_sr_buffer_get_size( sr_buf ) );
+  memset( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ), 0, dbBE_Transport_sr_buffer_get_size( sr_buf ) );
   snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
-            dbBE_Redis_sr_buffer_get_size( sr_buf ),
+            dbBE_Transport_sr_buffer_get_size( sr_buf ),
 	    "%s",
             content );
   dbBE_Redis_sr_buffer_set_fill( sr_buf,
                                  strnlen( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
-                                          dbBE_Redis_sr_buffer_get_size( sr_buf )
+                                          dbBE_Transport_sr_buffer_get_size( sr_buf )
                                  )
   );
   return dbBE_Redis_sr_buffer_available( sr_buf );

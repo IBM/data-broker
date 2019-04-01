@@ -346,7 +346,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
   {
     // disarm connection status if the received data was less than the max capacity
     // we've received all currently available data
-    if( (size_t)rc <= dbBE_Redis_sr_buffer_get_size( conn->_recvbuf ) )
+    if( (size_t)rc <= dbBE_Transport_sr_buffer_get_size( conn->_recvbuf ) )
     {
       conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
     }
@@ -492,7 +492,7 @@ int dbBE_Redis_connection_auth( dbBE_Redis_connection_t *conn, const char *authf
     // allocate and reset the buffer
     authbuf_size = auth_file_stat.st_size + 128;
 
-    if( dbBE_Redis_sr_buffer_get_size( conn->_sendbuf ) < authbuf_size )
+    if( dbBE_Transport_sr_buffer_get_size( conn->_sendbuf ) < authbuf_size )
     {
       LOG( DBG_ERR, stderr, "connection_auth: send/recv buffer too small for auth operation.\n" );
       close( auth_fd );

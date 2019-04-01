@@ -66,7 +66,7 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * retrieve the size of the send-receive buffer
  */
-#define dbBE_Redis_sr_buffer_get_size( sr_buf ) ( (sr_buf)->_size )
+#define dbBE_Transport_sr_buffer_get_size( sr_buf ) ( (sr_buf)->_size )
 
 /*
  * retrieve the buffer's starting position
