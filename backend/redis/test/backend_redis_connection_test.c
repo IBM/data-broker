@@ -123,7 +123,7 @@ int main( int argc, char ** argv )
   // send an insert command for a new list
   dbBE_Transport_sr_buffer_reset( conn->_sendbuf );
   int len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( conn->_sendbuf ),
-                      dbBE_Redis_sr_buffer_remaining( conn->_sendbuf ),
+                      dbBE_Transport_sr_buffer_remaining( conn->_sendbuf ),
                       "*3\r\n$5\r\nRPUSH\r\n$11\r\nTestNS::bla\r\n$12\r\nHello World!\r\n");
 
   dbBE_Redis_sr_buffer_add_data( conn->_sendbuf, len, 1 );
@@ -139,7 +139,7 @@ int main( int argc, char ** argv )
 
   // send a get command for the inserted item
   len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( conn->_sendbuf ),
-                  dbBE_Redis_sr_buffer_remaining( conn->_sendbuf ),
+                  dbBE_Transport_sr_buffer_remaining( conn->_sendbuf ),
                   "*2\r\n$4\r\nLPOP\r\n$11\r\nTestNS::bla\r\n");
 
   dbBE_Redis_sr_buffer_add_data( conn->_sendbuf, len, 1 );

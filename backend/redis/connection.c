@@ -316,7 +316,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
   int stored_errno=0;
   do
   {
-    if( dbBE_Redis_sr_buffer_remaining( conn->_recvbuf ) <= 0 )
+    if( dbBE_Transport_sr_buffer_remaining( conn->_recvbuf ) <= 0 )
     {
       LOG( DBG_ERR, stderr, "Recv Buffer overrun. Protocol error.\n" );
       return -ENOBUFS;
@@ -324,7 +324,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
     errno = 0;
     rc = recv( conn->_socket,
                dbBE_Transport_sr_buffer_get_available_position( conn->_recvbuf ),
-               dbBE_Redis_sr_buffer_remaining( conn->_recvbuf ),
+               dbBE_Transport_sr_buffer_remaining( conn->_recvbuf ),
                0 );
     stored_errno=errno;
     if( stored_errno == EINTR )
@@ -404,7 +404,7 @@ ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn )
   ssize_t rc = dbBE_Redis_connection_recv_base( conn );
 
   LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%zd; avail/rem=%zd/%zd\n",
-       conn->_socket, rc, dbBE_Redis_sr_buffer_available( conn->_recvbuf ), dbBE_Redis_sr_buffer_remaining( conn->_recvbuf ) );
+       conn->_socket, rc, dbBE_Redis_sr_buffer_available( conn->_recvbuf ), dbBE_Transport_sr_buffer_remaining( conn->_recvbuf ) );
   LOG( DBG_TRACE, stdout, "recv_more: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( conn->_recvbuf ) );
 
 #ifdef DEBUG_REDIS_PROTOCOL
@@ -518,7 +518,7 @@ int dbBE_Redis_connection_auth( dbBE_Redis_connection_t *conn, const char *authf
     {
       authbuf[ rc ] = '\0'; // terminate the authbuf and remove and newlines
       int len = snprintf( dbBE_Transport_sr_buffer_get_start( conn->_sendbuf ),
-                          dbBE_Redis_sr_buffer_remaining( conn->_sendbuf ),
+                          dbBE_Transport_sr_buffer_remaining( conn->_sendbuf ),
                           "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", rc, authbuf );
       if( len > 0 )
       {

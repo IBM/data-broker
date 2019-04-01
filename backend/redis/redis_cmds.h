@@ -85,7 +85,7 @@ int64_t dbBE_Redis_command_create_insert_value( dbBE_Redis_sr_buffer_t *sr_buf,
                                                 int64_t vallen )
 {
   int64_t slen = transport->gather( (dbBE_Data_transport_device_t*)dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
-                                    dbBE_Redis_sr_buffer_remaining( sr_buf ),
+                                    dbBE_Transport_sr_buffer_remaining( sr_buf ),
                                     sge_count,
                                     sge );
   // data had to be truncated
@@ -154,7 +154,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
      */
     *loc = '\0';
     int len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
-                        dbBE_Redis_sr_buffer_remaining( sr_buf ),
+                        dbBE_Transport_sr_buffer_remaining( sr_buf ),
                         "%s", cmdptr );
     *loc = tmp;
     if( len < 0 ) // can be 0 if 2 args appear back-to-back
@@ -164,7 +164,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
 
     // insert args[n]
     len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
-                    dbBE_Redis_sr_buffer_remaining( sr_buf ),
+                    dbBE_Transport_sr_buffer_remaining( sr_buf ),
                     "$%ld\r\n", args[ idx ].iov_len );
     if( len < 4 ) // fixed chars + single digit number + one-length argument
       DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
@@ -172,8 +172,8 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
     rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
 
     size_t maxlen = args[ idx ].iov_len;
-    if( maxlen > dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2 ) // -2 because of cmd terminator
-      maxlen = dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2;
+    if( maxlen > dbBE_Transport_sr_buffer_remaining( sr_buf ) - 2 ) // -2 because of cmd terminator
+      maxlen = dbBE_Transport_sr_buffer_remaining( sr_buf ) - 2;
     memcpy( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
             args[ idx ].iov_base,
             maxlen );
@@ -189,7 +189,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
   if( cmdptr < cmdend )
   {
     int len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
-                        dbBE_Redis_sr_buffer_remaining( sr_buf ),
+                        dbBE_Transport_sr_buffer_remaining( sr_buf ),
                         "%s", cmdptr );
     if( len <= 0 ) // if equal to zero, then cmdptr == cmdend - can't be true here
       DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( -ENOMEM, sr_buf, initial );
