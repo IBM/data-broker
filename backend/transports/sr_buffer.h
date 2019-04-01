@@ -180,8 +180,8 @@ static inline size_t dbBE_Transport_sr_buffer_advance( dbBE_Redis_sr_buffer_t *s
  * returns the actual number of rewinded bytes
  * will adjust processed position if available drops below current processed position
  */
-static inline size_t dbBE_Redis_sr_buffer_rewind_available_by( dbBE_Redis_sr_buffer_t *sr_buf,
-                                                               const size_t n )
+static inline size_t dbBE_Transport_sr_buffer_rewind_available_by( dbBE_Redis_sr_buffer_t *sr_buf,
+                                                                   const size_t n )
 {
   size_t ret = n;
   if( sr_buf->_available > n )
