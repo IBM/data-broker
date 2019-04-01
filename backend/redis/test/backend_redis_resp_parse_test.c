@@ -54,7 +54,7 @@ int TestNSCreate( const char *namespace,
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -72,7 +72,7 @@ int TestNSCreate( const char *namespace,
   // create return data for result testing of second stage (
   // returns OK when successful (simple string)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -105,7 +105,7 @@ int TestNSAttach( const char *namespace,
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -123,7 +123,7 @@ int TestNSAttach( const char *namespace,
   // create return data to test result of stage 2 (HINCRBY)
   // returns new (increased) value (integer)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -175,7 +175,7 @@ int TestNSDetach( const char *namespace,
   // create return data struct to test result of stage one (HMGET refcnt flags)
   // returns array: 1 1
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   // create a response that would trigger the delete path: refcnt=1 flags=1
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
@@ -211,7 +211,7 @@ int TestNSDetach( const char *namespace,
   // create return data to test result of stage 2 (SCAN)
   // returns array with cursor (integer) and array of keys (bulk strings)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -237,7 +237,7 @@ int TestNSDetach( const char *namespace,
     // create return data to test result of stage 3 (DEL)
     // returns the number of deleted keys
     rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-    dbBE_Redis_sr_buffer_reset( sr_buf );
+    dbBE_Transport_sr_buffer_reset( sr_buf );
 
     len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                     dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -261,7 +261,7 @@ int TestNSDetach( const char *namespace,
   // create return data to test result of stage 4 (DEL)
   // returns the number of deleted keys
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -281,7 +281,7 @@ int TestNSDetach( const char *namespace,
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELCHECK );
   // Set the first stage response to go the detach-path
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   // just stage 3 output (skipping multi and queued response)
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
@@ -297,7 +297,7 @@ int TestNSDetach( const char *namespace,
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELNS );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   dbBE_Redis_s2r_queue_destroy( post_queue );
   dbBE_Redis_connection_mgr_exit( cmr );
@@ -322,7 +322,7 @@ int TestNSDelete( const char *namespace,
   // create return data to test result of stage 0 (HMGET refcnt flags)
   // return needs to be <=1 and 0 (or it's an error)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -335,7 +335,7 @@ int TestNSDelete( const char *namespace,
 
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   // create BUSY error situation with refcnt > 1
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
@@ -350,7 +350,7 @@ int TestNSDelete( const char *namespace,
   rc += TEST( result._data._integer, -EBUSY );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   // create situation with refcnt = 1; flags set
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
@@ -371,7 +371,7 @@ int TestNSDelete( const char *namespace,
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_SETFLAG );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -386,7 +386,7 @@ int TestNSDelete( const char *namespace,
 
   // create return data to test non-existing namespace in stage 1 (HSET)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   LOG( DBG_ALL, stderr, "Testing non-existing namespace failure:\n" );
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
@@ -418,7 +418,7 @@ int TestPut( const char *namespace,
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -450,7 +450,7 @@ int TestRead( const char *namespace,
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -498,7 +498,7 @@ int TestDirectory( const char *namespace,
   // create return data to test result of stage 1 (HGETALL)
   // return meta data of namespace (array)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
                   "*3\r\n$6\r\nTestNS\r\n$5\r\ncount\r\n$1\r\n7\r\n");
@@ -518,7 +518,7 @@ int TestDirectory( const char *namespace,
   // create return data struct to test result (SCAN)
   // returns number of entries in list (integer)
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -554,7 +554,7 @@ int TestRemove( const char *namespace,
 
   //
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -569,7 +569,7 @@ int TestRemove( const char *namespace,
   rc += TEST( result._data._integer, 1 );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -598,7 +598,7 @@ int TestMove( const char *namespace,
 
   // stage: DUMP
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -618,7 +618,7 @@ int TestMove( const char *namespace,
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),
@@ -639,7 +639,7 @@ int TestMove( const char *namespace,
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   len = snprintf( dbBE_Redis_sr_buffer_get_start( sr_buf ),
                   dbBE_Redis_sr_buffer_get_size( sr_buf ),

@@ -85,7 +85,7 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -102,7 +102,7 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -122,7 +122,7 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -133,7 +133,7 @@ int main( int argc, char ** argv )
 
   // transition to scan stage
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
@@ -156,7 +156,7 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -166,7 +166,7 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   TEST_LOG( rc, "Create NSCREATE-HSETNX" );
 
 
@@ -190,7 +190,7 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -209,7 +209,7 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -219,7 +219,7 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, dbBE_Redis_sr_buffer_get_start( sr_buf ) );
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -239,7 +239,7 @@ int main( int argc, char ** argv )
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -255,7 +255,7 @@ int main( int argc, char ** argv )
   req->_status.nsdetach.to_delete = 1;  // make sure we go down the delete path
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_SCAN );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -271,7 +271,7 @@ int main( int argc, char ** argv )
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELKEYS );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -286,7 +286,7 @@ int main( int argc, char ** argv )
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDETACH_STAGE_DELNS );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -305,7 +305,7 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( req, NULL );
 
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_EXIST );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -317,7 +317,7 @@ int main( int argc, char ** argv )
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_NSDELETE_STAGE_SETFLAG );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -337,7 +337,7 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( req, NULL );
 
   rc += TEST( req->_step->_stage, 0 );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req, sr_buf, &dbBE_Memcopy_transport ), 0 );
   rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$15\r\nTestNS::TestTup\r\n",
                       dbBE_Redis_sr_buffer_get_start( sr_buf ) ), 0 );
@@ -352,7 +352,7 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( req, NULL );
 
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_DUMP );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );
@@ -367,7 +367,7 @@ int main( int argc, char ** argv )
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_RESTORE );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
 
   ureq->_sge[0].iov_base = strdup( "Target" );
   ureq->_sge[0].iov_len = 6;
@@ -382,7 +382,7 @@ int main( int argc, char ** argv )
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_DEL );
-  dbBE_Redis_sr_buffer_reset( sr_buf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
   rc += TEST( dbBE_Redis_create_command( req,
                                          sr_buf,
                                          &dbBE_Memcopy_transport ), 0 );

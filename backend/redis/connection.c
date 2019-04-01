@@ -377,7 +377,7 @@ ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn )
     return 0;
   }
 
-  dbBE_Redis_sr_buffer_reset( conn->_recvbuf );
+  dbBE_Transport_sr_buffer_reset( conn->_recvbuf );
   ssize_t rc = dbBE_Redis_connection_recv_base( conn );
 
   LOG( DBG_TRACE, stdout, "RECV: conn=%d:%s", conn->_socket, dbBE_Redis_sr_buffer_get_start( conn->_recvbuf ) );
@@ -445,7 +445,7 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn )
                      dbBE_Redis_sr_buffer_available( conn->_sendbuf ),
                      MSG_WAITALL );
   if( rc == (ssize_t)dbBE_Redis_sr_buffer_available( conn->_sendbuf ))
-    dbBE_Redis_sr_buffer_reset( conn->_sendbuf );
+    dbBE_Transport_sr_buffer_reset( conn->_sendbuf );
   else
     return -EBADMSG;
   return rc;

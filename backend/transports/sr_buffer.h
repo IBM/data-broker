@@ -48,7 +48,7 @@ dbBE_Redis_sr_buffer_t* dbBE_Transport_sr_buffer_allocate( const size_t size );
 /*
  * reset the stats of the send-receive buffer
  */
-void dbBE_Redis_sr_buffer_reset( dbBE_Redis_sr_buffer_t *sr_buf );
+void dbBE_Transport_sr_buffer_reset( dbBE_Redis_sr_buffer_t *sr_buf );
 
 /*
  * deallocate and reset memory of send-receive buffer
@@ -213,7 +213,7 @@ static inline char* dbBE_Redis_sr_buffer_rewind_available_to( dbBE_Redis_sr_buff
   }
   else
   {
-    dbBE_Redis_sr_buffer_reset( sr_buf );
+    dbBE_Transport_sr_buffer_reset( sr_buf );
     ret = sr_buf->_start;
   }
   return ret;

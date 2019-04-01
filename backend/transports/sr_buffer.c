@@ -48,7 +48,7 @@ dbBE_Redis_sr_buffer_t* dbBE_Transport_sr_buffer_allocate( const size_t size )
   return ret;
 }
 
-void dbBE_Redis_sr_buffer_reset( dbBE_Redis_sr_buffer_t *sr_buf )
+void dbBE_Transport_sr_buffer_reset( dbBE_Redis_sr_buffer_t *sr_buf )
 {
   if( sr_buf == NULL )
     return;
