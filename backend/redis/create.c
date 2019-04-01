@@ -251,7 +251,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
                                                  request->_user->_key );
           break;
         default:
-          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
+          dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
           return -EINVAL;
       }
       break;
@@ -270,7 +270,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
           break;
 
         default:
-          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
+          dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
           return -EINVAL;
       }
       break;
@@ -295,7 +295,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
           break;
 
         default:
-          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
+          dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
           return -EINVAL;
       }
       break;
