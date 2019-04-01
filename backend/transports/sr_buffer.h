@@ -102,7 +102,7 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * return the number of available bytes in the buffer
  */
-#define dbBE_Redis_sr_buffer_available( sr_buf ) ( (sr_buf)->_available )
+#define dbBE_Transport_sr_buffer_available( sr_buf ) ( (sr_buf)->_available )
 
 /*
  * return the number of processed bytes in the buffer

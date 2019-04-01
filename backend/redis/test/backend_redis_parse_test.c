@@ -52,7 +52,7 @@ int TestReset_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, const char *content )
                                           dbBE_Transport_sr_buffer_get_size( sr_buf )
                                  )
   );
-  return dbBE_Redis_sr_buffer_available( sr_buf );
+  return dbBE_Transport_sr_buffer_available( sr_buf );
 }
 
 int TestRedis_get_strlen()
@@ -294,7 +294,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( err_code, 0 );
   rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
   rc += TEST( result._data._integer, 1054ll );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
   // continue parsing should return invalid because there's no more data to parse in the initialized string
@@ -309,7 +309,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( err_code, 0 );
   rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
   rc += TEST( result._data._integer, DBBE_REDIS_NAN );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 9 );
 
   // now keep parsing and find the valid int
@@ -317,7 +317,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( err_code, 0 );
   rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
   rc += TEST( result._data._integer, 1054 );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
 
@@ -328,7 +328,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( result._type, dbBE_REDIS_TYPE_CHAR );
   rc += TEST( result._data._string._size, 10 );
   rc += TEST( strncmp( result._data._string._data, "HelloWorld", 11), 0 );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
   // continue parsing should return invalid because there's no more data to parse in the initialized string
@@ -344,14 +344,14 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( result._type, dbBE_REDIS_TYPE_CHAR );
   rc += TEST( strncmp( result._data._string._data, "Hello World!", 12), 0 );
   rc += TEST( result._data._string._size, 12 );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 19 );
 
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, 0 );
   rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
   rc += TEST( result._data._integer, -10354 );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
 
@@ -368,7 +368,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( err_code, 0 );
   rc += TEST( result._type, dbBE_REDIS_TYPE_ARRAY );
   rc += TEST( result._data._array._len, 3 );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
   // parse the first entry
@@ -393,7 +393,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( result._type, dbBE_REDIS_TYPE_ERROR );
   rc += TEST( strncmp( result._data._string._data, "There was an Error in Redis", len), 0 );
   rc += TEST( result._data._string._size, (int64_t)len-3 );  // -1 for the '-' and -2 for the termination \r\n
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
 
@@ -404,7 +404,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( result._type, dbBE_REDIS_TYPE_RELOCATE );
   rc += TEST( result._data._location._hash, 1234 );
   rc += TEST( strncmp( result._data._location._address, "127.0.0.1:6381", 15), 0 );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
   // parse a ASK response
@@ -414,7 +414,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( result._type, dbBE_REDIS_TYPE_REDIRECT );
   rc += TEST( result._data._location._hash, 1234 );
   rc += TEST( strncmp( result._data._location._address, "127.0.0.1:6381", 15), 0 );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), len );
 
   // continue parsing should return invalid because there's no more data to parse in the initialized string
@@ -450,7 +450,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
   // parse an unterminated string
@@ -458,7 +458,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
 
@@ -467,7 +467,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
   // parse an incomplete simple string
@@ -475,7 +475,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
   // parse an incomplete array with complete int entry
@@ -483,7 +483,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
   // parse an incomplete array with complete string entries
@@ -491,7 +491,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
 
@@ -500,7 +500,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
   // parse an incomplete array with incomplete string
@@ -508,7 +508,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
 
@@ -517,7 +517,7 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
 
@@ -526,14 +526,14 @@ int TestRedis_parse_ctx_buffer_errors()
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
   rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
   // add a missing entry and see if we can correctly parse
   size_t added = snprintf( dbBE_Transport_sr_buffer_get_available_position( sr_buf ), 12, ":3253\r\n" );
   rc += TEST( added, 7 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, added, 0 ), added );
-  rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len + 7 );
+  rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len + 7 );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, 0 );
   rc += TEST( dbBE_Transport_sr_buffer_empty( sr_buf ), 1 );

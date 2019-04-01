@@ -226,7 +226,7 @@ int main( int argc, char ** argv )
   rc += TEST( strcmp( "*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$1\r\n1\r\n",
                       dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
               0 );
-  rc += TEST( strlen( "*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$1\r\n1\r\n" ), dbBE_Redis_sr_buffer_available( sr_buf ) );
+  rc += TEST( strlen( "*4\r\n$7\r\nHINCRBY\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$1\r\n1\r\n" ), dbBE_Transport_sr_buffer_available( sr_buf ) );
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
   dbBE_Redis_request_destroy( req );
 
@@ -247,7 +247,7 @@ int main( int argc, char ** argv )
                       dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
               0 );
 
-  rc += TEST_NOT( dbBE_Redis_sr_buffer_available( sr_buf ) < DBBE_REDIS_COMMAND_LENGTH_MAX, 0 );
+  rc += TEST_NOT( dbBE_Transport_sr_buffer_available( sr_buf ) < DBBE_REDIS_COMMAND_LENGTH_MAX, 0 );
 
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
 
