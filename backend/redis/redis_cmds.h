@@ -112,7 +112,7 @@ int dbBE_Redis_command_put_parse( dbBE_Redis_command_stage_spec_t spec,
 
 #define DBBE_REDIS_CMD_REWIND_BUF_AND_ERROR( err, sr_buf, position ) \
     { \
-      dbBE_Redis_sr_buffer_rewind_processed_to( (sr_buf), (position) ); \
+      dbBE_Transport_sr_buffer_rewind_processed_to( (sr_buf), (position) ); \
       return ( err ); \
     }
 

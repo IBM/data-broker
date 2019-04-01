@@ -224,8 +224,8 @@ static inline char* dbBE_Transport_sr_buffer_rewind_available_to( dbBE_Redis_sr_
  * returns the actual position in case it was out of bounds
  * will adjust the processed position if needed
  */
-static inline char* dbBE_Redis_sr_buffer_rewind_processed_to( dbBE_Redis_sr_buffer_t *sr_buf,
-                                                              char *p )
+static inline char* dbBE_Transport_sr_buffer_rewind_processed_to( dbBE_Redis_sr_buffer_t *sr_buf,
+                                                                  char *p )
 {
   char *ret = p;
   if(( p >= sr_buf->_start ) && ( p < sr_buf->_start + sr_buf->_size ))

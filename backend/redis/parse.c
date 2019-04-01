@@ -433,7 +433,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
   }
 
   if( rc == -EAGAIN )
-    dbBE_Redis_sr_buffer_rewind_processed_to( sr_buf, start_parse );
+    dbBE_Transport_sr_buffer_rewind_processed_to( sr_buf, start_parse );
   else
   {
     dbBE_Transport_sr_buffer_advance( sr_buf, parsed );
