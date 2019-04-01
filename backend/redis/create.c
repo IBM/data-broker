@@ -107,7 +107,7 @@ int Redis_insert_raw( char *buf, const char *data, const size_t size )
  */
 int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_TYPE type, dbBE_Redis_data_t *data )
 {
-  char *writepos = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *writepos = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   int data_len = 0;
   switch( type )
   {
@@ -158,7 +158,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       ( request->_step == NULL ) || ( transport->gather == NULL ) || (transport->scatter == NULL ))
     return -EINVAL;
 
-  char *writepos = dbBE_Redis_sr_buffer_get_processed_position( sr_buf ); // store position to rewind on error
+  char *writepos = dbBE_Transport_sr_buffer_get_processed_position( sr_buf ); // store position to rewind on error
   dbBE_Redis_command_stage_spec_t *stage = request->_step;
   int len = 0;
   char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];

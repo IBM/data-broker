@@ -42,13 +42,13 @@ int TestReset_buffer( char *buf, const char *content )
 int TestReset_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, const char *content )
 {
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  memset( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ), 0, dbBE_Transport_sr_buffer_get_size( sr_buf ) );
-  snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+  memset( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ), 0, dbBE_Transport_sr_buffer_get_size( sr_buf ) );
+  snprintf( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
             dbBE_Transport_sr_buffer_get_size( sr_buf ),
 	    "%s",
             content );
   dbBE_Redis_sr_buffer_set_fill( sr_buf,
-                                 strnlen( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+                                 strnlen( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
                                           dbBE_Transport_sr_buffer_get_size( sr_buf )
                                  )
   );
@@ -449,7 +449,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, ":1054" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -457,7 +457,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "$40\r\nHello W" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -466,7 +466,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "-This is a half err" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -474,7 +474,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "+This is a half stri" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -482,7 +482,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "*2\r\n:3053\r\n" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -490,7 +490,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "*2\r\n$10\r\nblafaseled\r\n" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -499,7 +499,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "*2\r\n:3053\r\n:20153" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -507,7 +507,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "*2\r\n:3053\r\n$10\r\nblafa" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -516,7 +516,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "*2\r\n:3053\r\n$125" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
@@ -525,7 +525,7 @@ int TestRedis_parse_ctx_buffer_errors()
   len = TestReset_sr_buffer( sr_buf, "*2\r\n$10\r\nblafaseled\r\n" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len );
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 

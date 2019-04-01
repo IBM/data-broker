@@ -84,7 +84,7 @@ int64_t dbBE_Redis_command_create_insert_value( dbBE_Redis_sr_buffer_t *sr_buf,
                                                 int sge_count,
                                                 int64_t vallen )
 {
-  int64_t slen = transport->gather( (dbBE_Data_transport_device_t*)dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+  int64_t slen = transport->gather( (dbBE_Data_transport_device_t*)dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
                                     dbBE_Redis_sr_buffer_remaining( sr_buf ),
                                     sge_count,
                                     sge );
@@ -99,7 +99,7 @@ static inline
 int dbBE_Redis_command_create_terminate( dbBE_Redis_sr_buffer_t *sr_buf )
 {
   return dbBE_Redis_sr_buffer_add_data( sr_buf,
-                                        Redis_insert_redis_terminator( dbBE_Redis_sr_buffer_get_processed_position( sr_buf )),
+                                        Redis_insert_redis_terminator( dbBE_Transport_sr_buffer_get_processed_position( sr_buf )),
                                         1 );
 }
 
@@ -125,7 +125,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
   int rc = 0;
   int n = 0;
   char *cmdptr = stage->_command;
-  char *initial = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *initial = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   char *cmdend = stage->_command + strlen( stage->_command );
 
   while((cmdptr < cmdend ))
@@ -153,7 +153,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
      *        in case there are multiple threads creating commands
      */
     *loc = '\0';
-    int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+    int len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
                         dbBE_Redis_sr_buffer_remaining( sr_buf ),
                         "%s", cmdptr );
     *loc = tmp;
@@ -163,7 +163,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
     rc += dbBE_Redis_sr_buffer_add_data( sr_buf, len, 1 );
 
     // insert args[n]
-    len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+    len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
                     dbBE_Redis_sr_buffer_remaining( sr_buf ),
                     "$%ld\r\n", args[ idx ].iov_len );
     if( len < 4 ) // fixed chars + single digit number + one-length argument
@@ -174,7 +174,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
     size_t maxlen = args[ idx ].iov_len;
     if( maxlen > dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2 ) // -2 because of cmd terminator
       maxlen = dbBE_Redis_sr_buffer_remaining( sr_buf ) - 2;
-    memcpy( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+    memcpy( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
             args[ idx ].iov_base,
             maxlen );
 
@@ -188,7 +188,7 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
   // add any remaining/trailing cmd string data
   if( cmdptr < cmdend )
   {
-    int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( sr_buf ),
+    int len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
                         dbBE_Redis_sr_buffer_remaining( sr_buf ),
                         "%s", cmdptr );
     if( len <= 0 ) // if equal to zero, then cmdptr == cmdend - can't be true here

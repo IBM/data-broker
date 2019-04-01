@@ -273,12 +273,12 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
   char type;
 
   // the current type of response from Redis
-  char *start_parse = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *start_parse = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   type = *start_parse;
   dbBE_Redis_sr_buffer_advance( sr_buf, 1 );
 
   // pointing to the new reading position to start parsing
-  char *p = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *p = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   size_t parsed = 0;
   int64_t len = 0;
 

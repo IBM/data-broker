@@ -76,7 +76,7 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * retrieve the current read/write position of the buffer
  */
-#define dbBE_Redis_sr_buffer_get_processed_position( sr_buf ) ( (sr_buf)->_start + (sr_buf)->_processed)
+#define dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) ( (sr_buf)->_start + (sr_buf)->_processed)
 
 /*
  * retrieve the position of the last valid data in the buffer
