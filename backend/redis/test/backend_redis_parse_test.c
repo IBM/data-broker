@@ -530,7 +530,7 @@ int TestRedis_parse_ctx_buffer_errors()
   rc += TEST( dbBE_Redis_sr_buffer_processed( sr_buf ), 0 );
 
   // add a missing entry and see if we can correctly parse
-  size_t added = snprintf( dbBE_Redis_sr_buffer_get_available_position( sr_buf ), 12, ":3253\r\n" );
+  size_t added = snprintf( dbBE_Transport_sr_buffer_get_available_position( sr_buf ), 12, ":3253\r\n" );
   rc += TEST( added, 7 );
   rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, added, 0 ), added );
   rc += TEST( dbBE_Redis_sr_buffer_available( sr_buf ), len + 7 );

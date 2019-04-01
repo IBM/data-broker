@@ -323,7 +323,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
     }
     errno = 0;
     rc = recv( conn->_socket,
-               dbBE_Redis_sr_buffer_get_available_position( conn->_recvbuf ),
+               dbBE_Transport_sr_buffer_get_available_position( conn->_recvbuf ),
                dbBE_Redis_sr_buffer_remaining( conn->_recvbuf ),
                0 );
     stored_errno=errno;

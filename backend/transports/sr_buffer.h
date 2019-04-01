@@ -81,7 +81,7 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * retrieve the position of the last valid data in the buffer
  */
-#define dbBE_Redis_sr_buffer_get_available_position( sr_buf ) ( (sr_buf)->_start + (sr_buf)->_available)
+#define dbBE_Transport_sr_buffer_get_available_position( sr_buf ) ( (sr_buf)->_start + (sr_buf)->_available)
 
 /*
  * check if the buffer contains any remaining unprocessed data
