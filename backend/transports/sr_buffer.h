@@ -112,7 +112,7 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * return the number of unprocessed bytes in the buffer
  */
-#define dbBE_Redis_sr_buffer_unprocessed( sr_buf ) ( (sr_buf)->_available - (sr_buf)->_processed )
+#define dbBE_Transport_sr_buffer_unprocessed( sr_buf ) ( (sr_buf)->_available - (sr_buf)->_processed )
 
 /*
  * set the fill status to the given size

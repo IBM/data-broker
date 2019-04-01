@@ -268,7 +268,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     return -ENODATA;
   }
 
-  int64_t available = dbBE_Redis_sr_buffer_unprocessed( sr_buf );
+  int64_t available = dbBE_Transport_sr_buffer_unprocessed( sr_buf );
 
   char type;
 
@@ -282,7 +282,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
   size_t parsed = 0;
   int64_t len = 0;
 
-  available = dbBE_Redis_sr_buffer_unprocessed( sr_buf );
+  available = dbBE_Transport_sr_buffer_unprocessed( sr_buf );
 
   switch( type )
   {
