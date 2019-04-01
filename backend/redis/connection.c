@@ -338,7 +338,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
       break;
     }
     if( rc > 0 )
-      dbBE_Redis_sr_buffer_add_data( conn->_recvbuf, rc, 0 );
+      dbBE_Transport_sr_buffer_add_data( conn->_recvbuf, rc, 0 );
 
   } while( stored_errno == EINTR );
 
@@ -522,7 +522,7 @@ int dbBE_Redis_connection_auth( dbBE_Redis_connection_t *conn, const char *authf
                           "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", rc, authbuf );
       if( len > 0 )
       {
-        dbBE_Redis_sr_buffer_add_data( conn->_sendbuf, len, 1 );
+        dbBE_Transport_sr_buffer_add_data( conn->_sendbuf, len, 1 );
 
         conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED; // assume authorized for a brief moment to allow using the send/recv functions
         rc = dbBE_Redis_connection_send( conn );

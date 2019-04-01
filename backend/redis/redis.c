@@ -349,7 +349,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 
   // send cluster-info request
   int len = snprintf( sbuf, buf_space, "*2\r\n$7\r\nCLUSTER\r\n$5\r\nSLOTS\r\n" );
-  dbBE_Redis_sr_buffer_add_data( initial_conn->_sendbuf, len, 1 );
+  dbBE_Transport_sr_buffer_add_data( initial_conn->_sendbuf, len, 1 );
   rc = dbBE_Redis_connection_send( initial_conn );
   if( rc <= 0 )
     rc = -EBADMSG;

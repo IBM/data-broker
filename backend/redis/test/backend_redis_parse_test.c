@@ -47,7 +47,7 @@ int TestReset_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, const char *content )
             dbBE_Transport_sr_buffer_get_size( sr_buf ),
 	    "%s",
             content );
-  dbBE_Redis_sr_buffer_set_fill( sr_buf,
+  dbBE_Transport_sr_buffer_set_fill( sr_buf,
                                  strnlen( dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
                                           dbBE_Transport_sr_buffer_get_size( sr_buf )
                                  )
@@ -532,7 +532,7 @@ int TestRedis_parse_ctx_buffer_errors()
   // add a missing entry and see if we can correctly parse
   size_t added = snprintf( dbBE_Transport_sr_buffer_get_available_position( sr_buf ), 12, ":3253\r\n" );
   rc += TEST( added, 7 );
-  rc += TEST( dbBE_Redis_sr_buffer_add_data( sr_buf, added, 0 ), added );
+  rc += TEST( dbBE_Transport_sr_buffer_add_data( sr_buf, added, 0 ), added );
   rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len + 7 );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
   rc += TEST( err_code, 0 );

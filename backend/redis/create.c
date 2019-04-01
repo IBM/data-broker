@@ -140,7 +140,7 @@ int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_T
   if( data_len < 0 )
     return 0;
 
-  dbBE_Redis_sr_buffer_add_data( sr_buf, data_len, 1 );
+  dbBE_Transport_sr_buffer_add_data( sr_buf, data_len, 1 );
   return data_len;
 }
 

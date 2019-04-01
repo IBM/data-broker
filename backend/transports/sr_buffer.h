@@ -119,8 +119,8 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
  * it will not fill beyond the size of the buffer
  * returns the actual number of bytes filled
  */
-static inline size_t dbBE_Redis_sr_buffer_set_fill( dbBE_Redis_sr_buffer_t *sr_buf,
-                                                    const size_t fill )
+static inline size_t dbBE_Transport_sr_buffer_set_fill( dbBE_Redis_sr_buffer_t *sr_buf,
+                                                        const size_t fill )
 {
   size_t ret = fill;
   if( sr_buf->_size >= fill )
@@ -139,8 +139,8 @@ static inline size_t dbBE_Redis_sr_buffer_set_fill( dbBE_Redis_sr_buffer_t *sr_b
  * returns the actual number of bytes added
  * for write buffers, it also updates the progressed position
  */
-static inline size_t dbBE_Redis_sr_buffer_add_data( dbBE_Redis_sr_buffer_t *sr_buf,
-                                                    const size_t n, const int write )
+static inline size_t dbBE_Transport_sr_buffer_add_data( dbBE_Redis_sr_buffer_t *sr_buf,
+                                                        const size_t n, const int write )
 {
   size_t ret = n;
   if( sr_buf->_available + n <= sr_buf->_size )

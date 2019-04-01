@@ -126,7 +126,7 @@ int main( int argc, char ** argv )
                       dbBE_Transport_sr_buffer_remaining( conn->_sendbuf ),
                       "*3\r\n$5\r\nRPUSH\r\n$11\r\nTestNS::bla\r\n$12\r\nHello World!\r\n");
 
-  dbBE_Redis_sr_buffer_add_data( conn->_sendbuf, len, 1 );
+  dbBE_Transport_sr_buffer_add_data( conn->_sendbuf, len, 1 );
   rc += TEST( dbBE_Redis_connection_send( conn ), len );
 
   // receive the Redis response
@@ -142,7 +142,7 @@ int main( int argc, char ** argv )
                   dbBE_Transport_sr_buffer_remaining( conn->_sendbuf ),
                   "*2\r\n$4\r\nLPOP\r\n$11\r\nTestNS::bla\r\n");
 
-  dbBE_Redis_sr_buffer_add_data( conn->_sendbuf, len, 1 );
+  dbBE_Transport_sr_buffer_add_data( conn->_sendbuf, len, 1 );
   rc += TEST( dbBE_Redis_connection_send( conn ), len );
 
   // receive the Redis response
