@@ -18,13 +18,13 @@
 #ifndef BACKEND_REDIS_REDIS_CMDS_H_
 #define BACKEND_REDIS_REDIS_CMDS_H_
 
+#include "transports/sr_buffer.h"
+#include "protocol.h"
+#include "request.h"
+
 #include <inttypes.h>
 #include <string.h>
 #include <errno.h>
-
-#include "sr_buffer.h"
-#include "protocol.h"
-#include "request.h"
 
 /*
  * implementation of single redis command exec

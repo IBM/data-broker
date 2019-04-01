@@ -32,7 +32,6 @@
 #include "logutil.h"
 #include <libdatabroker.h>
 #include "../../src/libdatabroker_int.h"
-#include "sr_buffer.h"
 #include "result.h"
 #include "parse.h"
 

@@ -19,7 +19,7 @@
 #define BACKEND_REDIS_CONNECTION_H_
 
 #include "locator.h"
-#include "sr_buffer.h"
+#include "transports/sr_buffer.h"
 #include "s2r_queue.h"
 #include "slot_bitmap.h"
 

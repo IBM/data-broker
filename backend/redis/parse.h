@@ -18,14 +18,13 @@
 #ifndef BACKEND_REDIS_PARSE_H_
 #define BACKEND_REDIS_PARSE_H_
 
-#include <errno.h>
-
-#include "../common/data_transport.h"
-
+#include "common/data_transport.h"
+#include "transports/sr_buffer.h"
 #include "definitions.h"
-#include "sr_buffer.h"
 #include "s2r_queue.h"
 #include "conn_mgr.h"
+
+#include <errno.h>
 
 /************************************************
  *  parsing functions:

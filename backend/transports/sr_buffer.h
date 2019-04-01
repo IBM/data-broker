@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef BACKEND_REDIS_SR_BUFFER_H_
-#define BACKEND_REDIS_SR_BUFFER_H_
+#ifndef BACKEND_TRANSPORTS_SR_BUFFER_H_
+#define BACKEND_TRANSPORTS_SR_BUFFER_H_
 
 /*
  * Send/Recv buffer for interaction with Redis
@@ -245,4 +245,4 @@ static inline char* dbBE_Redis_sr_buffer_rewind_processed_to( dbBE_Redis_sr_buff
 
 
 
-#endif /* BACKEND_REDIS_SR_BUFFER_H_ */
+#endif /* BACKEND_TRANSPORTS_SR_BUFFER_H_ */

@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018,2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ include( ${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake )
 # test backend first
 set(DB_BACKEND_TEST_SOURCES
 	backend_redis_crc16_test.c
-	backend_redis_srbuffer_test.c
 	backend_redis_s2r_queue_test.c
 	backend_redis_slot_bitmap_test.c
 	backend_redis_locator_test.c
