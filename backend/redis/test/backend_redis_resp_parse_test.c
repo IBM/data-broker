@@ -663,8 +663,8 @@ int main( int argc, char ** argv )
   int rc = 0;
   char buffer[1024];
 
-  dbBE_Redis_sr_buffer_t *sr_buf = dbBE_Redis_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );
-  dbBE_Redis_sr_buffer_t *data_buf = dbBE_Redis_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN ); // misuse, just as a buffer
+  dbBE_Redis_sr_buffer_t *sr_buf = dbBE_Transport_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );
+  dbBE_Redis_sr_buffer_t *data_buf = dbBE_Transport_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN ); // misuse, just as a buffer
   dbBE_Redis_request_t *req;
   dbBE_Request_t* ureq = (dbBE_Request_t*) malloc (sizeof(dbBE_Request_t) + 2 * sizeof(dbBE_sge_t));
 

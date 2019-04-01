@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -284,7 +284,7 @@ int TestRedis_parse_ctx_buffer()
   dbBE_Redis_sr_buffer_t *sr_buf;
   dbBE_Redis_result_t result;
 
-  sr_buf = dbBE_Redis_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );
+  sr_buf = dbBE_Transport_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );
   if( sr_buf == NULL )
     return 1;
 
@@ -441,7 +441,7 @@ int TestRedis_parse_ctx_buffer_errors()
   dbBE_Redis_sr_buffer_t *sr_buf;
   dbBE_Redis_result_t result;
 
-  sr_buf = dbBE_Redis_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );
+  sr_buf = dbBE_Transport_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );
   if( sr_buf == NULL )
     return 1;
 

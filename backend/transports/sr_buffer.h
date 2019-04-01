@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ typedef struct
 /*
  * allocate an initialize the send-receive buffer
  */
-dbBE_Redis_sr_buffer_t* dbBE_Redis_sr_buffer_allocate( const size_t size );
+dbBE_Redis_sr_buffer_t* dbBE_Transport_sr_buffer_allocate( const size_t size );
 
 /*
  * reset the stats of the send-receive buffer

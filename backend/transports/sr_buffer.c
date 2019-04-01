@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 
 #include "sr_buffer.h"
 
-dbBE_Redis_sr_buffer_t* dbBE_Redis_sr_buffer_allocate( const size_t size )
+dbBE_Redis_sr_buffer_t* dbBE_Transport_sr_buffer_allocate( const size_t size )
 {
   dbBE_Redis_sr_buffer_t *ret = (dbBE_Redis_sr_buffer_t*)malloc( sizeof(dbBE_Redis_sr_buffer_t) );
   if( ret == NULL )
