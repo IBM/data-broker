@@ -161,8 +161,8 @@ static inline size_t dbBE_Transport_sr_buffer_add_data( dbBE_Redis_sr_buffer_t *
  * it will not progress farther than the available amount
  * returns the actual number of bytes progressed/advanced
  */
-static inline size_t dbBE_Redis_sr_buffer_advance( dbBE_Redis_sr_buffer_t *sr_buf,
-                                                   const size_t n )
+static inline size_t dbBE_Transport_sr_buffer_advance( dbBE_Redis_sr_buffer_t *sr_buf,
+                                                       const size_t n )
 {
   size_t ret = n;
   if( sr_buf->_processed + n <= sr_buf->_available )

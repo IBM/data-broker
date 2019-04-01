@@ -134,7 +134,7 @@ int main( int argc, char ** argv )
   if( len > 0 )
   {
     rc += TEST( dbBE_Transport_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
-    rc += TEST( dbBE_Redis_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
+    rc += TEST( dbBE_Transport_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
   }
 
   // send a get command for the inserted item
@@ -150,7 +150,7 @@ int main( int argc, char ** argv )
   if( len > 0 )
   {
     rc += TEST( dbBE_Transport_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
-    rc += TEST( dbBE_Redis_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
+    rc += TEST( dbBE_Transport_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
   }
 
 connect_failed:

@@ -275,7 +275,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
   // the current type of response from Redis
   char *start_parse = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   type = *start_parse;
-  dbBE_Redis_sr_buffer_advance( sr_buf, 1 );
+  dbBE_Transport_sr_buffer_advance( sr_buf, 1 );
 
   // pointing to the new reading position to start parsing
   char *p = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
@@ -408,7 +408,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
       result->_data._array._data = (dbBE_Redis_result_t*)malloc( sizeof (dbBE_Redis_result_t ) * result->_data._array._len );
       memset( result->_data._array._data, 0, sizeof (dbBE_Redis_result_t ) * result->_data._array._len );
 
-      dbBE_Redis_sr_buffer_advance( sr_buf, parsed );
+      dbBE_Transport_sr_buffer_advance( sr_buf, parsed );
 
       rc = 0;
       for( n = 0; (n < result->_data._array._len) && ( rc == 0 ); ++n )
@@ -436,7 +436,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     dbBE_Redis_sr_buffer_rewind_processed_to( sr_buf, start_parse );
   else
   {
-    dbBE_Redis_sr_buffer_advance( sr_buf, parsed );
+    dbBE_Transport_sr_buffer_advance( sr_buf, parsed );
     // terminate any strings in the result structure, ONLY if this is the top-level call
     if( toplevel != 0 )
       rc = dbBE_Redis_result_terminate_strings( result );
