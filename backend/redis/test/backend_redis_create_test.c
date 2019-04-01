@@ -404,8 +404,8 @@ int main( int argc, char ** argv )
 
 
   dbBE_Redis_command_stages_spec_destroy( stage_specs );
-  dbBE_Redis_sr_buffer_free( sr_buf );
-  dbBE_Redis_sr_buffer_free( data_buf );
+  dbBE_Transport_sr_buffer_free( sr_buf );
+  dbBE_Transport_sr_buffer_free( data_buf );
 
   free(ureq);
 

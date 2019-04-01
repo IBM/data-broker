@@ -423,7 +423,7 @@ int TestRedis_parse_ctx_buffer()
   rc += TEST( result._type, dbBE_REDIS_TYPE_INVALID );
   rc += TEST( result._data._integer, -ENODATA );
 
-  dbBE_Redis_sr_buffer_free( sr_buf );
+  dbBE_Transport_sr_buffer_free( sr_buf );
   sr_buf = NULL;
   rc += TEST( dbBE_Redis_parse_sr_buffer( NULL, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_parse_sr_buffer( NULL, &result ), -EINVAL );
@@ -547,7 +547,7 @@ int TestRedis_parse_ctx_buffer_errors()
   rc += TEST( result._data._array._data[ 1 ]._data._integer, 3253 );
   dbBE_Redis_result_cleanup( &result, 0 );
 
-  dbBE_Redis_sr_buffer_free( sr_buf );
+  dbBE_Transport_sr_buffer_free( sr_buf );
   sr_buf = NULL;
   rc += TEST( dbBE_Redis_parse_sr_buffer( NULL, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_parse_sr_buffer( NULL, &result ), -EINVAL );

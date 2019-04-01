@@ -92,9 +92,9 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 
 error:
   if( sendb != NULL )
-    dbBE_Redis_sr_buffer_free( sendb );
+    dbBE_Transport_sr_buffer_free( sendb );
   if( recvb != NULL )
-    dbBE_Redis_sr_buffer_free( recvb );
+    dbBE_Transport_sr_buffer_free( recvb );
   if( slots != NULL )
     dbBE_Redis_slot_bitmap_destroy( slots );
   if( conn )
@@ -592,8 +592,8 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
 
   dbBE_Redis_slot_bitmap_destroy( conn->_slots );
   dbBE_Redis_s2r_queue_destroy( conn->_posted_q );
-  dbBE_Redis_sr_buffer_free( conn->_sendbuf );
-  dbBE_Redis_sr_buffer_free( conn->_recvbuf );
+  dbBE_Transport_sr_buffer_free( conn->_sendbuf );
+  dbBE_Transport_sr_buffer_free( conn->_recvbuf );
   dbBE_Redis_address_destroy( conn->_address );
 
   // wipe memory

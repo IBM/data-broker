@@ -103,7 +103,7 @@ int main( int argc, char ** argv )
 
   // set the max number of connections for this test
   flimit = ( (int64_t)sh_limit.rlim_cur <= flimit + 10 ) ? (int64_t)sh_limit.rlim_cur - 10 : flimit;
-  LOG( DBG_ALL, stdout, "Connections limited to #%ld\n", flimit );
+  LOG( DBG_ALL, stdout, "Connections limited to #%"PRId64"\n", flimit );
 
 
   mgr = dbBE_Redis_connection_mgr_init();

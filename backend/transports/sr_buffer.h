@@ -53,7 +53,7 @@ void dbBE_Transport_sr_buffer_reset( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * deallocate and reset memory of send-receive buffer
  */
-void dbBE_Redis_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
+void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 
 
 
