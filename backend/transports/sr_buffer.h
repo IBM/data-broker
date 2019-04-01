@@ -91,8 +91,8 @@ void dbBE_Transport_sr_buffer_free( dbBE_Redis_sr_buffer_t *sr_buf );
 /*
  * check if the buffer has remaining space for a given number of bytes
  */
-#define dbBE_Redis_sr_buffer_full( sr_buf, bytes ) ( ((int64_t)(sr_buf)->_size < (int64_t)(bytes) ) \
-                                                 || ( (int64_t)((sr_buf)->_size - (sr_buf)->_available) < (int64_t)(bytes) ))
+#define dbBE_Transport_sr_buffer_full( sr_buf, bytes ) ( ((int64_t)(sr_buf)->_size < (int64_t)(bytes) ) \
+                                                      || ( (int64_t)((sr_buf)->_size - (sr_buf)->_available) < (int64_t)(bytes) ))
 
 /*
  * return the number of remaining unused bytes at the end of the buffer
