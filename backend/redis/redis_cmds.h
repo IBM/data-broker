@@ -18,6 +18,7 @@
 #ifndef BACKEND_REDIS_REDIS_CMDS_H_
 #define BACKEND_REDIS_REDIS_CMDS_H_
 
+#include "logutil.h"
 #include "transports/sr_buffer.h"
 #include "protocol.h"
 #include "request.h"
@@ -25,6 +26,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
 
 /*
  * implementation of single redis command exec
@@ -78,6 +80,33 @@ int dbBE_Redis_command_cmdandkey_only_create( dbBE_Redis_command_stage_spec_t *s
   return len;
 }
 
+int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
+{
+  if( keybuf == NULL )
+    return -EINVAL;
+
+  int len = 0;
+  switch( request->_user->_opcode )
+  {
+    case DBBE_OPCODE_PUT:
+    {
+      int keylen = strnlen( request->_user->_ns_name, size ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_key, size );
+      len = snprintf( keybuf, size, "$%d\r\n%s%s%s\r\n",
+                      keylen,
+                      request->_user->_ns_name,
+                      DBBE_REDIS_NAMESPACE_SEPARATOR,
+                      request->_user->_key );
+      if(( len < 0 ) || ( len >= size ))
+        return -EMSGSIZE;
+      break;
+    }
+    default:
+      return -ENOSYS;
+  }
+  return len;
+}
+
+
 int64_t dbBE_Redis_command_create_insert_value( dbBE_Redis_sr_buffer_t *sr_buf,
                                                 dbBE_Data_transport_t *transport,
                                                 dbBE_sge_t *sge,
@@ -116,6 +145,11 @@ int dbBE_Redis_command_put_parse( dbBE_Redis_command_stage_spec_t spec,
       return ( err ); \
     }
 
+#define DBBE_REDIS_CMD_REWIND_CMD_AND_ERROR( err, cmd_idx ) \
+    { \
+      cmd_idx = 0; \
+      return ( err ); \
+    }
 
 static inline
 int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
@@ -440,6 +474,139 @@ int dbBE_Redis_command_restore_create( dbBE_Redis_command_stage_spec_t *stage,
   args[ stage->_array_len ].iov_len = 0;
 
   return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
+}
+
+
+
+
+
+
+static inline
+int dbBE_Redis_command_create_sgeN_uncheck( dbBE_Redis_command_stage_spec_t *stage,
+                                            dbBE_sge_t *args,
+                                            dbBE_sge_t *cmd )
+{
+  char *cmdptr = stage->_command;
+  char *cmdend = stage->_command + strlen( stage->_command );
+
+  int cmd_idx;
+
+  while((cmdptr < cmdend ))
+  {
+    // get next location of parameter
+    char *loc = index( cmdptr, '%' );
+
+    // no more parameters. break and add the remaining cmd string
+    if( loc == NULL )
+      break;
+
+    // index() did something funky...
+    if(( loc > cmdend ) || ( *loc != '%' ))
+      DBBE_REDIS_CMD_REWIND_CMD_AND_ERROR( -EBADMSG, cmd_idx );
+
+    // insert chars from defined cmd string, if any
+    if( loc != cmdptr )
+    {
+      cmd[ cmd_idx ].iov_base = cmdptr;
+      cmd[ cmd_idx ].iov_len = (size_t)(loc - cmdptr);
+      cmdptr += cmd[ cmd_idx ].iov_len;
+      ++cmd_idx;
+    }
+
+    // what positional arg to insert?
+    int idx = (int)loc[1] - 48;
+    if(( idx < 0 )  ||  ( idx >= stage->_array_len ))
+      DBBE_REDIS_CMD_REWIND_CMD_AND_ERROR( -EBADMSG, cmd_idx );
+
+    if( args[ idx ].iov_base == NULL )
+      break;
+
+    // insert args[n]
+    if( args[ idx ].iov_len > 0 )
+    {
+      cmd[ cmd_idx ].iov_base = args[ idx ].iov_base;
+      cmd[ cmd_idx ].iov_len = args[ idx ].iov_len;
+      ++cmd_idx;
+    }
+    cmdptr = loc + 2;
+  }
+
+  // add any remaining/trailing cmd string data
+  if( cmdptr < cmdend )
+  {
+    cmd[ cmd_idx ].iov_base = cmdptr;
+    cmd[ cmd_idx ].iov_len = (size_t)( cmdend - cmdptr );
+    ++cmd_idx;
+  }
+
+  return cmd_idx;
+}
+
+
+int dbBE_Redis_command_rpush_create( dbBE_Redis_request_t *request,
+                                     dbBE_Redis_sr_buffer_t *buf,
+                                     dbBE_sge_t *cmd )
+{
+  int rc = 0;
+  dbBE_Redis_command_stage_spec_t *stage = request->_step;
+
+  if( stage->_stage != 0 ) // Put is only a single stage request
+    return -EINVAL;
+
+  // create key
+  char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+  int keylen = dbBE_Redis_create_key_cmd( request, key,
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+  dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 );
+
+  // insert key into cmd sge
+  dbBE_sge_t args[2];
+  args[0].iov_base = key;
+  args[0].iov_len = keylen;
+  args[1].iov_base = "";  // add empty dummy argument as the value
+  args[1].iov_len = 0;
+
+  rc = dbBE_Redis_command_create_sgeN_uncheck( stage, args, cmd );
+  if( rc < 0 )
+  {
+    LOG( DBG_ERR, stderr, "Failed to create PUT cmd+key. rc=%d\n", rc );
+    return rc;
+  }
+
+  // add value
+  size_t vallen = dbBE_SGE_get_len( request->_user->_sge, request->_user->_sge_count );
+
+  // insert lenth-prefix to buffer
+  char *valpre = dbBE_Transport_sr_buffer_get_available_position( buf );
+  if( dbBE_Transport_sr_buffer_remaining( buf ) <= vallen - 2 )
+    return -E2BIG;
+
+  int valprelen = snprintf( valpre, dbBE_Transport_sr_buffer_remaining( buf ), "$%"PRId64"\r\n", vallen );
+  if( valprelen < 4 )
+  {
+    dbBE_Transport_sr_buffer_rewind_available_to( buf, key );
+    return -E2BIG;
+  }
+  dbBE_Transport_sr_buffer_add_data( buf, valprelen, 1 );
+  int idx = rc;
+
+  // add sge in cmds sequence
+  cmd[ idx ].iov_base = valpre;
+  cmd[ idx ].iov_len = valprelen;
+  ++idx;
+
+  // insert value sge
+  memcpy( &cmd[idx],
+          request->_user->_sge,
+          request->_user->_sge_count * sizeof( dbBE_sge_t ) );
+  idx += request->_user->_sge_count;
+
+  // terminate
+  cmd[ idx ].iov_base = &stage->_command[2];
+  cmd[ idx ].iov_len = 2;
+  ++idx;
+
+  return idx;
 }
 
 #endif /* BACKEND_REDIS_REDIS_CMDS_H_ */

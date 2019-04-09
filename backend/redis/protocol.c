@@ -62,12 +62,12 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 3;
+  s->_array_len = 2;
   s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_INT; // will return integer of inserted keys
-  strcpy( s->_command, (const char*)"RPUSH" );
+  strcpy( s->_command, "*3\r\n$5\r\nRPUSH\r\n%0%1" );
   s->_stage = stage;
 
   /*
