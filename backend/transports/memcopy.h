@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,16 @@
 
 extern dbBE_Data_transport_t dbBE_Memcopy_transport;
 
-int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* destbuf,
+dbBE_Data_transport_device_t* dbBE_Transport_memory_create();
+
+int dbBE_Transport_memory_destroy( dbBE_Data_transport_device_t *dev );
+
+int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* dev,
                                       size_t len,
                                       int sge_count,
                                       dbBE_sge_t *sge );
 
-int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_device_t* srcbuf,
+int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_device_t* dev,
                                        size_t len,
                                        int sge_count,
                                        dbBE_sge_t *sge);
