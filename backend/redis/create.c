@@ -214,18 +214,18 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case DBBE_REDIS_MOVE_STAGE_DUMP:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
             return -EBADMSG;
           len = dbBE_Redis_command_dump_create( stage, sr_buf, keybuffer );
           break;
 
         case DBBE_REDIS_MOVE_STAGE_RESTORE:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
             return -EBADMSG;
           len = dbBE_Redis_command_restore_create( stage, sr_buf, keybuffer, request->_status.move );
           break;
         case DBBE_REDIS_MOVE_STAGE_DEL:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
             return -EBADMSG;
           len = dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
           break;
@@ -377,14 +377,12 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
 /*
  * create the key, based on the command type
  */
-char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
+int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
 {
   if( keybuf == NULL )
-  {
-    errno = EINVAL;
-    return NULL;
-  }
+    return -EINVAL;
 
+  int len = 0;
   memset( keybuf, 0, size );
   switch( request->_user->_opcode )
   {
@@ -393,21 +391,18 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_REMOVE:
     {
-      int len = snprintf( keybuf, size, "%s%s%s",
+      len = snprintf( keybuf, size, "%s%s%s",
                           request->_user->_ns_name,
                           DBBE_REDIS_NAMESPACE_SEPARATOR,
                           request->_user->_key );
       if(( len < 0 ) || ( len >= size ))
-      {
-        errno = EMSGSIZE;
-        return NULL;
-      }
+        return -EMSGSIZE;
       break;
     }
 
     case DBBE_OPCODE_MOVE:
     {
-      int len = 0;
+      len = 0;
       switch( request->_step->_stage )
       {
         case DBBE_REDIS_MOVE_STAGE_RESTORE: // restore stage uses the new namespace for the key
@@ -424,10 +419,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
           break;
       }
       if(( len < 0 ) || ( len >= size ))
-      {
-        errno = EMSGSIZE;
-        return NULL;
-      }
+        return -EMSGSIZE;
       break;
     }
     case DBBE_OPCODE_DIRECTORY:
@@ -437,23 +429,41 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_NSDELETE:
     case DBBE_OPCODE_NSQUERY:
     {
-      int len = snprintf( keybuf, size, "%s", request->_user->_ns_name );
+      len = snprintf( keybuf, size, "%s", request->_user->_ns_name );
       if(( len < 0 ) || ( len >= size ))
-      {
-        errno = EMSGSIZE;
-        return NULL;
-      }
+        return -EMSGSIZE;
       break;
     }
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
     case DBBE_OPCODE_CANCEL:
-      errno = ENOSYS;
-      return NULL;
+      return -ENOSYS;
     case DBBE_OPCODE_UNSPEC:
     case DBBE_OPCODE_MAX:
-      errno = EINVAL;
-      return NULL;
+      return -EINVAL;
   }
-  return keybuf;
+  return len;
+}
+
+int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
+                                   dbBE_Redis_sr_buffer_t *buf,
+                                   dbBE_sge_t *cmd )
+{
+  int rc = 0;
+
+//  dbBE_Redis_command_stage_spec_t *stage = request->_step;
+
+  switch( request->_user->_opcode )
+  {
+    case DBBE_OPCODE_PUT: // RPUSH ns_name%sep;t_name value
+    {
+      rc = dbBE_Redis_command_rpush_create( request, buf, cmd );
+      break;
+
+    default:
+      return -ENOSYS;
+    }
+  }
+
+  return rc;
 }

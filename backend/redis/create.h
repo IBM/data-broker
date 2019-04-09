@@ -29,9 +29,10 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
                                dbBE_Redis_sr_buffer_t *sr_buf,
                                dbBE_Data_transport_t *transport );
 
-/*
- * create the key, based on the command type
- */
-char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size );
+int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
+                                   dbBE_Redis_sr_buffer_t * buf,
+                                   dbBE_sge_t *cmd );
+
+int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size );
 
 #endif /* BACKEND_REDIS_CREATE_H_ */
