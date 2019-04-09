@@ -56,6 +56,14 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   dbBE_Redis_slot_bitmap_t *slots = NULL;
   dbBE_Redis_s2r_queue_t *queue = NULL;
 
+  dbBE_Data_transport_device_t *send_tr = dbBE_Memcopy_transport.create();
+  dbBE_Data_transport_device_t *recv_tr = dbBE_Memcopy_transport.create();
+  if(( send_tr == NULL ) || ( recv_tr == NULL ))
+  {
+    rc = ENOMEM;
+    goto error;
+  }
+
   dbBE_Redis_sr_buffer_t *sendb = dbBE_Transport_sr_buffer_allocate( sr_buffer_size );
   dbBE_Redis_sr_buffer_t *recvb = dbBE_Transport_sr_buffer_allocate( sr_buffer_size );
 
@@ -64,6 +72,9 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
     rc = ENOMEM;
     goto error;
   }
+
+  conn->_senddev = send_tr;
+  conn->_recvdev = recv_tr;
 
   conn->_sendbuf = sendb;
   conn->_recvbuf = recvb;
@@ -452,6 +463,42 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn )
 }
 
 /*
+ * flush the send buffer by sending it to the connected Redis instance
+ */
+int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
+                                    dbBE_sge_t *cmd,
+                                    const int cmdlen )
+{
+  if(( conn == NULL ) || ( cmd == NULL ))
+    return -EINVAL;
+  if( ! dbBE_Redis_connection_RTS( conn ) )
+    return -ENOTCONN;
+
+  struct msghdr msg;
+  memset( &msg, 0, sizeof( struct msghdr ) );
+  msg.msg_iov = cmd;
+  msg.msg_iovlen = cmdlen;
+
+  ssize_t rc = sendmsg( conn->_socket, &msg, 0 );
+  ssize_t datalen = dbBE_SGE_get_len( cmd, cmdlen );
+
+  // good case: early exit
+  if( rc == datalen )
+    return rc;
+
+  // remaining error handling
+  switch( rc )
+  {
+    default:
+      rc = -EBADMSG;
+      break;
+  }
+
+  return rc;
+}
+
+
+/*
  * disconnect from a Redis instance and destroy the address and socket
  */
 int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
@@ -595,6 +642,7 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
   dbBE_Transport_sr_buffer_free( conn->_sendbuf );
   dbBE_Transport_sr_buffer_free( conn->_recvbuf );
   dbBE_Redis_address_destroy( conn->_address );
+
 
   // wipe memory
   memset( conn, 0, sizeof( dbBE_Redis_connection_t ) );
