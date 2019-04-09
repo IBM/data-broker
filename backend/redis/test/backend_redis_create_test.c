@@ -36,13 +36,40 @@
 
 #define DBBE_TEST_BUFFER_LEN ( 1024 )
 
+int Flatten_cmd( dbBE_sge_t *cmd, int cmdlen, dbBE_Redis_sr_buffer_t *dest )
+{
+  if(( cmd == NULL ) || ( cmdlen > DBBE_SGE_MAX ) || ( dest == NULL ))
+    return -EINVAL;
+
+  int n = 0;
+  dbBE_Transport_sr_buffer_reset( dest );
+  for( n = 0; n < cmdlen; ++n )
+  {
+    if( cmd[ n ].iov_base == NULL )
+      return -EBADMSG;
+    memcpy( dbBE_Transport_sr_buffer_get_available_position( dest ),
+            cmd[ n ].iov_base,
+            cmd[ n ].iov_len );
+    dbBE_Transport_sr_buffer_add_data( dest, cmd[ n ].iov_len, 1 );
+  }
+  return 0;
+}
+
 int main( int argc, char ** argv )
 {
   int rc = 0;
   size_t keylen, vallen;
+  int cmdlen = 0;
 
   dbBE_Redis_sr_buffer_t *sr_buf = dbBE_Transport_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN );
   dbBE_Redis_sr_buffer_t *data_buf = dbBE_Transport_sr_buffer_allocate( DBBE_TEST_BUFFER_LEN ); // misuse, just as a buffer
+  rc += TEST_NOT( data_buf, NULL );
+  rc += TEST_NOT( sr_buf, NULL );
+  rc += TEST_NOT( dbBE_Transport_sr_buffer_get_start( sr_buf ), NULL );
+  rc += TEST_NOT( dbBE_Transport_sr_buffer_get_start( data_buf ), NULL );
+
+  TEST_BREAK( rc, "Buffer allocation failed. Aborting test\n" );
+
   dbBE_Redis_request_t *req;
   dbBE_Request_t* ureq = (dbBE_Request_t*) malloc (sizeof(dbBE_Request_t) + 2 * sizeof(dbBE_sge_t));
 
@@ -67,11 +94,11 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( req, NULL );
 
   // create a put
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  dbBE_sge_t cmd[ DBBE_SGE_MAX ];
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req, sr_buf, cmd ), 6, cmdlen  );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*3\r\n$5\r\nRPUSH\r\n$11\r\nTestNS::bla\r\n$25\r\nHello World! You're done.\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
   dbBE_Redis_request_destroy( req );
