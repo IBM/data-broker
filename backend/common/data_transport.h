@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,17 @@ typedef void* dbBE_Data_transport_device_t;
 typedef struct dbBE_Data_transport
 {
   /**
+   * @brief create and initialize a transport device
+   *
+   */
+  dbBE_Data_transport_device_t* (*create)( void );
+
+  /**
+   * @brief destroy a transport device
+   */
+  int (*destroy)( dbBE_Data_transport_device_t *);
+
+  /**
    * @brief  data gathering function
    *
    * gather operation to collect SGE data from the user memory
@@ -105,5 +116,8 @@ typedef struct dbBE_Data_transport
 /**
  *@}
  */
+
+#include "transports/memcopy.h"
+#include "transports/small_buffer_socket.h"
 
 #endif /* BACKEND_COMMON_DATA_TRANSPORT_H_ */
