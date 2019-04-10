@@ -194,8 +194,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       if( stage->_stage != 0 ) // Get is only a single stage request
         return -EINVAL;
 
-      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-      len = dbBE_Redis_command_lpop_create( stage, sr_buf, keybuffer );
+//      len = dbBE_Redis_command_lpop_create( request, sr_buf, keybuffer );
 
       break;
     }
@@ -460,6 +459,9 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
       rc = dbBE_Redis_command_rpush_create( request, buf, cmd );
       break;
 
+    case DBBE_OPCODE_GET: // LPOP ns_name%sep;t_name
+      rc = dbBE_Redis_command_lpop_create( request, buf, cmd );
+      break;
     default:
       return -ENOSYS;
     }

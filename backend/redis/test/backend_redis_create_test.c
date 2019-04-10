@@ -51,6 +51,7 @@ int Flatten_cmd( dbBE_sge_t *cmd, int cmdlen, dbBE_Redis_sr_buffer_t *dest )
             cmd[ n ].iov_base,
             cmd[ n ].iov_len );
     dbBE_Transport_sr_buffer_add_data( dest, cmd[ n ].iov_len, 1 );
+    *(dbBE_Transport_sr_buffer_get_available_position( dest )) = '\0'; // string termination (for debugging purposes only)
   }
   return 0;
 }
@@ -113,11 +114,12 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( req, NULL );
 
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 2, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*2\r\n$4\r\nLPOP\r\n$11\r\nTestNS::bla\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );

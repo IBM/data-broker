@@ -89,6 +89,7 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
   switch( request->_user->_opcode )
   {
     case DBBE_OPCODE_PUT:
+    case DBBE_OPCODE_GET:
     {
       int keylen = strnlen( request->_user->_ns_name, size ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_key, size );
       len = snprintf( keybuf, size, "$%d\r\n%s%s%s\r\n",
@@ -235,6 +236,68 @@ int dbBE_Redis_command_create_sgeN( dbBE_Redis_command_stage_spec_t *stage,
 }
 
 static inline
+int dbBE_Redis_command_create_sgeN_uncheck( dbBE_Redis_command_stage_spec_t *stage,
+                                            dbBE_sge_t *args,
+                                            dbBE_sge_t *cmd )
+{
+  char *cmdptr = stage->_command;
+  char *cmdend = stage->_command + strlen( stage->_command );
+
+  int cmd_idx;
+
+  while((cmdptr < cmdend ))
+  {
+    // get next location of parameter
+    char *loc = index( cmdptr, '%' );
+
+    // no more parameters. break and add the remaining cmd string
+    if( loc == NULL )
+      break;
+
+    // index() did something funky...
+    if(( loc > cmdend ) || ( *loc != '%' ))
+      DBBE_REDIS_CMD_REWIND_CMD_AND_ERROR( -EBADMSG, cmd_idx );
+
+    // insert chars from defined cmd string, if any
+    if( loc != cmdptr )
+    {
+      cmd[ cmd_idx ].iov_base = cmdptr;
+      cmd[ cmd_idx ].iov_len = (size_t)(loc - cmdptr);
+      cmdptr += cmd[ cmd_idx ].iov_len;
+      ++cmd_idx;
+    }
+
+    // what positional arg to insert?
+    int idx = (int)loc[1] - 48;
+    if(( idx < 0 )  ||  ( idx >= stage->_array_len ))
+      DBBE_REDIS_CMD_REWIND_CMD_AND_ERROR( -EBADMSG, cmd_idx );
+
+    if( args[ idx ].iov_base == NULL )
+      break;
+
+    // insert args[n]
+    if( args[ idx ].iov_len > 0 )
+    {
+      cmd[ cmd_idx ].iov_base = args[ idx ].iov_base;
+      cmd[ cmd_idx ].iov_len = args[ idx ].iov_len;
+      ++cmd_idx;
+    }
+    cmdptr = loc + 2;
+  }
+
+  // add any remaining/trailing cmd string data
+  if( cmdptr < cmdend )
+  {
+    cmd[ cmd_idx ].iov_base = cmdptr;
+    cmd[ cmd_idx ].iov_len = (size_t)( cmdend - cmdptr );
+    ++cmd_idx;
+  }
+
+  return cmd_idx;
+}
+
+
+static inline
 int dbBE_Redis_command_create_str1( dbBE_Redis_command_stage_spec_t *stage,
                                     dbBE_Redis_sr_buffer_t *sr_buf,
                                     char *buffer )
@@ -251,11 +314,19 @@ int dbBE_Redis_command_create_str1( dbBE_Redis_command_stage_spec_t *stage,
   return dbBE_Redis_command_create_sgeN( stage, sr_buf, sge );
 }
 
-int dbBE_Redis_command_lpop_create( dbBE_Redis_command_stage_spec_t *stage,
-                                    dbBE_Redis_sr_buffer_t *sr_buf,
-                                    char *keybuffer )
+int dbBE_Redis_command_lpop_create( dbBE_Redis_request_t *req,
+                                    dbBE_Redis_sr_buffer_t *buf,
+                                    dbBE_sge_t *cmd )
 {
-  return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
+  char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+  int keylen = dbBE_Redis_create_key_cmd( req, key,
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+  dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 );
+
+  dbBE_sge_t sge[ 1 ];
+  sge[0].iov_base = key;
+  sge[0].iov_len = keylen;
+  return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
 }
 
 
@@ -474,72 +545,6 @@ int dbBE_Redis_command_restore_create( dbBE_Redis_command_stage_spec_t *stage,
   args[ stage->_array_len ].iov_len = 0;
 
   return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
-}
-
-
-
-
-
-
-static inline
-int dbBE_Redis_command_create_sgeN_uncheck( dbBE_Redis_command_stage_spec_t *stage,
-                                            dbBE_sge_t *args,
-                                            dbBE_sge_t *cmd )
-{
-  char *cmdptr = stage->_command;
-  char *cmdend = stage->_command + strlen( stage->_command );
-
-  int cmd_idx;
-
-  while((cmdptr < cmdend ))
-  {
-    // get next location of parameter
-    char *loc = index( cmdptr, '%' );
-
-    // no more parameters. break and add the remaining cmd string
-    if( loc == NULL )
-      break;
-
-    // index() did something funky...
-    if(( loc > cmdend ) || ( *loc != '%' ))
-      DBBE_REDIS_CMD_REWIND_CMD_AND_ERROR( -EBADMSG, cmd_idx );
-
-    // insert chars from defined cmd string, if any
-    if( loc != cmdptr )
-    {
-      cmd[ cmd_idx ].iov_base = cmdptr;
-      cmd[ cmd_idx ].iov_len = (size_t)(loc - cmdptr);
-      cmdptr += cmd[ cmd_idx ].iov_len;
-      ++cmd_idx;
-    }
-
-    // what positional arg to insert?
-    int idx = (int)loc[1] - 48;
-    if(( idx < 0 )  ||  ( idx >= stage->_array_len ))
-      DBBE_REDIS_CMD_REWIND_CMD_AND_ERROR( -EBADMSG, cmd_idx );
-
-    if( args[ idx ].iov_base == NULL )
-      break;
-
-    // insert args[n]
-    if( args[ idx ].iov_len > 0 )
-    {
-      cmd[ cmd_idx ].iov_base = args[ idx ].iov_base;
-      cmd[ cmd_idx ].iov_len = args[ idx ].iov_len;
-      ++cmd_idx;
-    }
-    cmdptr = loc + 2;
-  }
-
-  // add any remaining/trailing cmd string data
-  if( cmdptr < cmdend )
-  {
-    cmd[ cmd_idx ].iov_base = cmdptr;
-    cmd[ cmd_idx ].iov_len = (size_t)( cmdend - cmdptr );
-    ++cmd_idx;
-  }
-
-  return cmd_idx;
 }
 
 
