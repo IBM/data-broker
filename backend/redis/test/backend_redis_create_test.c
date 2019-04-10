@@ -132,11 +132,12 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( req, NULL );
 
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 3, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*3\r\n$6\r\nLINDEX\r\n$11\r\nTestNS::bla\r\n$1\r\n0\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
