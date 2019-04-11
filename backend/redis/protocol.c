@@ -154,12 +154,12 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   stage = 1;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 8;
+  s->_array_len = 7;
   s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return simple OK string
-  strcpy( s->_command, "HMSET" );
+  strcpy( s->_command, "*8\r\n$5\r\nHMSET\r\n%0%1%2%3%4%5%6" );
   s->_stage = stage;
 
   /*

@@ -166,48 +166,9 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
   switch( request->_user->_opcode )
   {
     case DBBE_OPCODE_PUT: // RPUSH ns_name%sep;t_name value
-    {
-      if( stage->_stage != 0 ) // Put is only a single stage request
-        return -EINVAL;
-
-      size_t vallen = dbBE_SGE_get_len( request->_user->_sge, request->_user->_sge_count );
-
-      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-      dbBE_Redis_command_cmdandkey_only_create( stage, sr_buf, keybuffer, vallen );
-      int64_t slen = dbBE_Redis_command_create_insert_value( sr_buf,
-                                                             transport,
-                                                             request->_user->_sge,
-                                                             request->_user->_sge_count,
-                                                             vallen );
-      if( slen != (int64_t)vallen )
-      {
-        len = -1;
-        rc = -1;
-      }
-
-      dbBE_Redis_command_create_terminate( sr_buf );
-
-      break;
-    }
     case DBBE_OPCODE_GET: // LPOP ns_name%sep;t_name
-    {
-      if( stage->_stage != 0 ) // Get is only a single stage request
-        return -EINVAL;
-
-//      len = dbBE_Redis_command_lpop_create( request, sr_buf, keybuffer );
-
-      break;
-    }
     case DBBE_OPCODE_READ: // LINDEX ns_name%sep;t_name 0
-    {
-      if( stage->_stage != 0 ) // Read is only a single stage request
-        return -EINVAL;
-
-//      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-//      len = dbBE_Redis_command_lindex_create( stage, sr_buf, keybuffer );
-
-      break;
-    }
+      return -ENOSYS;
     case DBBE_OPCODE_MOVE:
     {
       switch( stage->_stage )
@@ -232,48 +193,8 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       break;
     }
     case DBBE_OPCODE_DIRECTORY:
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_DIRECTORY_STAGE_META:
-  //        len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-        case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
-          snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN,
-                    "%s%s%s",
-                    request->_user->_ns_name,
-                    DBBE_REDIS_NAMESPACE_SEPARATOR,
-                    request->_user->_match );
-//          len += dbBE_Redis_command_scan_create( stage,
-//                                                 sr_buf,
-//                                                 keybuffer,
-//                                                 request->_user->_key );
-          break;
-        default:
-          dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
-          return -EINVAL;
-      }
-      break;
-    }
     case DBBE_OPCODE_NSCREATE:
-    {
-      switch( stage->_stage )
-      {
-        case 0: // HSETNX ns_name id ns_name
-          len += dbBE_Redis_command_hsetnx_create( stage, sr_buf, request->_user->_ns_name, "id", request->_user->_ns_name );
-          break;
-
-        case 1: // HMSET ns_name refcnt 1 groups permissions
-          dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-          len += dbBE_Redis_command_hmset_create( stage, sr_buf, request, transport, keybuffer );
-          break;
-
-        default:
-          dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
-          return -EINVAL;
-      }
-      break;
-    }
+      return -ENOSYS;
     case DBBE_OPCODE_NSQUERY:
     {
 //      len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
@@ -509,6 +430,22 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
       }
       break;
     }
+
+    case DBBE_OPCODE_NSCREATE:
+      switch( stage->_stage )
+      {
+        case 0: // HSETNX ns_name id ns_name
+          rc = dbBE_Redis_command_hsetnx_create( request, buf, cmd, "id", request->_user->_ns_name );
+          break;
+
+        case 1: // HMSET ns_name refcnt 1 groups permissions
+          rc = dbBE_Redis_command_hmset_create( request, buf, cmd );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
 
     default:
       return -ENOSYS;

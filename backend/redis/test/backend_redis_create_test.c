@@ -202,11 +202,12 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( req, NULL );
 
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 4, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*4\r\n$6\r\nHSETNX\r\n$6\r\nTestNS\r\n$2\r\nid\r\n$6\r\nTestNS\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
@@ -215,11 +216,12 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, "Create NSCREATE-HSETNX" );
 
 
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 8, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*8\r\n$5\r\nHMSET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$1\r\n1\r\n$6\r\ngroups\r\n$13\r\nusers, admins\r\n$5\r\nflags\r\n$1\r\n0\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
