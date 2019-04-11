@@ -103,6 +103,7 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
       break;
     }
     case DBBE_OPCODE_NSCREATE:
+    case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_DIRECTORY:
     {
       int keylen = strnlen( request->_user->_ns_name, size );

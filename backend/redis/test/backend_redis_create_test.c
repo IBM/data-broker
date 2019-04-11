@@ -38,7 +38,7 @@
 
 int Flatten_cmd( dbBE_sge_t *cmd, int cmdlen, dbBE_Redis_sr_buffer_t *dest )
 {
-  if(( cmd == NULL ) || ( cmdlen > DBBE_SGE_MAX ) || ( dest == NULL ))
+  if(( cmd == NULL ) || ( cmdlen > DBBE_SGE_MAX ) || (cmdlen <= 0 ) || ( dest == NULL ))
     return -EINVAL;
 
   int n = 0;
@@ -101,7 +101,7 @@ int main( int argc, char ** argv )
   rc += TEST( strcmp( "*3\r\n$5\r\nRPUSH\r\n$11\r\nTestNS::bla\r\n$25\r\nHello World! You're done.\r\n",
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
   dbBE_Redis_request_destroy( req );
   free( ureq->_sge[ 0 ].iov_base );
   free( ureq->_sge[ 1 ].iov_base );
@@ -122,7 +122,7 @@ int main( int argc, char ** argv )
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
   dbBE_Redis_request_destroy( req );
 
   // create a read
@@ -140,7 +140,7 @@ int main( int argc, char ** argv )
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
   dbBE_Redis_request_destroy( req );
 
   // create a directory (meta stage)
@@ -160,7 +160,7 @@ int main( int argc, char ** argv )
   rc += TEST( strcmp( "*2\r\n$7\r\nHGETALL\r\n$6\r\nTestNS\r\n",
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   // transition to scan stage
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
@@ -173,7 +173,7 @@ int main( int argc, char ** argv )
   rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   // test a subsequent scan request with cursor
   ureq->_key = "40";
@@ -186,7 +186,7 @@ int main( int argc, char ** argv )
   rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$2\r\n40\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   free( ureq->_match ); ureq->_match = NULL;
   ureq->_key = "bla";
@@ -210,7 +210,7 @@ int main( int argc, char ** argv )
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   dbBE_Transport_sr_buffer_reset( sr_buf );
   TEST_LOG( rc, "Create NSCREATE-HSETNX" );
@@ -224,27 +224,29 @@ int main( int argc, char ** argv )
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
 
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
   dbBE_Redis_request_destroy( req );
   free( ureq->_sge[ 0 ].iov_base );
 
 
   // create an nsquery
   ureq->_opcode = DBBE_OPCODE_NSQUERY;
-  ureq->_sge[0].iov_base = dbBE_Transport_sr_buffer_get_start( data_buf );
-  ureq->_sge[0].iov_len = dbBE_Transport_sr_buffer_get_size( data_buf );
+  char *meta = (char*)calloc( 10000, sizeof( char ) );
+  ureq->_sge[0].iov_base = meta;
+  ureq->_sge[0].iov_len = 10000;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
 
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 2, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*2\r\n$7\r\nHGETALL\r\n$6\r\nTestNS\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
   dbBE_Redis_request_destroy( req );
 
 

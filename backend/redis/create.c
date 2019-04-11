@@ -194,13 +194,9 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     }
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSCREATE:
-      return -ENOSYS;
     case DBBE_OPCODE_NSQUERY:
-    {
-//      len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
+      return -ENOSYS;
 
-      break;
-    }
     case DBBE_OPCODE_NSDELETE:
     {
       switch( stage->_stage )
@@ -445,6 +441,10 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         default:
           return -EINVAL;
       }
+      break;
+
+    case DBBE_OPCODE_NSQUERY:
+      rc = dbBE_Redis_command_hmgetall_create( request, buf, cmd );
       break;
 
     default:
