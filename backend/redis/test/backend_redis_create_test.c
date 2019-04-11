@@ -175,6 +175,19 @@ int main( int argc, char ** argv )
               0 );
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
 
+  // test a subsequent scan request with cursor
+  ureq->_key = "40";
+  dbBE_Transport_sr_buffer_reset( sr_buf );
+
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 5, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
+  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$2\r\n40\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+
   free( ureq->_match ); ureq->_match = NULL;
   ureq->_key = "bla";
   dbBE_Redis_request_destroy( req );

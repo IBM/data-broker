@@ -252,7 +252,7 @@ int dbBE_Redis_command_create_sgeN_uncheck( dbBE_Redis_command_stage_spec_t *sta
   char *cmdptr = stage->_command;
   char *cmdend = stage->_command + strlen( stage->_command );
 
-  int cmd_idx;
+  int cmd_idx = 0;
 
   while((cmdptr < cmdend ))
   {
