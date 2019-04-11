@@ -236,7 +236,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case DBBE_REDIS_DIRECTORY_STAGE_META:
-          len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
+  //        len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
           break;
         case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
           snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN,
@@ -244,10 +244,10 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
                     request->_user->_ns_name,
                     DBBE_REDIS_NAMESPACE_SEPARATOR,
                     request->_user->_match );
-          len += dbBE_Redis_command_scan_create( stage,
-                                                 sr_buf,
-                                                 keybuffer,
-                                                 request->_user->_key );
+//          len += dbBE_Redis_command_scan_create( stage,
+//                                                 sr_buf,
+//                                                 keybuffer,
+//                                                 request->_user->_key );
           break;
         default:
           dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
@@ -276,7 +276,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     }
     case DBBE_OPCODE_NSQUERY:
     {
-      len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
+//      len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
 
       break;
     }
@@ -327,10 +327,10 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
 
         case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
           snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN, "%s%s*", request->_user->_ns_name, DBBE_REDIS_NAMESPACE_SEPARATOR );
-          len += dbBE_Redis_command_scan_create( stage,
-                                                 sr_buf,
-                                                 keybuffer,
-                                                 request->_status.nsdetach.scankey );
+//          len += dbBE_Redis_command_scan_create( stage,
+//                                                 sr_buf,
+//                                                 keybuffer,
+//                                                 request->_status.nsdetach.scankey );
           break;
 
         case DBBE_REDIS_NSDETACH_STAGE_DELKEYS: // DEL ns_name%sep;key
@@ -450,26 +450,68 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
 {
   int rc = 0;
 
-//  dbBE_Redis_command_stage_spec_t *stage = request->_step;
+  dbBE_Redis_command_stage_spec_t *stage = request->_step;
 
   switch( request->_user->_opcode )
   {
     case DBBE_OPCODE_PUT: // RPUSH ns_name%sep;t_name value
-    {
+      if( stage->_stage != 0 )
+        return -EPROTO;
       rc = dbBE_Redis_command_rpush_create( request, buf, cmd );
       break;
 
     case DBBE_OPCODE_GET: // LPOP ns_name%sep;t_name
+      if( stage->_stage != 0 )
+        return -EPROTO;
       rc = dbBE_Redis_command_lpop_create( request, buf, cmd );
       break;
 
     case DBBE_OPCODE_READ:
+      if( stage->_stage != 0 )
+        return -EPROTO;
       rc = dbBE_Redis_command_lindex_create( request, buf, cmd );
       break;
 
+    case DBBE_OPCODE_DIRECTORY:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_DIRECTORY_STAGE_META:
+          rc = dbBE_Redis_command_hmgetall_create( request, buf, cmd );
+          break;
+        case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
+        {
+          char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+          int keylen = strnlen( request->_user->_ns_name, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_match, DBBE_REDIS_MAX_KEY_LEN );
+          int len = snprintf( key,
+                              DBBE_REDIS_MAX_KEY_LEN,
+                    "$%d\r\n%s%s%s\r\n",
+                    keylen,
+                    request->_user->_ns_name,
+                    DBBE_REDIS_NAMESPACE_SEPARATOR,
+                    request->_user->_match );
+          if( len < 0 )
+            return -EPROTO;
+          dbBE_Transport_sr_buffer_add_data( buf, len, 1 );
+
+          dbBE_sge_t keysge;
+          keysge.iov_base = key;
+          keysge.iov_len = len;
+          rc = dbBE_Redis_command_scan_create( request,
+                                               buf,
+                                               cmd,
+                                               &keysge,
+                                               request->_user->_key );
+          break;
+        }
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
     default:
       return -ENOSYS;
-    }
   }
 
   return rc;
