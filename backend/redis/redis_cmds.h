@@ -357,7 +357,10 @@ int dbBE_Redis_command_lpop_create( dbBE_Redis_request_t *req,
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
     return -E2BIG;
 
-  dbBE_sge_t sge[ 1 ];
+  dbBE_sge_t sge[ req->_step->_array_len + 1 ];
+  sge[ req->_step->_array_len ].iov_base = NULL;
+  sge[ req->_step->_array_len ].iov_len = 0;
+
   sge[0].iov_base = key;
   sge[0].iov_len = keylen;
   return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
@@ -376,7 +379,10 @@ int dbBE_Redis_command_lindex_create( dbBE_Redis_request_t *req,
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
     return -E2BIG;
 
-  dbBE_sge_t sge[ 1 ];
+  dbBE_sge_t sge[ req->_step->_array_len ];
+  sge[ req->_step->_array_len ].iov_base = NULL;
+  sge[ req->_step->_array_len ].iov_len = 0;
+
   sge[0].iov_base = key;
   sge[0].iov_len = keylen;
   return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
@@ -475,7 +481,13 @@ int dbBE_Redis_command_hsetnx_create( dbBE_Redis_request_t *req,
 {
   dbBE_Redis_command_stage_spec_t *stage = req->_step;
   dbBE_sge_t sge[ stage->_array_len + 1 ];
+  sge[ stage->_array_len ].iov_base = NULL;
+  sge[ stage->_array_len ].iov_len = 0;
 
+  // save start position for potential rewind
+  char *bstart = dbBE_Transport_sr_buffer_get_available_position( buf );
+
+  // create and insert key
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
                                           dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
@@ -488,30 +500,18 @@ int dbBE_Redis_command_hsetnx_create( dbBE_Redis_request_t *req,
   sge[0].iov_len = keylen;
 
   // create and insert field entry
-  char *fld = dbBE_Transport_sr_buffer_get_available_position( buf );
-  int fldlen = snprintf( fld, dbBE_Transport_sr_buffer_remaining( buf ), "$%d\r\n%s\r\n", (int)strlen( field ), field );
-  if( fldlen < 0 )
+  if( dbBE_Redis_command_create_sr_buffer_field( buf, field, strlen( field ), &sge[1] ) != 0 )
   {
-    dbBE_Transport_sr_buffer_rewind_available_to( buf, key );
+    dbBE_Transport_sr_buffer_rewind_available_to( buf, bstart );
     return -E2BIG;
   }
-  dbBE_Transport_sr_buffer_add_data( buf, fldlen, 1 );
-
-  sge[1].iov_base = fld;
-  sge[1].iov_len = fldlen;
 
   // create and insert value entry
-  char *val = dbBE_Transport_sr_buffer_get_available_position( buf );
-  int vallen = snprintf( val, dbBE_Transport_sr_buffer_remaining( buf ), "$%d\r\n%s\r\n", (int)strlen( value ), value );
-  if( vallen < 0 )
+  if( dbBE_Redis_command_create_sr_buffer_field( buf, value, strlen( value ), &sge[2] ) != 0 )
   {
-    dbBE_Transport_sr_buffer_rewind_available_to( buf, key );
+    dbBE_Transport_sr_buffer_rewind_available_to( buf, bstart );
     return -E2BIG;
   }
-  dbBE_Transport_sr_buffer_add_data( buf, vallen, 1 );
-
-  sge[2].iov_base = val;
-  sge[2].iov_len = vallen;
 
   return dbBE_Redis_command_create_sgeN_uncheck( stage, sge, cmd );
 }
@@ -586,14 +586,15 @@ int dbBE_Redis_command_hincrby_create( dbBE_Redis_command_stage_spec_t *stage,
 {
   char incbuf[32];
   dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
+
   args[ 0 ].iov_base = name_space;
   args[ 0 ].iov_len = strlen( name_space );
   args[ 1 ].iov_base = incbuf;
   args[ 1 ].iov_len = (size_t)snprintf( incbuf, 31, "%d", increment );
   if( (int)args[ 1 ].iov_len < 0 )
     return -E2BIG;
-  args[ stage->_array_len ].iov_base = NULL;
-  args[ stage->_array_len ].iov_len = 0;
 
   return dbBE_Redis_command_create_sgeN( stage, sr_buf, args );
 }
@@ -606,28 +607,28 @@ int dbBE_Redis_command_scan_create( dbBE_Redis_request_t *request,
 {
   dbBE_Redis_command_stage_spec_t *stage = request->_step;
   dbBE_sge_t args[ stage->_array_len + 1 ];
+  args[ stage->_array_len ].iov_base = NULL;
+  args[ stage->_array_len ].iov_len = 0;
+
+  // save start position for rewind after error
+  char *bstart = dbBE_Transport_sr_buffer_get_available_position( sr_buf );
 
   // decide the scan cursor (start or not)
-  int len = 0;
+  int rc = 0;
   if( cursor == NULL )
-    len = snprintf( dbBE_Transport_sr_buffer_get_available_position( sr_buf ),
-                    dbBE_Transport_sr_buffer_remaining( sr_buf ),
-                    "$1\r\n0\r\n" );
+    rc = dbBE_Redis_command_create_sr_buffer_field( sr_buf, "0", 1, &args[0] );
   else
-    len = snprintf( dbBE_Transport_sr_buffer_get_available_position( sr_buf ),
-                    dbBE_Transport_sr_buffer_remaining( sr_buf ),
-                    "$%d\r\n%s\r\n",
-                    (int)strlen( cursor ),
-                    cursor );
-  args[ 0 ].iov_base = dbBE_Transport_sr_buffer_get_available_position( sr_buf );
-  args[ 0 ].iov_len = len;
-  dbBE_Transport_sr_buffer_add_data( sr_buf, len, 1 );
+    rc = dbBE_Redis_command_create_sr_buffer_field( sr_buf, cursor, strlen( cursor ), &args[0] );
+
+  if( rc != 0 )
+  {
+    dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, bstart );
+    return -E2BIG;
+  }
 
   // then the key
   args[ 1 ].iov_base = key->iov_base;
   args[ 1 ].iov_len = key->iov_len;
-  args[ stage->_array_len ].iov_base = NULL;
-  args[ stage->_array_len ].iov_len = 0;
 
   return dbBE_Redis_command_create_sgeN_uncheck( stage, args, cmd );
 }
