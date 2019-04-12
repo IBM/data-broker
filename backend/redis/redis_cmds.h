@@ -91,6 +91,7 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
     case DBBE_OPCODE_PUT:
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_REMOVE:
     {
       int keylen = strnlen( request->_user->_ns_name, size ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_key, size );
       len = snprintf( keybuf, size, "$%d\r\n%s%s%s\r\n",

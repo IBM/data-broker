@@ -197,17 +197,9 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
     case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
     case DBBE_OPCODE_NSDELETE:
+    case DBBE_OPCODE_REMOVE:
       return -ENOSYS;
 
-    case DBBE_OPCODE_REMOVE:
-    {
-      if( stage->_stage != 0 ) // Read is only a single stage request
-        return -EINVAL;
-
-      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-//      len += dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
-      break;
-    }
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
     case DBBE_OPCODE_UNSPEC:
@@ -462,6 +454,15 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         default:
           return -EINVAL;
       }
+      break;
+    }
+
+    case DBBE_OPCODE_REMOVE:
+    {
+      if( stage->_stage != 0 ) // Read is only a single stage request
+        return -EINVAL;
+
+      rc = dbBE_Redis_command_del_create( request, buf, cmd );
       break;
     }
 
