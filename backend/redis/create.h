@@ -22,13 +22,9 @@
 #include "request.h"
 
 /*
- * convert a redis request into a command string in sr_buf
+ * convert a Redis request into a sequence of SGEs resembling the command string
  * returns the number of bytes placed into the buffer or negative error
  */
-int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
-                               dbBE_Redis_sr_buffer_t *sr_buf,
-                               dbBE_Data_transport_t *transport );
-
 int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
                                    dbBE_Redis_sr_buffer_t * buf,
                                    dbBE_sge_t *cmd );

@@ -409,14 +409,14 @@ int main( int argc, char ** argv )
 
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_DUMP );
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 2, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*2\r\n$4\r\nDUMP\r\n$15\r\nTestNS::TestTup\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   req->_status.move.dumped_value = strdup( "SerializedValueOfTestTup" );
   req->_status.move.len = 24;
@@ -427,25 +427,26 @@ int main( int argc, char ** argv )
 
   ureq->_sge[0].iov_base = strdup( "Target" );
   ureq->_sge[0].iov_len = 6;
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 6, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*4\r\n$7\r\nRESTORE\r\n$15\r\nTarget::TestTup\r\n$1\r\n0\r\n$24\r\nSerializedValueOfTestTup\r\n",
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   rc += TEST( dbBE_Redis_request_stage_transition( req ), 0 );
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_DEL );
   dbBE_Transport_sr_buffer_reset( sr_buf );
-  rc += TEST( dbBE_Redis_create_command( req,
-                                         sr_buf,
-                                         &dbBE_Memcopy_transport ), 0 );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 2, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
   rc += TEST( strcmp( "*2\r\n$3\r\nDEL\r\n$15\r\nTestNS::TestTup\r\n", // delkeys uses the key only (the prefix is already in the key, internally)
-                      dbBE_Transport_sr_buffer_get_start( sr_buf ) ),
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
-  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   if( req->_status.move.dumped_value != NULL )
     free( req->_status.move.dumped_value );

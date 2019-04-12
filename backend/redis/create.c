@@ -145,77 +145,6 @@ int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_T
 }
 
 /*
- * convert a redis request into a command string in sr_buf
- * returns the number of bytes placed into the buffer or negative error
- */
-int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
-                               dbBE_Redis_sr_buffer_t *sr_buf,
-                               dbBE_Data_transport_t *transport )
-{
-  int rc = 0;
-
-  if( ( request == NULL ) || ( sr_buf == NULL ) || ( transport == NULL ) ||
-      ( request->_step == NULL ) || ( transport->gather == NULL ) || (transport->scatter == NULL ))
-    return -EINVAL;
-
-  dbBE_Redis_command_stage_spec_t *stage = request->_step;
-  int len = 0;
-  char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
-
-  switch( request->_user->_opcode )
-  {
-    case DBBE_OPCODE_PUT: // RPUSH ns_name%sep;t_name value
-    case DBBE_OPCODE_GET: // LPOP ns_name%sep;t_name
-    case DBBE_OPCODE_READ: // LINDEX ns_name%sep;t_name 0
-      return -ENOSYS;
-    case DBBE_OPCODE_MOVE:
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_MOVE_STAGE_DUMP:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
-            return -EBADMSG;
-          len = dbBE_Redis_command_dump_create( stage, sr_buf, keybuffer );
-          break;
-
-        case DBBE_REDIS_MOVE_STAGE_RESTORE:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
-            return -EBADMSG;
-          len = dbBE_Redis_command_restore_create( stage, sr_buf, keybuffer, request->_status.move );
-          break;
-        case DBBE_REDIS_MOVE_STAGE_DEL:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
-            return -EBADMSG;
-//          len = dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
-          break;
-      }
-      break;
-    }
-    case DBBE_OPCODE_DIRECTORY:
-    case DBBE_OPCODE_NSCREATE:
-    case DBBE_OPCODE_NSQUERY:
-    case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
-    case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
-    case DBBE_OPCODE_NSDELETE:
-    case DBBE_OPCODE_REMOVE:
-      return -ENOSYS;
-
-    case DBBE_OPCODE_NSADDUNITS:
-    case DBBE_OPCODE_NSREMOVEUNITS:
-    case DBBE_OPCODE_UNSPEC:
-    case DBBE_OPCODE_MAX:
-    default:
-      // wrong opcode
-      return -ENOSYS;
-  }
-
-  if( len < 0 )
-    return -EBADMSG;
-
-  return rc;
-}
-
-/*
  * create the key, based on the command type
  */
 int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
@@ -463,6 +392,24 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         return -EINVAL;
 
       rc = dbBE_Redis_command_del_create( request, buf, cmd );
+      break;
+    }
+
+    case DBBE_OPCODE_MOVE:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_MOVE_STAGE_DUMP:
+          rc = dbBE_Redis_command_dump_create( request, buf, cmd );
+          break;
+
+        case DBBE_REDIS_MOVE_STAGE_RESTORE:
+          rc = dbBE_Redis_command_restore_create( request, buf, cmd );
+          break;
+        case DBBE_REDIS_MOVE_STAGE_DEL:
+          rc = dbBE_Redis_command_del_create( request, buf, cmd );
+          break;
+      }
       break;
     }
 
