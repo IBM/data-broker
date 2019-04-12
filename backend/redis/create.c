@@ -158,7 +158,6 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       ( request->_step == NULL ) || ( transport->gather == NULL ) || (transport->scatter == NULL ))
     return -EINVAL;
 
-  char *writepos = dbBE_Transport_sr_buffer_get_processed_position( sr_buf ); // store position to rewind on error
   dbBE_Redis_command_stage_spec_t *stage = request->_step;
   int len = 0;
   char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
@@ -197,27 +196,9 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
     case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
+    case DBBE_OPCODE_NSDELETE:
       return -ENOSYS;
 
-    case DBBE_OPCODE_NSDELETE:
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_NSDELETE_STAGE_EXIST:
-//          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-
-        case DBBE_REDIS_NSDELETE_STAGE_SETFLAG: // HSET flags 1
-          dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-          len += dbBE_Redis_command_hset_create( stage, sr_buf, keybuffer, "flags", "1" );
-          break;
-
-        default:
-          dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
-          return -EINVAL;
-      }
-      break;
-    }
     case DBBE_OPCODE_REMOVE:
     {
       if( stage->_stage != 0 ) // Read is only a single stage request
@@ -458,6 +439,24 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
 
         case DBBE_REDIS_NSDETACH_STAGE_DELNS: // DEL ns_name
           rc = dbBE_Redis_command_del_create( request, buf, cmd );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
+    case DBBE_OPCODE_NSDELETE:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_NSDELETE_STAGE_EXIST:
+          rc = dbBE_Redis_command_hmget_create( request, buf, cmd );
+          break;
+
+        case DBBE_REDIS_NSDELETE_STAGE_SETFLAG: // HSET flags 1
+          rc = dbBE_Redis_command_hset_create( request, buf, cmd, "flags", "1" );
           break;
 
         default:
