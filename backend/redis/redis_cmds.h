@@ -102,10 +102,10 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
         return -EMSGSIZE;
       break;
     }
+    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_NSATTACH:
-    case DBBE_OPCODE_DIRECTORY:
     {
       int keylen = strnlen( request->_user->_ns_name, size );
       len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
@@ -113,6 +113,35 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
                       request->_user->_ns_name );
       break;
     }
+
+    case DBBE_OPCODE_NSDETACH:
+      switch( request->_step->_stage )
+      {
+        case DBBE_REDIS_NSDETACH_STAGE_DELCHECK: // HINCRBY ns_name refcnt -1; HMGET ns_name refcnt flags
+        case DBBE_REDIS_NSDETACH_STAGE_DELNS: // DEL ns_name
+        {
+          int keylen = strnlen( request->_user->_ns_name, size );
+          len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
+                          keylen,
+                          request->_user->_ns_name );
+          break;
+        }
+        case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
+          return -ENOSYS;
+        case DBBE_REDIS_NSDETACH_STAGE_DELKEYS: // DEL ns_name%sep;key  (already complete key in nsdetach.scankey)
+        {
+          int keylen = strnlen( request->_status.nsdetach.scankey, size );
+          len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
+                          keylen,
+                          request->_status.nsdetach.scankey );
+          if(( len < 0 ) || ( len >= size ))
+            return -EMSGSIZE;
+          break;
+        }
+        default:
+          return -EPROTO;
+      }
+      break;
     default:
       return -ENOSYS;
   }
@@ -390,11 +419,25 @@ int dbBE_Redis_command_lindex_create( dbBE_Redis_request_t *req,
   return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
 }
 
-int dbBE_Redis_command_del_create( dbBE_Redis_command_stage_spec_t *stage,
-                                   dbBE_Redis_sr_buffer_t *sr_buf,
-                                   char *keybuffer )
+int dbBE_Redis_command_del_create( dbBE_Redis_request_t *req,
+                                   dbBE_Redis_sr_buffer_t *buf,
+                                   dbBE_sge_t *cmd )
 {
-  return dbBE_Redis_command_create_str1( stage, sr_buf, keybuffer );
+  char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+  int keylen = dbBE_Redis_create_key_cmd( req, key,
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+  if( keylen < 0 )
+    return keylen;
+  if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
+    return -E2BIG;
+
+  dbBE_sge_t sge[ req->_step->_array_len + 1 ];
+  sge[ req->_step->_array_len ].iov_base = NULL;
+  sge[ req->_step->_array_len ].iov_len = 0;
+
+  sge[0].iov_base = key;
+  sge[0].iov_len = keylen;
+  return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
 }
 
 int dbBE_Redis_command_hmgetall_create( dbBE_Redis_request_t *req,
@@ -621,6 +664,40 @@ int dbBE_Redis_command_hincrby_create( dbBE_Redis_request_t *req,
     goto error;
 
   return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
+
+error:
+  dbBE_Transport_sr_buffer_rewind_available_to( buf, bstart );
+  return -E2BIG;
+}
+
+int dbBE_Redis_command_delcheck_create( dbBE_Redis_request_t *req,
+                                        dbBE_Redis_sr_buffer_t *buf,
+                                        dbBE_sge_t *cmd,
+                                        int increment )
+{
+  dbBE_Redis_command_stage_spec_t *stage = req->_step;
+  dbBE_sge_t sge[ stage->_array_len + 1 ];
+
+  // create and insert key
+  char *bstart = dbBE_Transport_sr_buffer_get_available_position( buf );
+  char *key = bstart;
+  int keylen = dbBE_Redis_create_key_cmd( req, key,
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+  if( keylen < 0 )
+    return keylen;
+  if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
+    goto error;
+
+  sge[0].iov_base = key;
+  sge[0].iov_len = keylen;
+
+  // create and insert decrement value
+  char incbuf[ 32 ];
+  int len = snprintf( incbuf, 31, "%d", increment );
+  if( dbBE_Redis_command_create_sr_buffer_field( buf, incbuf, len, &sge[ 1 ] ) != 0 )
+    goto error;
+
+  return dbBE_Redis_command_create_sgeN_uncheck( stage, sge, cmd );
 
 error:
   dbBE_Transport_sr_buffer_rewind_available_to( buf, bstart );

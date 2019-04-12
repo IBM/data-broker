@@ -187,7 +187,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
         case DBBE_REDIS_MOVE_STAGE_DEL:
           if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
             return -EBADMSG;
-          len = dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
+//          len = dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
           break;
       }
       break;
@@ -196,6 +196,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
+    case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
       return -ENOSYS;
 
     case DBBE_OPCODE_NSDELETE:
@@ -217,45 +218,13 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       }
       break;
     }
-    case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_NSDETACH_STAGE_DELCHECK:
-          len += dbBE_Redis_command_create_str2( stage, sr_buf, request->_user->_ns_name, "-1" );
-          break;
-
-        case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
-          snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN, "%s%s*", request->_user->_ns_name, DBBE_REDIS_NAMESPACE_SEPARATOR );
-//          len += dbBE_Redis_command_scan_create( stage,
-//                                                 sr_buf,
-//                                                 keybuffer,
-//                                                 request->_status.nsdetach.scankey );
-          break;
-
-        case DBBE_REDIS_NSDETACH_STAGE_DELKEYS: // DEL ns_name%sep;key
-          if( request->_status.nsdetach.scankey == NULL )
-            return -EINVAL;
-
-          len += dbBE_Redis_command_del_create( stage, sr_buf, request->_status.nsdetach.scankey );
-          break;
-
-        case DBBE_REDIS_NSDETACH_STAGE_DELNS: // DEL ns_name
-          len += dbBE_Redis_command_del_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-
-        default:
-          return -EINVAL;
-      }
-      break;
-    }
     case DBBE_OPCODE_REMOVE:
     {
       if( stage->_stage != 0 ) // Read is only a single stage request
         return -EINVAL;
 
       dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-      len += dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
+//      len += dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
       break;
     }
     case DBBE_OPCODE_NSADDUNITS:
@@ -440,6 +409,55 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
 
         case 1:
           rc = dbBE_Redis_command_hincrby_create( request, buf, cmd, 1 );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
+    case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_NSDETACH_STAGE_DELCHECK:
+          rc = dbBE_Redis_command_delcheck_create( request, buf, cmd, -1 );
+          break;
+
+        case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
+        {
+          char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+          int keylen = strnlen( request->_user->_ns_name, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + 1; // +1 for "*"
+          int len = snprintf( key,
+                              DBBE_REDIS_MAX_KEY_LEN,
+                    "$%d\r\n%s%s*\r\n",
+                    keylen,
+                    request->_user->_ns_name,
+                    DBBE_REDIS_NAMESPACE_SEPARATOR );
+          if( len < 0 )
+            return -EPROTO;
+          dbBE_Transport_sr_buffer_add_data( buf, len, 1 );
+
+          dbBE_sge_t keysge;
+          keysge.iov_base = key;
+          keysge.iov_len = len;
+          rc = dbBE_Redis_command_scan_create( request,
+                                               buf,
+                                               cmd,
+                                               &keysge,
+                                               request->_status.nsdetach.scankey );
+          break;
+        }
+        case DBBE_REDIS_NSDETACH_STAGE_DELKEYS: // DEL ns_name%sep;key
+          if( request->_status.nsdetach.scankey == NULL )
+            return -EINVAL;
+
+          rc = dbBE_Redis_command_del_create( request, buf, cmd );
+          break;
+
+        case DBBE_REDIS_NSDETACH_STAGE_DELNS: // DEL ns_name
+          rc = dbBE_Redis_command_del_create( request, buf, cmd );
           break;
 
         default:
