@@ -38,27 +38,19 @@ dbBE_Data_transport_t dbBE_Memcopy_transport =
       .scatter = dbBE_Transport_memory_scatter
     };
 
-typedef struct dbBE_Data_transport_memory_dev
-{
-  dbBE_Redis_sr_buffer_t *_buffer;
-} dbBE_Data_transport_memory_dev_t;
+typedef void* dbBE_Data_transport_memory_dev_t;
 
 dbBE_Data_transport_device_t* dbBE_Transport_memory_create()
 {
-  dbBE_Data_transport_memory_dev_t *dev = (dbBE_Data_transport_memory_dev_t*)malloc( sizeof( dbBE_Data_transport_memory_dev_t ));
+  dbBE_Data_transport_memory_dev_t *dev = (dbBE_Data_transport_memory_dev_t*)malloc( DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN );
 
-  dbBE_Redis_sr_buffer_t *buf = dbBE_Transport_sr_buffer_allocate( DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN );
-
-  if( buf == NULL )
+  if( dev == NULL )
     goto error;
-
-  dev->_buffer = buf;
 
   return (dbBE_Data_transport_device_t*)dev;
 
 error:
-  if( buf != NULL )
-  if( dev ) free( dev );
+  if( dev != NULL ) free( dev );
   return NULL;
 }
 
@@ -66,10 +58,7 @@ int dbBE_Transport_memory_destroy( dbBE_Data_transport_device_t *dev )
 {
   if( dev != NULL )
   {
-    dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-    dbBE_Transport_sr_buffer_free( mdev->_buffer );
-
-    memset( dev, 0, sizeof( dbBE_Data_transport_device_t ) );
+    memset( dev, 0, sizeof( DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN ) );
     free( dev );
   }
   return 0;
@@ -84,7 +73,7 @@ int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* dev,
     return -EINVAL;
 
   dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-  char *pos = dbBE_Transport_sr_buffer_get_processed_position( mdev->_buffer );
+  char *pos = (char*)mdev;
 
   int n;
   for( n = 0; n < sge_count; ++n )
@@ -96,8 +85,6 @@ int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* dev,
     pos += copy_size;
     remain -= copy_size;
   }
-  if( remain >= 0 )
-    dbBE_Transport_sr_buffer_add_data( mdev->_buffer, len - remain, 1 );
 
   return (int64_t)len - remain;
 }
@@ -112,7 +99,7 @@ int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_device_t* dev,
     return -EINVAL;
 
   dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-  char *pos = dbBE_Transport_sr_buffer_get_available_position( mdev->_buffer );
+  char *pos = (char*)mdev;
 
   int n;
   for( n = 0; (n < sge_count) && ( remain > 0 ); ++n )
@@ -129,14 +116,11 @@ int64_t dbBE_Transport_memory_insert( dbBE_Data_transport_device_t *dev,
                                       size_t len,
                                       void *data )
 {
-  if(( dev == NULL ) || ( data == NULL ))
+  if(( dev == NULL ) || ( data == NULL ) || ( len > DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN ))
     return -EINVAL;
 
   dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-  char *pos = dbBE_Transport_sr_buffer_get_processed_position( mdev->_buffer );
-  memcpy( pos, data, len );
-  if( dbBE_Transport_sr_buffer_add_data( mdev->_buffer, len, 1 ) != len )
-    return -E2BIG;
+  memcpy( mdev, data, len );
   return len;
 }
 
@@ -148,9 +132,6 @@ int64_t dbBE_Transport_memory_extract( dbBE_Data_transport_device_t *dev,
     return -EINVAL;
 
   dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-  char *pos = dbBE_Transport_sr_buffer_get_available_position( mdev->_buffer );
-  memcpy( data, pos, len );
-  if( dbBE_Transport_sr_buffer_advance( mdev->_buffer, len ) != len )
-    return -E2BIG;
+  memcpy( data, mdev, len );
   return len;
 }
