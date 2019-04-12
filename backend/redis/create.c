@@ -406,9 +406,13 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         case DBBE_REDIS_MOVE_STAGE_RESTORE:
           rc = dbBE_Redis_command_restore_create( request, buf, cmd );
           break;
+
         case DBBE_REDIS_MOVE_STAGE_DEL:
           rc = dbBE_Redis_command_del_create( request, buf, cmd );
           break;
+
+        default:
+          return -EINVAL;
       }
       break;
     }

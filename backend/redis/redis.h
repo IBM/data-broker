@@ -40,6 +40,7 @@ typedef struct
   dbBE_Redis_s2r_queue_t *_retry_q;
   dbBE_Request_set_t *_cancellations;
   dbBE_Data_transport_t *_transport;
+  dbBE_Redis_sr_buffer_t *_sender_buffer;
   // sender/receiver threads
 
 } dbBE_Redis_context_t;
