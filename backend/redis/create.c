@@ -195,6 +195,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSQUERY:
+    case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
       return -ENOSYS;
 
     case DBBE_OPCODE_NSDELETE:
@@ -202,7 +203,7 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case DBBE_REDIS_NSDELETE_STAGE_EXIST:
-          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
+//          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
           break;
 
         case DBBE_REDIS_NSDELETE_STAGE_SETFLAG: // HSET flags 1
@@ -212,24 +213,6 @@ int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
 
         default:
           dbBE_Transport_sr_buffer_rewind_available_to( sr_buf, writepos );
-          return -EINVAL;
-      }
-      break;
-    }
-    case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
-    {
-      switch( stage->_stage )
-      {
-        case 0:
-          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-
-        case 1:
-          dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-          len += dbBE_Redis_command_hincrby_create( stage, sr_buf, keybuffer, 1 );
-          break;
-
-        default:
           return -EINVAL;
       }
       break;
@@ -446,6 +429,24 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_NSQUERY:
       rc = dbBE_Redis_command_hmgetall_create( request, buf, cmd );
       break;
+
+    case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
+    {
+      switch( stage->_stage )
+      {
+        case 0:
+          rc = dbBE_Redis_command_hmget_create( request, buf, cmd );
+          break;
+
+        case 1:
+          rc = dbBE_Redis_command_hincrby_create( request, buf, cmd, 1 );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
 
     default:
       return -ENOSYS;
