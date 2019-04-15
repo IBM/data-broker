@@ -15,6 +15,7 @@
  *
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #ifdef __APPLE__
@@ -55,6 +56,83 @@ int Flatten_cmd( dbBE_sge_t *cmd, int cmdlen, dbBE_Redis_sr_buffer_t *dest )
   }
   return 0;
 }
+
+extern int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint16_t size );
+
+int key_creation_test()
+{
+  dbBE_Request_t *ureq = (dbBE_Request_t*)calloc( 1, sizeof( dbBE_Request_t ) + 2 * sizeof( dbBE_sge_t ) );
+  dbBE_Redis_sr_buffer_t *buf = dbBE_Transport_sr_buffer_allocate( DBBE_REDIS_MAX_KEY_LEN * 10 );
+
+  int rc = 0;
+  char *reference = (char*)malloc(DBBE_REDIS_MAX_KEY_LEN);
+
+  ureq->_flags = 0;
+  ureq->_group = DBR_GROUP_LIST_EMPTY;
+  ureq->_ns_name = "test";
+  ureq->_match = "";
+  ureq->_next = NULL;
+  ureq->_sge_count = 1;
+  ureq->_user = NULL;
+  ureq->_sge[0].iov_base = "moved";
+  ureq->_sge[0].iov_len = 5;
+
+  dbBE_Redis_request_t *req = dbBE_Redis_request_allocate( ureq );
+  if( req == NULL )
+    return 1;
+
+  int o,n;
+  for( o=DBBE_OPCODE_PUT; ( o<DBBE_OPCODE_MAX ) && ( rc == 0 ); ++o )
+  {
+    ureq->_opcode = o;
+    req->_step = &gRedis_command_spec[ ureq->_opcode * DBBE_REDIS_COMMAND_STAGE_MAX ];
+    switch( o )
+    {
+      case DBBE_OPCODE_CANCEL:
+      case DBBE_OPCODE_NSADDUNITS:
+      case DBBE_OPCODE_NSREMOVEUNITS:
+        continue;
+      default:
+        if( req->_step->_expect == dbBE_REDIS_TYPE_UNSPECIFIED )
+          return 10000;
+        break;
+    }
+    do {
+      for( n=0; ( n <= DBR_MAX_KEY_LEN ) && ( rc == 0 ) ; ++n )
+      {
+        ureq->_key = generateLongMsg( n + 1 );
+        int refkeylen = dbBE_Redis_create_key( req, reference, DBBE_REDIS_MAX_KEY_LEN );
+        if( refkeylen == -ENOSYS )
+          continue;
+        if( refkeylen < 0 )
+          rc = 50;
+
+        char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+        int keylen = dbBE_Redis_create_key_cmd( req, key,
+                                                dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+        if( keylen < 0 )
+        {
+          rc = 100;
+          free( ureq->_key );
+          continue;
+        }
+
+        if(( key == NULL ) || ( ureq->_key == NULL ))
+          return ENOMEM;
+
+        double loglen = log10( refkeylen ) + 1;
+        int key_in_buf = (int)( loglen ) + 3;
+        if( strncmp( reference, &key[ key_in_buf ], refkeylen ) )
+          rc = n+1;
+
+        free( ureq->_key );
+      }
+    } while (( dbBE_Redis_request_stage_transition( req ) == 0 ) && ( rc == 0 ));
+  }
+  return rc;
+}
+
+
 
 int main( int argc, char ** argv )
 {
@@ -477,11 +555,14 @@ int main( int argc, char ** argv )
 
 
 
-  dbBE_Redis_command_stages_spec_destroy( stage_specs );
   dbBE_Transport_sr_buffer_free( sr_buf );
   dbBE_Transport_sr_buffer_free( data_buf );
 
   free(ureq);
+
+  rc += key_creation_test();
+
+  dbBE_Redis_command_stages_spec_destroy( stage_specs );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
