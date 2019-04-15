@@ -225,6 +225,23 @@ int main( int argc, char ** argv )
               0 );
 
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
+
+  // test with empty group list
+  free( ureq->_sge[0].iov_base );
+  ureq->_sge[0].iov_base = NULL;
+  ureq->_sge[0].iov_len = 0;
+  dbBE_Transport_sr_buffer_reset( sr_buf );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 8, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
+  rc += TEST( strcmp( "*8\r\n$5\r\nHMSET\r\n$6\r\nTestNS\r\n$6\r\nrefcnt\r\n$1\r\n1\r\n$6\r\ngroups\r\n$0\r\n\r\n$5\r\nflags\r\n$1\r\n0\r\n",
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
+              0 );
+
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
+
+
   dbBE_Redis_request_destroy( req );
   free( ureq->_sge[ 0 ].iov_base );
 
