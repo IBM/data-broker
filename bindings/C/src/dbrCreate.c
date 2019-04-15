@@ -43,6 +43,13 @@ dbrCreate (DBR_Name_t db_name,
     meta[meta_size - 1].iov_len = 0;
     meta[meta_size - 1].iov_base = NULL;
   }
+  else
+  {
+    meta_size = 1;
+    meta = (dbBE_sge_t*) calloc ( 1, sizeof( dbBE_sge_t ) );
+    meta[ 0 ].iov_len = 0;
+    meta[ 0 ].iov_base = NULL;
+  }
 
   DBR_Handle_t hdl = libdbrCreate( db_name, level, meta_size, meta );
 
