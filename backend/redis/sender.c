@@ -215,8 +215,10 @@ void* dbBE_Redis_sender( void *args )
   if( rc < 0 )
   {
     LOG( DBG_ERR, stderr, "Failed to send command. rc=%d\n", rc );
+    dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
     goto skip_sending;
   }
+  dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
 
   // store request to posted requests queue
   rc = dbBE_Redis_s2r_queue_push( conn->_posted_q, request );
