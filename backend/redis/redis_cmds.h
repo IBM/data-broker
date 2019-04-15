@@ -211,8 +211,12 @@ int dbBE_Redis_command_create_sr_buffer_field( dbBE_Redis_sr_buffer_t *buf,
 {
   // create and insert field entry
   char *fld = dbBE_Transport_sr_buffer_get_available_position( buf );
-  int fldlen = snprintf( fld, dbBE_Transport_sr_buffer_remaining( buf ), "$%"PRId64"\r\n%s\r\n", len, field );
-  if( fldlen < 0 )
+  int fldlen = 0;
+  if( field == NULL )
+    fldlen = snprintf( fld, dbBE_Transport_sr_buffer_remaining( buf ), "$0\r\n\r\n" ); // insert empty-string
+  else
+    fldlen = snprintf( fld, dbBE_Transport_sr_buffer_remaining( buf ), "$%"PRId64"\r\n%s\r\n", len, field );
+  if( fldlen <= 0 )
     return -E2BIG;
   if( dbBE_Transport_sr_buffer_add_data( buf, fldlen, 1 ) != (size_t)fldlen )
     return -E2BIG;
@@ -751,7 +755,7 @@ int dbBE_Redis_command_hmset_create( dbBE_Redis_request_t *req,
     goto error;
 
   // insert the groups list
-  // todo: this currently only supporst the grouplist to reside in sge[0] of the request
+  // todo: this currently only support the grouplist to reside in sge[0] of the request
   if( dbBE_Redis_command_create_sr_buffer_field( buf,
                                                  req->_user->_sge[0].iov_base,
                                                  req->_user->_sge[0].iov_len,
