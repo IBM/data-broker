@@ -37,7 +37,6 @@ typedef struct dbBE_Redis_sender_args
   int _looping;
 } dbBE_Redis_sender_args_t;
 
-
 int dbBE_Redis_create_send_error( dbBE_Completion_queue_t *cq, dbBE_Redis_request_t *request, int error )
 {
   dbBE_Redis_result_t result = { ._type = dbBE_REDIS_TYPE_INT, ._data = -1 };
@@ -128,7 +127,7 @@ void* dbBE_Redis_sender( void *args )
   if( dbBE_Redis_cmd_stage_needs_rekeying( request ) != 0 )
   {
     char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
-    if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
+    if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
     {
       dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -EINVAL );
       goto skip_sending;
@@ -199,27 +198,23 @@ void* dbBE_Redis_sender( void *args )
     rc = -ENOTCONN;
     goto skip_sending;
   }
-  // create Redis request from queue entry
-  //  - opcode, key, namespace
-  //  - SGE/device specific transport
-  rc = dbBE_Redis_create_command( request, conn->_sendbuf, input->_backend->_transport );
-  if( rc != 0 )
-  {
-    fprintf( stderr, "Failed to create command.\n" );
 
-    // todo: might have to create completion (unless there are more sub-tasks in flight)
+  // create_command assembles an SGE list
+  // entries either come directly from user or from send buffer
+  // when complete, connection.send() fires the assembled data
+  dbBE_sge_t cmd[ DBBE_SGE_MAX ];
+  rc = dbBE_Redis_create_command_sge( request, input->_backend->_sender_buffer, cmd );
+  if( rc < 0 )
+  {
+    LOG( DBG_ERR, stderr, "Failed to create command. rc=%d\n", rc );
     rc = -ENOMSG;
     goto skip_sending;
   }
 
-  // send request to Redis
-  rc = dbBE_Redis_connection_send( conn );
+  rc = dbBE_Redis_connection_send_cmd( conn, cmd, rc );
   if( rc < 0 )
   {
-    fprintf( stderr, "Failed to send command.\n" );
-
-    // todo: might have to create completion (unless there are more sub-tasks in flight)
-    rc = -ENOMSG;
+    LOG( DBG_ERR, stderr, "Failed to send command. rc=%d\n", rc );
     goto skip_sending;
   }
 
