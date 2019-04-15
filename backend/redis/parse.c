@@ -1247,7 +1247,9 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request,
         break;
       }
 
-      int refcnt = strtoll( refcnt_data->_data._string._data, NULL, 10 );
+      int refcnt = 0;
+      if( refcnt_data->_data._string._data != NULL )
+        refcnt = strtoll( refcnt_data->_data._string._data, NULL, 10 );
 
       // todo: check flag and skip the second stage
       // (optimization that's hard to do with early result stage)
