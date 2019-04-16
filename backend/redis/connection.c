@@ -55,6 +55,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 
   dbBE_Redis_slot_bitmap_t *slots = NULL;
   dbBE_Redis_s2r_queue_t *queue = NULL;
+  dbBE_Redis_sr_buffer_t *recvb = NULL;
 
   dbBE_Data_transport_device_t *send_tr = dbBE_Memcopy_transport.create();
 //  dbBE_Data_transport_device_t *recv_tr = dbBE_Memcopy_transport.create();
@@ -66,7 +67,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   }
 
 //  dbBE_Redis_sr_buffer_t *sendb = dbBE_Transport_sr_buffer_allocate( sr_buffer_size );
-  dbBE_Redis_sr_buffer_t *recvb = dbBE_Transport_sr_buffer_allocate( sr_buffer_size );
+  recvb = dbBE_Transport_sr_buffer_allocate( sr_buffer_size );
 
   if( recvb == NULL )
   {
