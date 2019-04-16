@@ -415,7 +415,7 @@ int dbBE_Redis_command_lpop_create( dbBE_Redis_request_t *req,
 {
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -437,7 +437,7 @@ int dbBE_Redis_command_lindex_create( dbBE_Redis_request_t *req,
 {
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -458,7 +458,7 @@ int dbBE_Redis_command_del_create( dbBE_Redis_request_t *req,
 {
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -479,7 +479,7 @@ int dbBE_Redis_command_hmgetall_create( dbBE_Redis_request_t *req,
 {
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -498,7 +498,7 @@ int dbBE_Redis_command_hmget_create( dbBE_Redis_request_t *req,
 {
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -522,7 +522,7 @@ int dbBE_Redis_command_exists_create( dbBE_Redis_request_t *req,
 
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -546,7 +546,7 @@ int dbBE_Redis_command_dump_create(  dbBE_Redis_request_t *req,
 
  char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
  int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                         dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                         dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
  if( keylen < 0 )
    return keylen;
  if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -575,7 +575,7 @@ int dbBE_Redis_command_restore_create( dbBE_Redis_request_t *req,
   char *bstart = dbBE_Transport_sr_buffer_get_available_position( buf );
   char *key = bstart;
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -657,7 +657,7 @@ int dbBE_Redis_command_hsetnx_create( dbBE_Redis_request_t *req,
   // create and insert key
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -699,7 +699,7 @@ int dbBE_Redis_command_hset_create( dbBE_Redis_request_t *req,
   char *bstart = dbBE_Transport_sr_buffer_get_available_position( buf );
   char *key = bstart;
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -736,7 +736,7 @@ int dbBE_Redis_command_hmset_create( dbBE_Redis_request_t *req,
   char *bstart = dbBE_Transport_sr_buffer_get_available_position( buf );
   char *key = bstart;
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -788,7 +788,7 @@ int dbBE_Redis_command_hincrby_create( dbBE_Redis_request_t *req,
   char *bstart = dbBE_Transport_sr_buffer_get_available_position( buf );
   char *key = bstart;
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -821,7 +821,7 @@ int dbBE_Redis_command_delcheck_create( dbBE_Redis_request_t *req,
   char *bstart = dbBE_Transport_sr_buffer_get_available_position( buf );
   char *key = bstart;
   int keylen = dbBE_Redis_create_key_cmd( req, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   if( keylen < 0 )
     return keylen;
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
@@ -890,7 +890,7 @@ int dbBE_Redis_command_rpush_create( dbBE_Redis_request_t *request,
   // create key
   char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
   int keylen = dbBE_Redis_create_key_cmd( request, key,
-                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBR_MAX_KEY_LEN ? DBR_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
+                                          dbBE_Transport_sr_buffer_remaining( buf ) >= DBBE_REDIS_MAX_KEY_LEN ? DBBE_REDIS_MAX_KEY_LEN : dbBE_Transport_sr_buffer_remaining( buf ) );
   dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 );
 
   // insert key into cmd sge
