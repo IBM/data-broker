@@ -118,6 +118,5 @@ typedef struct dbBE_Data_transport
  */
 
 #include "transports/memcopy.h"
-#include "transports/small_buffer_socket.h"
 
 #endif /* BACKEND_COMMON_DATA_TRANSPORT_H_ */
