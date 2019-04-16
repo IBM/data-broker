@@ -441,6 +441,30 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn,
 
 }
 
+#ifdef DEBUG_REDIS_PROTOCOL
+ssize_t dbBE_Redis_connection_flatten_cmd( dbBE_sge_t *cmd, int cmdlen, dbBE_Redis_sr_buffer_t *dest )
+{
+  if(( cmd == NULL ) || ( cmdlen > DBBE_SGE_MAX ) || (cmdlen <= 0 ) || ( dest == NULL ))
+    return -EINVAL;
+
+  int n = 0;
+  ssize_t len = 0;
+  dbBE_Transport_sr_buffer_reset( dest );
+  for( n = 0; n < cmdlen; ++n )
+  {
+    if( cmd[ n ].iov_base == NULL )
+      return -EBADMSG;
+    memcpy( dbBE_Transport_sr_buffer_get_available_position( dest ),
+            cmd[ n ].iov_base,
+            cmd[ n ].iov_len );
+    len += cmd[ n ].iov_len;
+    dbBE_Transport_sr_buffer_add_data( dest, cmd[ n ].iov_len, 1 );
+    *(dbBE_Transport_sr_buffer_get_available_position( dest )) = '\0'; // string termination (for debugging purposes only)
+  }
+  return len;
+}
+#endif // DEBUG_REDIS_PROTOCOL
+
 
 /*
  * flush the send buffer by sending it to the connected Redis instance
@@ -461,6 +485,17 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
 
   ssize_t rc = sendmsg( conn->_socket, &msg, 0 );
   ssize_t datalen = dbBE_SGE_get_len( cmd, cmdlen );
+
+#ifdef DEBUG_REDIS_PROTOCOL
+  dbBE_Redis_sr_buffer_t *tmpbuffer = dbBE_Transport_sr_buffer_allocate( DBBE_REDIS_SR_BUFFER_LEN );
+  ssize_t len = dbBE_Redis_connection_flatten_cmd( cmd, cmdlen, tmpbuffer );
+  LOG( DBG_ALL, stdout, "SEND:%"PRId64"%s\n", len, dbBE_Transport_sr_buffer_get_start( tmpbuffer ) );
+  if( len != (ssize_t)dbBE_Transport_sr_buffer_available( tmpbuffer ) )
+    LOG( DBG_ERR, stderr, "SEND: Length error. accumulated %"PRId64" expected %"PRId64"\n", len, dbBE_Transport_sr_buffer_available( tmpbuffer ) );
+  if( len != datalen )
+    LOG( DBG_ERR, stderr, "SEND: Length error. accumulated %"PRId64" SGElen %"PRId64"\n", len, datalen );
+  dbBE_Transport_sr_buffer_free( tmpbuffer );
+#endif
 
   // good case: early exit
   if( rc == datalen )

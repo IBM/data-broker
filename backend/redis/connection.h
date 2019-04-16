@@ -24,6 +24,10 @@
 #include "s2r_queue.h"
 #include "slot_bitmap.h"
 
+//#ifndef DEBUG_REDIS_PROTOCOL
+//#define DEBUG_REDIS_PROTOCOL
+//#endif
+
 typedef enum
 {
   DBBE_CONNECTION_STATUS_UNSPEC = 0,
