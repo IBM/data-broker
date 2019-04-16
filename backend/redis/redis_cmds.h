@@ -27,6 +27,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <math.h>
 
 /*
  * implementation of single redis command exec
@@ -912,7 +913,7 @@ int dbBE_Redis_command_rpush_create( dbBE_Redis_request_t *request,
 
   // insert lenth-prefix to buffer
   char *valpre = dbBE_Transport_sr_buffer_get_available_position( buf );
-  if( dbBE_Transport_sr_buffer_remaining( buf ) <= vallen - 2 )
+  if( dbBE_Transport_sr_buffer_remaining( buf ) <= (log10( vallen + 1 ) + 3 ) )  // pre-check if there's enough space for the prefix
     return -E2BIG;
 
   int valprelen = snprintf( valpre, dbBE_Transport_sr_buffer_remaining( buf ), "$%"PRId64"\r\n", vallen );
@@ -929,6 +930,7 @@ int dbBE_Redis_command_rpush_create( dbBE_Redis_request_t *request,
   cmd[ idx ].iov_len = valprelen;
   ++idx;
 
+  // todo: this is the place where the transport->gather() would have to happen
   // insert value sge
   memcpy( &cmd[idx],
           request->_user->_sge,
