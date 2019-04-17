@@ -58,8 +58,6 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   dbBE_Redis_sr_buffer_t *recvb = NULL;
 
   dbBE_Data_transport_device_t *send_tr = dbBE_Memcopy_transport.create();
-//  dbBE_Data_transport_device_t *recv_tr = dbBE_Memcopy_transport.create();
-//  if(( send_tr == NULL ) || ( recv_tr == NULL ))
   if( send_tr == NULL )
   {
     rc = ENOMEM;
@@ -100,6 +98,12 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   }
   conn->_slots = slots;
 
+  // todo: currently not used. Will be required/extended once transports API is clarified
+  if( conn->_senddev != NULL )
+  {
+    dbBE_Memcopy_transport.destroy( send_tr );
+    conn->_senddev = NULL;
+  }
   return conn;
 
 error:
