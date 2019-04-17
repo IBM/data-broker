@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018,2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ include(${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake)
 include_directories(/usr/local/include)
 set( LIBDBBE_REDIS_SOURCE
 	address.c
-	sr_buffer.c
 	connection.c
 	locator.c
 	protocol.c

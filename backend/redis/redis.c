@@ -124,6 +124,16 @@ dbBE_Handle_t Redis_initialize(void)
 
   context->_cancellations = cancel;
 
+  dbBE_Redis_sr_buffer_t *sbuf = dbBE_Transport_sr_buffer_allocate( DBBE_REDIS_SR_BUFFER_LEN );
+  if( sbuf == NULL )
+  {
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate sender buffer.\n" );
+    Redis_exit( context );
+    return NULL;
+  }
+
+  context->_sender_buffer = sbuf;
+
   // create connection mgr
   dbBE_Redis_connection_mgr_t *conn_mgr = dbBE_Redis_connection_mgr_init();
   if( conn_mgr == NULL )
@@ -164,6 +174,7 @@ int Redis_exit( dbBE_Handle_t be )
     if( temp != 0 ) rc = temp;
     temp = dbBE_Request_set_destroy( context->_cancellations );
     if( temp != 0 ) rc = temp;
+    dbBE_Transport_sr_buffer_free( context->_sender_buffer );
     temp = dbBE_Redis_s2r_queue_destroy( context->_retry_q );
     if( temp != 0 ) rc = temp;
     temp = dbBE_Completion_queue_destroy( context->_compl_q );
@@ -344,13 +355,13 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   }
 
   // retrieve cluster info and initialize
-  char *sbuf = dbBE_Redis_sr_buffer_get_start( initial_conn->_sendbuf );
-  int64_t buf_space = dbBE_Redis_sr_buffer_remaining( initial_conn->_sendbuf );
+  char *sbuf = dbBE_Transport_sr_buffer_get_start( ctx->_sender_buffer );
+  int64_t buf_space = dbBE_Transport_sr_buffer_remaining( ctx->_sender_buffer );
 
   // send cluster-info request
   int len = snprintf( sbuf, buf_space, "*2\r\n$7\r\nCLUSTER\r\n$5\r\nSLOTS\r\n" );
-  dbBE_Redis_sr_buffer_add_data( initial_conn->_sendbuf, len, 1 );
-  rc = dbBE_Redis_connection_send( initial_conn );
+  dbBE_Transport_sr_buffer_add_data( ctx->_sender_buffer, len, 1 );
+  rc = dbBE_Redis_connection_send( initial_conn, ctx->_sender_buffer );
   if( rc <= 0 )
     rc = -EBADMSG;
   else

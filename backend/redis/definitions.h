@@ -49,6 +49,10 @@
  */
 #define DBBE_REDIS_MAX_CONNECTIONS ( (unsigned)256 )
 
+/*
+ * max number of SGEs in assembled redis commands (IOV_MAX replacement)
+ */
+#define DBBE_SGE_MAX ( 256 )
 
 /*
  * result type returned when parsing a Redis recv buffer

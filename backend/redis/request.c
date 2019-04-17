@@ -60,7 +60,7 @@ void dbBE_Redis_request_destroy( dbBE_Redis_request_t *request )
 
 int dbBE_Redis_request_stage_transition( dbBE_Redis_request_t *request )
 {
-  if( request == NULL )
+  if(( request == NULL ) || ( request->_step == NULL ))
     return -EINVAL;
 
   int stage = request->_step->_stage;

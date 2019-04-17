@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 #ifndef BACKEND_REDIS_COMPLETE_H_
 #define BACKEND_REDIS_COMPLETE_H_
 
-#include "sr_buffer.h"
 #include "request.h"
 #include "common/data_transport.h"
+#include "transports/sr_buffer.h"
 
 /*
  * convert a redis request in result stage into a completion

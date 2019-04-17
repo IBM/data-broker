@@ -32,7 +32,6 @@
 #include "logutil.h"
 #include <libdatabroker.h>
 #include "../../src/libdatabroker_int.h"
-#include "sr_buffer.h"
 #include "result.h"
 #include "parse.h"
 
@@ -262,28 +261,28 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     return -EINVAL;
   }
 
-  if( dbBE_Redis_sr_buffer_empty( sr_buf ) )
+  if( dbBE_Transport_sr_buffer_empty( sr_buf ) )
   {
     result->_data._integer = -ENODATA;
     result->_type = dbBE_REDIS_TYPE_INVALID;
     return -ENODATA;
   }
 
-  int64_t available = dbBE_Redis_sr_buffer_unprocessed( sr_buf );
+  int64_t available = dbBE_Transport_sr_buffer_unprocessed( sr_buf );
 
   char type;
 
   // the current type of response from Redis
-  char *start_parse = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *start_parse = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   type = *start_parse;
-  dbBE_Redis_sr_buffer_advance( sr_buf, 1 );
+  dbBE_Transport_sr_buffer_advance( sr_buf, 1 );
 
   // pointing to the new reading position to start parsing
-  char *p = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *p = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   size_t parsed = 0;
   int64_t len = 0;
 
-  available = dbBE_Redis_sr_buffer_unprocessed( sr_buf );
+  available = dbBE_Transport_sr_buffer_unprocessed( sr_buf );
 
   switch( type )
   {
@@ -409,7 +408,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
       result->_data._array._data = (dbBE_Redis_result_t*)malloc( sizeof (dbBE_Redis_result_t ) * result->_data._array._len );
       memset( result->_data._array._data, 0, sizeof (dbBE_Redis_result_t ) * result->_data._array._len );
 
-      dbBE_Redis_sr_buffer_advance( sr_buf, parsed );
+      dbBE_Transport_sr_buffer_advance( sr_buf, parsed );
 
       rc = 0;
       for( n = 0; (n < result->_data._array._len) && ( rc == 0 ); ++n )
@@ -434,10 +433,10 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
   }
 
   if( rc == -EAGAIN )
-    dbBE_Redis_sr_buffer_rewind_processed_to( sr_buf, start_parse );
+    dbBE_Transport_sr_buffer_rewind_processed_to( sr_buf, start_parse );
   else
   {
-    dbBE_Redis_sr_buffer_advance( sr_buf, parsed );
+    dbBE_Transport_sr_buffer_advance( sr_buf, parsed );
     // terminate any strings in the result structure, ONLY if this is the top-level call
     if( toplevel != 0 )
       rc = dbBE_Redis_result_terminate_strings( result );
@@ -1248,7 +1247,9 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request,
         break;
       }
 
-      int refcnt = strtoll( refcnt_data->_data._string._data, NULL, 10 );
+      int refcnt = 0;
+      if( refcnt_data->_data._string._data != NULL )
+        refcnt = strtoll( refcnt_data->_data._string._data, NULL, 10 );
 
       // todo: check flag and skip the second stage
       // (optimization that's hard to do with early result stage)

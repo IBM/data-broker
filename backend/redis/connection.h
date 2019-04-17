@@ -19,9 +19,14 @@
 #define BACKEND_REDIS_CONNECTION_H_
 
 #include "locator.h"
-#include "sr_buffer.h"
+#include "transports/sr_buffer.h"
+#include "common/data_transport.h"
 #include "s2r_queue.h"
 #include "slot_bitmap.h"
+
+//#ifndef DEBUG_REDIS_PROTOCOL
+//#define DEBUG_REDIS_PROTOCOL
+//#endif
 
 typedef enum
 {
@@ -41,7 +46,9 @@ typedef struct
   int _socket;
   int _index;
   dbBE_Redis_address_t *_address;
-  dbBE_Redis_sr_buffer_t *_sendbuf;
+  dbBE_Data_transport_device_t *_senddev;
+//  dbBE_Data_transport_device_t *_recvdev;
+//  dbBE_Redis_sr_buffer_t *_sendbuf;
   dbBE_Redis_sr_buffer_t *_recvbuf;
   dbBE_Redis_s2r_queue_t *_posted_q;
   dbBE_Redis_slot_bitmap_t *_slots;
@@ -99,6 +106,18 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 
 
 /*
+ * return the send-transport device assigned to this connection
+ */
+#define dbBE_Redis_connection_get_send_dev( conn ) ( (conn) != NULL ? (conn)->_senddev : NULL )
+
+/*
+ * return the recv-transport device assigned to this connection
+ */
+#define dbBE_Redis_connection_get_recv_dev( conn ) ( (conn) != NULL ? (conn)->_recvdev : NULL )
+
+
+
+/*
  * assign an initial slot range to the connection
  */
 int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
@@ -133,7 +152,15 @@ ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn );
 /*
  * flush the send buffer by sending it to the connected Redis instance
  */
-int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn );
+int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn,
+                                dbBE_Redis_sr_buffer_t *buf );
+
+/*
+ * send the cmd vector to the connected Redis instance
+ */
+int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
+                                    dbBE_sge_t *cmd,
+                                    const int cmdlen );
 
 /*
  * disconnect from a Redis instance

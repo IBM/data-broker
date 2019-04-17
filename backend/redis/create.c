@@ -107,7 +107,7 @@ int Redis_insert_raw( char *buf, const char *data, const size_t size )
  */
 int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_TYPE type, dbBE_Redis_data_t *data )
 {
-  char *writepos = dbBE_Redis_sr_buffer_get_processed_position( sr_buf );
+  char *writepos = dbBE_Transport_sr_buffer_get_processed_position( sr_buf );
   int data_len = 0;
   switch( type )
   {
@@ -140,251 +140,19 @@ int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_T
   if( data_len < 0 )
     return 0;
 
-  dbBE_Redis_sr_buffer_add_data( sr_buf, data_len, 1 );
+  dbBE_Transport_sr_buffer_add_data( sr_buf, data_len, 1 );
   return data_len;
-}
-
-/*
- * convert a redis request into a command string in sr_buf
- * returns the number of bytes placed into the buffer or negative error
- */
-int dbBE_Redis_create_command( dbBE_Redis_request_t *request,
-                               dbBE_Redis_sr_buffer_t *sr_buf,
-                               dbBE_Data_transport_t *transport )
-{
-  int rc = 0;
-
-  if( ( request == NULL ) || ( sr_buf == NULL ) || ( transport == NULL ) ||
-      ( request->_step == NULL ) || ( transport->gather == NULL ) || (transport->scatter == NULL ))
-    return -EINVAL;
-
-  char *writepos = dbBE_Redis_sr_buffer_get_processed_position( sr_buf ); // store position to rewind on error
-  dbBE_Redis_command_stage_spec_t *stage = request->_step;
-  int len = 0;
-  char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
-
-  switch( request->_user->_opcode )
-  {
-    case DBBE_OPCODE_PUT: // RPUSH ns_name%sep;t_name value
-    {
-      if( stage->_stage != 0 ) // Put is only a single stage request
-        return -EINVAL;
-
-      size_t vallen = dbBE_SGE_get_len( request->_user->_sge, request->_user->_sge_count );
-
-      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-      dbBE_Redis_command_cmdandkey_only_create( stage, sr_buf, keybuffer, vallen );
-      int64_t slen = dbBE_Redis_command_create_insert_value( sr_buf,
-                                                             transport,
-                                                             request->_user->_sge,
-                                                             request->_user->_sge_count,
-                                                             vallen );
-      if( slen != (int64_t)vallen )
-      {
-        len = -1;
-        rc = -1;
-      }
-
-      dbBE_Redis_command_create_terminate( sr_buf );
-
-      break;
-    }
-    case DBBE_OPCODE_GET: // LPOP ns_name%sep;t_name
-    {
-      if( stage->_stage != 0 ) // Get is only a single stage request
-        return -EINVAL;
-
-      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-      len = dbBE_Redis_command_lpop_create( stage, sr_buf, keybuffer );
-
-      break;
-    }
-    case DBBE_OPCODE_READ: // LINDEX ns_name%sep;t_name 0
-    {
-      if( stage->_stage != 0 ) // Read is only a single stage request
-        return -EINVAL;
-
-      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-      len = dbBE_Redis_command_lindex_create( stage, sr_buf, keybuffer );
-
-      break;
-    }
-    case DBBE_OPCODE_MOVE:
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_MOVE_STAGE_DUMP:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
-            return -EBADMSG;
-          len = dbBE_Redis_command_dump_create( stage, sr_buf, keybuffer );
-          break;
-
-        case DBBE_REDIS_MOVE_STAGE_RESTORE:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
-            return -EBADMSG;
-          len = dbBE_Redis_command_restore_create( stage, sr_buf, keybuffer, request->_status.move );
-          break;
-        case DBBE_REDIS_MOVE_STAGE_DEL:
-          if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) == NULL )
-            return -EBADMSG;
-          len = dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
-          break;
-      }
-      break;
-    }
-    case DBBE_OPCODE_DIRECTORY:
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_DIRECTORY_STAGE_META:
-          len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-        case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
-          snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN,
-                    "%s%s%s",
-                    request->_user->_ns_name,
-                    DBBE_REDIS_NAMESPACE_SEPARATOR,
-                    request->_user->_match );
-          len += dbBE_Redis_command_scan_create( stage,
-                                                 sr_buf,
-                                                 keybuffer,
-                                                 request->_user->_key );
-          break;
-        default:
-          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
-          return -EINVAL;
-      }
-      break;
-    }
-    case DBBE_OPCODE_NSCREATE:
-    {
-      switch( stage->_stage )
-      {
-        case 0: // HSETNX ns_name id ns_name
-          len += dbBE_Redis_command_hsetnx_create( stage, sr_buf, request->_user->_ns_name, "id", request->_user->_ns_name );
-          break;
-
-        case 1: // HMSET ns_name refcnt 1 groups permissions
-          dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-          len += dbBE_Redis_command_hmset_create( stage, sr_buf, request, transport, keybuffer );
-          break;
-
-        default:
-          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
-          return -EINVAL;
-      }
-      break;
-    }
-    case DBBE_OPCODE_NSQUERY:
-    {
-      len += dbBE_Redis_command_hmgetall_create( stage, sr_buf, request->_user->_ns_name );
-
-      break;
-    }
-    case DBBE_OPCODE_NSDELETE:
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_NSDELETE_STAGE_EXIST:
-          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-
-        case DBBE_REDIS_NSDELETE_STAGE_SETFLAG: // HSET flags 1
-          dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-          len += dbBE_Redis_command_hset_create( stage, sr_buf, keybuffer, "flags", "1" );
-          break;
-
-        default:
-          dbBE_Redis_sr_buffer_rewind_available_to( sr_buf, writepos );
-          return -EINVAL;
-      }
-      break;
-    }
-    case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
-    {
-      switch( stage->_stage )
-      {
-        case 0:
-          len += dbBE_Redis_command_hmget_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-
-        case 1:
-          dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-          len += dbBE_Redis_command_hincrby_create( stage, sr_buf, keybuffer, 1 );
-          break;
-
-        default:
-          return -EINVAL;
-      }
-      break;
-    }
-    case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
-    {
-      switch( stage->_stage )
-      {
-        case DBBE_REDIS_NSDETACH_STAGE_DELCHECK:
-          len += dbBE_Redis_command_create_str2( stage, sr_buf, request->_user->_ns_name, "-1" );
-          break;
-
-        case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
-          snprintf( keybuffer, DBBE_REDIS_MAX_KEY_LEN, "%s%s*", request->_user->_ns_name, DBBE_REDIS_NAMESPACE_SEPARATOR );
-          len += dbBE_Redis_command_scan_create( stage,
-                                                 sr_buf,
-                                                 keybuffer,
-                                                 request->_status.nsdetach.scankey );
-          break;
-
-        case DBBE_REDIS_NSDETACH_STAGE_DELKEYS: // DEL ns_name%sep;key
-          if( request->_status.nsdetach.scankey == NULL )
-            return -EINVAL;
-
-          len += dbBE_Redis_command_del_create( stage, sr_buf, request->_status.nsdetach.scankey );
-          break;
-
-        case DBBE_REDIS_NSDETACH_STAGE_DELNS: // DEL ns_name
-          len += dbBE_Redis_command_del_create( stage, sr_buf, request->_user->_ns_name );
-          break;
-
-        default:
-          return -EINVAL;
-      }
-      break;
-    }
-    case DBBE_OPCODE_REMOVE:
-    {
-      if( stage->_stage != 0 ) // Read is only a single stage request
-        return -EINVAL;
-
-      dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN );
-      len += dbBE_Redis_command_del_create( stage, sr_buf, keybuffer );
-      break;
-    }
-    case DBBE_OPCODE_NSADDUNITS:
-    case DBBE_OPCODE_NSREMOVEUNITS:
-    case DBBE_OPCODE_UNSPEC:
-    case DBBE_OPCODE_MAX:
-    default:
-      // wrong opcode
-      return -ENOSYS;
-  }
-
-  if( len < 0 )
-    return -EBADMSG;
-
-  return rc;
 }
 
 /*
  * create the key, based on the command type
  */
-char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
+int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
 {
   if( keybuf == NULL )
-  {
-    errno = EINVAL;
-    return NULL;
-  }
+    return -EINVAL;
 
+  int len = 0;
   memset( keybuf, 0, size );
   switch( request->_user->_opcode )
   {
@@ -393,21 +161,18 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_REMOVE:
     {
-      int len = snprintf( keybuf, size, "%s%s%s",
+      len = snprintf( keybuf, size, "%s%s%s",
                           request->_user->_ns_name,
                           DBBE_REDIS_NAMESPACE_SEPARATOR,
                           request->_user->_key );
       if(( len < 0 ) || ( len >= size ))
-      {
-        errno = EMSGSIZE;
-        return NULL;
-      }
+        return -EMSGSIZE;
       break;
     }
 
     case DBBE_OPCODE_MOVE:
     {
-      int len = 0;
+      len = 0;
       switch( request->_step->_stage )
       {
         case DBBE_REDIS_MOVE_STAGE_RESTORE: // restore stage uses the new namespace for the key
@@ -424,10 +189,7 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
           break;
       }
       if(( len < 0 ) || ( len >= size ))
-      {
-        errno = EMSGSIZE;
-        return NULL;
-      }
+        return -EMSGSIZE;
       break;
     }
     case DBBE_OPCODE_DIRECTORY:
@@ -437,23 +199,227 @@ char* dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16
     case DBBE_OPCODE_NSDELETE:
     case DBBE_OPCODE_NSQUERY:
     {
-      int len = snprintf( keybuf, size, "%s", request->_user->_ns_name );
+      len = snprintf( keybuf, size, "%s", request->_user->_ns_name );
       if(( len < 0 ) || ( len >= size ))
-      {
-        errno = EMSGSIZE;
-        return NULL;
-      }
+        return -EMSGSIZE;
       break;
     }
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
     case DBBE_OPCODE_CANCEL:
-      errno = ENOSYS;
-      return NULL;
+      return -ENOSYS;
     case DBBE_OPCODE_UNSPEC:
     case DBBE_OPCODE_MAX:
-      errno = EINVAL;
-      return NULL;
+      return -EINVAL;
   }
-  return keybuf;
+  return len;
+}
+
+int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
+                                   dbBE_Redis_sr_buffer_t *buf,
+                                   dbBE_sge_t *cmd )
+{
+  int rc = 0;
+
+  dbBE_Redis_command_stage_spec_t *stage = request->_step;
+
+  switch( request->_user->_opcode )
+  {
+    case DBBE_OPCODE_PUT: // RPUSH ns_name%sep;t_name value
+      if( stage->_stage != 0 )
+        return -EPROTO;
+      rc = dbBE_Redis_command_rpush_create( request, buf, cmd );
+      break;
+
+    case DBBE_OPCODE_GET: // LPOP ns_name%sep;t_name
+      if( stage->_stage != 0 )
+        return -EPROTO;
+      rc = dbBE_Redis_command_lpop_create( request, buf, cmd );
+      break;
+
+    case DBBE_OPCODE_READ:
+      if( stage->_stage != 0 )
+        return -EPROTO;
+      rc = dbBE_Redis_command_lindex_create( request, buf, cmd );
+      break;
+
+    case DBBE_OPCODE_DIRECTORY:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_DIRECTORY_STAGE_META:
+          rc = dbBE_Redis_command_hmgetall_create( request, buf, cmd );
+          break;
+        case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
+        {
+          char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+          int keylen = strnlen( request->_user->_ns_name, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_match, DBBE_REDIS_MAX_KEY_LEN );
+          int len = snprintf( key,
+                              DBBE_REDIS_MAX_KEY_LEN,
+                    "$%d\r\n%s%s%s\r\n",
+                    keylen,
+                    request->_user->_ns_name,
+                    DBBE_REDIS_NAMESPACE_SEPARATOR,
+                    request->_user->_match );
+          if( len < 0 )
+            return -EPROTO;
+          dbBE_Transport_sr_buffer_add_data( buf, len, 1 );
+
+          dbBE_sge_t keysge;
+          keysge.iov_base = key;
+          keysge.iov_len = len;
+          rc = dbBE_Redis_command_scan_create( request,
+                                               buf,
+                                               cmd,
+                                               &keysge,
+                                               request->_user->_key );
+          break;
+        }
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
+    case DBBE_OPCODE_NSCREATE:
+      switch( stage->_stage )
+      {
+        case 0: // HSETNX ns_name id ns_name
+          rc = dbBE_Redis_command_hsetnx_create( request, buf, cmd, "id", request->_user->_ns_name );
+          break;
+
+        case 1: // HMSET ns_name refcnt 1 groups permissions
+          rc = dbBE_Redis_command_hmset_create( request, buf, cmd );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+
+    case DBBE_OPCODE_NSQUERY:
+      rc = dbBE_Redis_command_hmgetall_create( request, buf, cmd );
+      break;
+
+    case DBBE_OPCODE_NSATTACH: // EXISTS ns_name; HINCRBY ns_name refcnt 1
+    {
+      switch( stage->_stage )
+      {
+        case 0:
+          rc = dbBE_Redis_command_hmget_create( request, buf, cmd );
+          break;
+
+        case 1:
+          rc = dbBE_Redis_command_hincrby_create( request, buf, cmd, 1 );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
+    case DBBE_OPCODE_NSDETACH: // EXISTS ns_name; HINCRBY ns_name refcnt -1
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_NSDETACH_STAGE_DELCHECK:
+          rc = dbBE_Redis_command_delcheck_create( request, buf, cmd, -1 );
+          break;
+
+        case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
+        {
+          char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+          int keylen = strnlen( request->_user->_ns_name, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + 1; // +1 for "*"
+          int len = snprintf( key,
+                              DBBE_REDIS_MAX_KEY_LEN,
+                    "$%d\r\n%s%s*\r\n",
+                    keylen,
+                    request->_user->_ns_name,
+                    DBBE_REDIS_NAMESPACE_SEPARATOR );
+          if( len < 0 )
+            return -EPROTO;
+          dbBE_Transport_sr_buffer_add_data( buf, len, 1 );
+
+          dbBE_sge_t keysge;
+          keysge.iov_base = key;
+          keysge.iov_len = len;
+          rc = dbBE_Redis_command_scan_create( request,
+                                               buf,
+                                               cmd,
+                                               &keysge,
+                                               request->_status.nsdetach.scankey );
+          break;
+        }
+        case DBBE_REDIS_NSDETACH_STAGE_DELKEYS: // DEL ns_name%sep;key
+          if( request->_status.nsdetach.scankey == NULL )
+            return -EINVAL;
+
+          rc = dbBE_Redis_command_del_create( request, buf, cmd );
+          break;
+
+        case DBBE_REDIS_NSDETACH_STAGE_DELNS: // DEL ns_name
+          rc = dbBE_Redis_command_del_create( request, buf, cmd );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
+    case DBBE_OPCODE_NSDELETE:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_NSDELETE_STAGE_EXIST:
+          rc = dbBE_Redis_command_hmget_create( request, buf, cmd );
+          break;
+
+        case DBBE_REDIS_NSDELETE_STAGE_SETFLAG: // HSET flags 1
+          rc = dbBE_Redis_command_hset_create( request, buf, cmd, "flags", "1" );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
+    case DBBE_OPCODE_REMOVE:
+    {
+      if( stage->_stage != 0 ) // Read is only a single stage request
+        return -EINVAL;
+
+      rc = dbBE_Redis_command_del_create( request, buf, cmd );
+      break;
+    }
+
+    case DBBE_OPCODE_MOVE:
+    {
+      switch( stage->_stage )
+      {
+        case DBBE_REDIS_MOVE_STAGE_DUMP:
+          rc = dbBE_Redis_command_dump_create( request, buf, cmd );
+          break;
+
+        case DBBE_REDIS_MOVE_STAGE_RESTORE:
+          rc = dbBE_Redis_command_restore_create( request, buf, cmd );
+          break;
+
+        case DBBE_REDIS_MOVE_STAGE_DEL:
+          rc = dbBE_Redis_command_del_create( request, buf, cmd );
+          break;
+
+        default:
+          return -EINVAL;
+      }
+      break;
+    }
+
+    default:
+      return -ENOSYS;
+  }
+
+  return rc;
 }

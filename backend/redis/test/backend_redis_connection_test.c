@@ -32,6 +32,7 @@ int main( int argc, char ** argv )
   dbBE_Redis_connection_t *conn = NULL;
   dbBE_Redis_address_t *addr = NULL;
   dbBE_Redis_address_t *addr2 = NULL;
+  dbBE_Redis_sr_buffer_t *sbuf = dbBE_Transport_sr_buffer_allocate( DBBE_REDIS_SR_BUFFER_LEN );
 
   conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
@@ -97,7 +98,8 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_RTS( conn ), 0 );
   rc += TEST( dbBE_Redis_connection_RTR( conn ), 0 );
 
-  rc += TEST( dbBE_Redis_connection_send( conn ), -ENOTCONN );
+  rc += TEST( dbBE_Redis_connection_send( conn, NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_send( conn, sbuf ), -ENOTCONN );
   rc += TEST( dbBE_Redis_connection_recv( conn ), -ENOTCONN );
 
   rc += TEST( dbBE_Redis_connection_unlink( conn ), 0 );
@@ -121,36 +123,36 @@ int main( int argc, char ** argv )
   }
 
   // send an insert command for a new list
-  dbBE_Redis_sr_buffer_reset( conn->_sendbuf );
-  int len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( conn->_sendbuf ),
-                      dbBE_Redis_sr_buffer_remaining( conn->_sendbuf ),
+  dbBE_Transport_sr_buffer_reset( sbuf );
+  int len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sbuf ),
+                      dbBE_Transport_sr_buffer_remaining( sbuf ),
                       "*3\r\n$5\r\nRPUSH\r\n$11\r\nTestNS::bla\r\n$12\r\nHello World!\r\n");
 
-  dbBE_Redis_sr_buffer_add_data( conn->_sendbuf, len, 1 );
-  rc += TEST( dbBE_Redis_connection_send( conn ), len );
+  dbBE_Transport_sr_buffer_add_data( sbuf, len, 1 );
+  rc += TEST( dbBE_Redis_connection_send( conn, sbuf ), len );
 
   // receive the Redis response
   len = dbBE_Redis_connection_recv( conn );
   if( len > 0 )
   {
-    rc += TEST( dbBE_Redis_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
-    rc += TEST( dbBE_Redis_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
+    rc += TEST( dbBE_Transport_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
+    rc += TEST( dbBE_Transport_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
   }
 
   // send a get command for the inserted item
-  len = snprintf( dbBE_Redis_sr_buffer_get_processed_position( conn->_sendbuf ),
-                  dbBE_Redis_sr_buffer_remaining( conn->_sendbuf ),
+  len = snprintf( dbBE_Transport_sr_buffer_get_processed_position( sbuf ),
+                  dbBE_Transport_sr_buffer_remaining( sbuf ),
                   "*2\r\n$4\r\nLPOP\r\n$11\r\nTestNS::bla\r\n");
 
-  dbBE_Redis_sr_buffer_add_data( conn->_sendbuf, len, 1 );
-  rc += TEST( dbBE_Redis_connection_send( conn ), len );
+  dbBE_Transport_sr_buffer_add_data( sbuf, len, 1 );
+  rc += TEST( dbBE_Redis_connection_send( conn, sbuf ), len );
 
   // receive the Redis response
   len = dbBE_Redis_connection_recv( conn );
   if( len > 0 )
   {
-    rc += TEST( dbBE_Redis_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
-    rc += TEST( dbBE_Redis_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
+    rc += TEST( dbBE_Transport_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
+    rc += TEST( dbBE_Transport_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
   }
 
 connect_failed:
@@ -161,6 +163,7 @@ connect_failed:
 
   // cleanup
   dbBE_Redis_connection_destroy( conn );
+  dbBE_Transport_sr_buffer_free( sbuf );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

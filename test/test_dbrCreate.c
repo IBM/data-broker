@@ -36,7 +36,7 @@ int main( int argc, char ** argv )
 
   // query the non-existent name space should fail
   ret = dbrQuery( cs_hdl, &cs_state, DBR_STATE_MASK_ALL );
-  rc += TEST_NOT( DBR_SUCCESS, ret );
+  rc += TEST( DBR_ERR_INVALID, ret );
 
   // create a test name space and check
   cs_hdl = dbrCreate (name, level, groups);
@@ -57,7 +57,7 @@ int main( int argc, char ** argv )
 
   // delete twice should fail
   ret = dbrDelete( name );
-  rc += TEST_NOT( DBR_SUCCESS, ret );
+  rc += TEST( DBR_ERR_NSINVAL, ret );
 
   // query the non-existent name space should fail
   ret = dbrQuery( cs_hdl, &cs_state, DBR_STATE_MASK_ALL );

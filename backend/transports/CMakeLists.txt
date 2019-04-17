@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018,2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  #
 
 set( LIBDBBE_TRANSPORT_SOURCE
+	sr_buffer.c
 	memcopy.c
 )
 add_library(dbbe_transport SHARED ${LIBDBBE_TRANSPORT_SOURCE})
@@ -23,3 +24,5 @@ install( TARGETS dbbe_transport
 	LIBRARY
 	DESTINATION lib
 )
+
+add_subdirectory(test)
