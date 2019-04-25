@@ -444,7 +444,7 @@ int dbBE_Redis_command_lindex_create( dbBE_Redis_request_t *req,
   if( dbBE_Transport_sr_buffer_add_data( buf, keylen, 1 ) != (size_t)keylen )
     return -E2BIG;
 
-  dbBE_sge_t sge[ req->_step->_array_len ];
+  dbBE_sge_t sge[ req->_step->_array_len + 1 ];
   sge[ req->_step->_array_len ].iov_base = NULL;
   sge[ req->_step->_array_len ].iov_len = 0;
 
