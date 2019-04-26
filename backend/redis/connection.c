@@ -353,6 +353,11 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn, dbBE_Red
   return rc;
 }
 
+ssize_t dbBE_Redis_connection_recv_direct( dbBE_Redis_connection_t *conn,
+                                           dbBE_Redis_sr_buffer_t *buf )
+{
+  return dbBE_Redis_connection_recv_base( conn, buf );
+}
 
 /*
  * receive data from a connection and place data into the attached sr_buffer
