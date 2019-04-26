@@ -306,21 +306,21 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
 }
 
 static
-ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
+ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn, dbBE_Redis_sr_buffer_t *buf )
 {
   ssize_t rc = 0;
   int stored_errno=0;
   do
   {
-    if( dbBE_Transport_sr_buffer_remaining( conn->_recvbuf ) <= 0 )
+    if( dbBE_Transport_sr_buffer_remaining( buf ) <= 0 )
     {
       LOG( DBG_ERR, stderr, "Recv Buffer overrun. Protocol error.\n" );
       return -ENOBUFS;
     }
     errno = 0;
     rc = recv( conn->_socket,
-               dbBE_Transport_sr_buffer_get_available_position( conn->_recvbuf ),
-               dbBE_Transport_sr_buffer_remaining( conn->_recvbuf ),
+               dbBE_Transport_sr_buffer_get_available_position( buf ),
+               dbBE_Transport_sr_buffer_remaining( buf ),
                0 );
     stored_errno=errno;
     if( stored_errno == EINTR )
@@ -334,7 +334,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
       break;
     }
     if( rc > 0 )
-      dbBE_Transport_sr_buffer_add_data( conn->_recvbuf, rc, 0 );
+      dbBE_Transport_sr_buffer_add_data( buf, rc, 0 );
 
   } while( stored_errno == EINTR );
 
@@ -342,7 +342,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn )
   {
     // disarm connection status if the received data was less than the max capacity
     // we've received all currently available data
-    if( (size_t)rc <= dbBE_Transport_sr_buffer_get_size( conn->_recvbuf ) )
+    if( (size_t)rc <= dbBE_Transport_sr_buffer_get_size( buf ) )
     {
       conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
     }
@@ -374,7 +374,7 @@ ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn )
   }
 
   dbBE_Transport_sr_buffer_reset( conn->_recvbuf );
-  ssize_t rc = dbBE_Redis_connection_recv_base( conn );
+  ssize_t rc = dbBE_Redis_connection_recv_base( conn, conn->_recvbuf );
 
   LOG( DBG_TRACE, stdout, "RECV: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( conn->_recvbuf ) );
 
@@ -397,7 +397,7 @@ ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn )
   if( ! dbBE_Redis_connection_RTR( conn ) )
     return -ENOTCONN;
 
-  ssize_t rc = dbBE_Redis_connection_recv_base( conn );
+  ssize_t rc = dbBE_Redis_connection_recv_base( conn, conn->_recvbuf );
 
   LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%zd; avail/rem=%zd/%zd\n",
        conn->_socket, rc, dbBE_Transport_sr_buffer_available( conn->_recvbuf ), dbBE_Transport_sr_buffer_remaining( conn->_recvbuf ) );
