@@ -383,41 +383,48 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
       first_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 0 ]._data._integer;
       last_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 1 ]._data._integer;
 
-      // this needs to become another loop to include replica info
-      dbBE_Redis_result_t *node_info = &range->_data._array._data[ 2 ];
-      if( node_info == NULL )
-        continue;
-
-      // todo: ip and port are returned from Redis, and current address uses host:port
-      ip = node_info->_data._array._data[ 0 ]._data._string._data;
-      int64_t port = node_info->_data._array._data[ 1 ]._data._integer;
-      snprintf( address, 1024, "%s:%"PRId64, ip, port );
-
-      // check and create connection
-      // check connection exists,
-      dbBE_Redis_connection_t *dest =
-          dbBE_Redis_connection_mgr_get_connection_to( ctx->_conn_mgr, address );
-
-      // reform address to url
-      snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s:%"PRId64, ip, port );
-      if( dest == NULL )
-        dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, address );
-
-      if( dest == NULL )
+      // loop over master+replica info
+      int replica;
+      for( replica=2; replica < range->_data._array._len; ++replica )
       {
-        rc = -ENOTCONN;
-        dbBE_Redis_result_cleanup( result, 0 );
-        goto exit_connect;
+        dbBE_Redis_result_t *node_info = &range->_data._array._data[ replica ];
+        if( node_info == NULL )
+          continue;
+
+        ip = node_info->_data._array._data[ 0 ]._data._string._data;
+        int64_t port = node_info->_data._array._data[ 1 ]._data._integer;
+        snprintf( address, 1024, "%s:%"PRId64, ip, port );
+
+        // check and create connection
+        // check connection exists,
+        dbBE_Redis_connection_t *dest =
+            dbBE_Redis_connection_mgr_get_connection_to( ctx->_conn_mgr, address );
+
+        // reform address to url
+        snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s:%"PRId64, ip, port );
+        if( dest == NULL )
+          dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, address );
+
+        if( dest == NULL )
+        {
+          rc = -ENOTCONN;
+          dbBE_Redis_result_cleanup( result, 0 );
+          goto exit_connect;
+        }
+
+        dbBE_Redis_connection_assign_slot_range( dest, first_slot, last_slot );
+
+        // for now: don't assign replica connections to locator
+        if( replica > 2 )
+          continue;
+
+        // update locator
+        int slot;
+        for( slot = first_slot; slot <= last_slot; ++slot )
+          dbBE_Redis_locator_assign_conn_index( ctx->_locator,
+                                                dest->_index,
+                                                slot );
       }
-
-      dbBE_Redis_connection_assign_slot_range( dest, first_slot, last_slot );
-
-      // update locator
-      int slot;
-      for( slot = first_slot; slot <= last_slot; ++slot )
-        dbBE_Redis_locator_assign_conn_index( ctx->_locator,
-                                              dest->_index,
-                                              slot );
     }
   }
   else
