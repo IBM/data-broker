@@ -354,111 +354,88 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     goto exit_connect;
   }
 
-  // retrieve cluster info and initialize
-  char *sbuf = dbBE_Transport_sr_buffer_get_start( ctx->_sender_buffer );
-  int64_t buf_space = dbBE_Transport_sr_buffer_remaining( ctx->_sender_buffer );
+#define DBBE_REDIS_INFO_PER_SERVER ( 4096 )
+  dbBE_Redis_sr_buffer_t *iobuf = dbBE_Transport_sr_buffer_allocate( dbBE_Redis_connection_mgr_get_connections( ctx->_conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
 
-  // send cluster-info request
-  int len = snprintf( sbuf, buf_space, "*2\r\n$7\r\nCLUSTER\r\n$5\r\nSLOTS\r\n" );
-  dbBE_Transport_sr_buffer_add_data( ctx->_sender_buffer, len, 1 );
-  rc = dbBE_Redis_connection_send( initial_conn, ctx->_sender_buffer );
-  if( rc <= 0 )
-    rc = -EBADMSG;
-  else
+  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_clusterinfo( ctx->_conn_mgr, initial_conn, iobuf );
+  if( result == NULL )
   {
-    // recv and parse result into connections and hash ranges
-    dbBE_Redis_connection_t *active = NULL;
-    while(( active == NULL ) ||
-          ( dbBE_Redis_connection_get_status( active ) != DBBE_CONNECTION_STATUS_PENDING_DATA ) )
-      active = dbBE_Redis_connection_mgr_get_active( ctx->_conn_mgr, 1 );
-    while( (rc = dbBE_Redis_connection_recv( active )) == 0 );
-
-    dbBE_Redis_result_t result;
-    rc = dbBE_Redis_parse_sr_buffer( active->_recvbuf, &result );
-
-    while( rc == -EAGAIN )
-    {
-      LOG( DBG_VERBOSE, stdout, "Incomplete recv. Trying to retrieve more data.\n" );
-      rc = dbBE_Redis_connection_recv_more( active );
-      if( rc == 0 )
-      {
-        rc = -EAGAIN;
-      }
-      dbBE_Redis_result_cleanup( &result, 0 );
-      rc = dbBE_Redis_parse_sr_buffer( active->_recvbuf, &result );
-    }
-
-    dbBE_Redis_hash_slot_t first_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
-    dbBE_Redis_hash_slot_t last_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
-    char *ip = NULL;
-    dbBE_Redis_result_t *range = NULL;
-
-    if( result._type == dbBE_REDIS_TYPE_ARRAY )
-    {
-      LOG( DBG_VERBOSE, stdout, "Cluster config with %d slot ranges. Creating connections...\n", result._data._array._len );
-      int n;
-      char address[ 1024 ];
-      for( n = 0; n < result._data._array._len; ++n )
-      {
-        range = &result._data._array._data[ n ];
-        if( range == NULL )
-          continue;
-
-        first_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 0 ]._data._integer;
-        last_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 1 ]._data._integer;
-
-        dbBE_Redis_result_t *node_info = &range->_data._array._data[ 2 ];
-        if( node_info == NULL )
-          continue;
-
-        // todo: ip and port are returned from Redis, and current address uses host:port
-        ip = node_info->_data._array._data[ 0 ]._data._string._data;
-        int64_t port = node_info->_data._array._data[ 1 ]._data._integer;
-        snprintf( address, 1024, "%s:%"PRId64, ip, port );
-
-        // check and create connection
-        // check connection exists,
-        dbBE_Redis_connection_t *dest =
-            dbBE_Redis_connection_mgr_get_connection_to( ctx->_conn_mgr, address );
-
-        // reform address to url
-        snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s:%"PRId64, ip, port );
-        if( dest == NULL )
-          dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, address );
-
-        if( dest == NULL )
-        {
-          rc = -ENOTCONN;
-          dbBE_Redis_result_cleanup( &result, 0 );
-          goto exit_connect;
-        }
-
-        dbBE_Redis_connection_assign_slot_range( dest, first_slot, last_slot );
-
-        // update locator
-        int slot;
-        for( slot = first_slot; slot <= last_slot; ++slot )
-          dbBE_Redis_locator_assign_conn_index( ctx->_locator,
-                                                dest->_index,
-                                                slot );
-      }
-      dbBE_Redis_result_cleanup( &result, 0 );
-    }
-    else
-    {
-      // no-cluster setup with single connection
-      int slot;
-      dbBE_Redis_connection_assign_slot_range( initial_conn, 0, DBBE_REDIS_HASH_SLOT_MAX );
-      for( slot = 0; slot <= DBBE_REDIS_HASH_SLOT_MAX; ++slot )
-        dbBE_Redis_locator_assign_conn_index( ctx->_locator,
-                                              initial_conn->_index,
-                                              slot );
-      rc = 0;
-    }
+    rc = -ENOTCONN;
+    goto exit_connect;
   }
 
+  dbBE_Redis_hash_slot_t first_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
+  dbBE_Redis_hash_slot_t last_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
+  char *ip = NULL;
+  dbBE_Redis_result_t *range = NULL;
+
+  if( result->_type == dbBE_REDIS_TYPE_ARRAY )
+  {
+    LOG( DBG_VERBOSE, stdout, "Cluster config with %d slot ranges. Creating connections...\n", result->_data._array._len );
+    int n;
+    char address[ 1024 ];
+    for( n = 0; n < result->_data._array._len; ++n )
+    {
+      range = &result->_data._array._data[ n ];
+      if( range == NULL )
+        continue;
+
+      first_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 0 ]._data._integer;
+      last_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 1 ]._data._integer;
+
+      // this needs to become another loop to include replica info
+      dbBE_Redis_result_t *node_info = &range->_data._array._data[ 2 ];
+      if( node_info == NULL )
+        continue;
+
+      // todo: ip and port are returned from Redis, and current address uses host:port
+      ip = node_info->_data._array._data[ 0 ]._data._string._data;
+      int64_t port = node_info->_data._array._data[ 1 ]._data._integer;
+      snprintf( address, 1024, "%s:%"PRId64, ip, port );
+
+      // check and create connection
+      // check connection exists,
+      dbBE_Redis_connection_t *dest =
+          dbBE_Redis_connection_mgr_get_connection_to( ctx->_conn_mgr, address );
+
+      // reform address to url
+      snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s:%"PRId64, ip, port );
+      if( dest == NULL )
+        dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, address );
+
+      if( dest == NULL )
+      {
+        rc = -ENOTCONN;
+        dbBE_Redis_result_cleanup( result, 0 );
+        goto exit_connect;
+      }
+
+      dbBE_Redis_connection_assign_slot_range( dest, first_slot, last_slot );
+
+      // update locator
+      int slot;
+      for( slot = first_slot; slot <= last_slot; ++slot )
+        dbBE_Redis_locator_assign_conn_index( ctx->_locator,
+                                              dest->_index,
+                                              slot );
+    }
+  }
+  else
+  {
+    // no-cluster setup with single connection
+    int slot;
+    dbBE_Redis_connection_assign_slot_range( initial_conn, 0, DBBE_REDIS_HASH_SLOT_MAX );
+    for( slot = 0; slot <= DBBE_REDIS_HASH_SLOT_MAX; ++slot )
+      dbBE_Redis_locator_assign_conn_index( ctx->_locator,
+                                            initial_conn->_index,
+                                            slot );
+    rc = 0;
+  }
+  dbBE_Redis_result_cleanup( result, 0 );
 
 exit_connect:
+  if( iobuf != NULL )
+    dbBE_Transport_sr_buffer_free( iobuf );
   free( url );
   return rc;
 }
