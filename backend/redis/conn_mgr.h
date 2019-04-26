@@ -25,6 +25,7 @@
 #include "connection.h"
 #include "locator.h"
 #include "event_mgr.h"
+#include "result.h"
 
 typedef struct
 {
@@ -125,5 +126,12 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_get_active( dbBE_Redis_connec
  */
 dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connection_mgr_t *conn_mgr,
                                                               dbBE_Redis_request_t *template_request );
+
+/*
+ * send CLUSTER command to Redis and retrieve+parse the response into result structure
+ */
+dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_clusterinfo( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                                     dbBE_Redis_connection_t *conn,
+                                                                     dbBE_Redis_sr_buffer_t *iobuf );
 
 #endif /* BACKEND_REDIS_CONN_MGR_H_ */

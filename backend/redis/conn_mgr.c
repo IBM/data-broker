@@ -29,6 +29,7 @@
 #include "definitions.h"
 #include "utility.h"
 #include "conn_mgr.h"
+#include "parse.h"
 
 #define DBBE_REDIS_CONN_MGR_TRACKED_EVENTS ( EPOLLET | EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLPRI )
 
@@ -348,3 +349,60 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
   return queue;
 }
 
+// this is an expensive operation, don't put it into the critical path
+dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_clusterinfo( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                                     dbBE_Redis_connection_t *conn,
+                                                                     dbBE_Redis_sr_buffer_t *iobuf )
+{
+  if(( conn == NULL ) || ( conn_mgr == NULL ) || ( iobuf == NULL ))
+    return NULL;
+
+  // initialize the command and buffers
+  // create a temp sr_buf to be used to send and recv data
+  dbBE_Redis_result_t *result = NULL;
+  dbBE_Transport_sr_buffer_reset( iobuf );
+  char *sbuf = dbBE_Transport_sr_buffer_get_start( iobuf );
+  int64_t buf_space = dbBE_Transport_sr_buffer_remaining( iobuf );
+
+  // send cluster-info request
+  int len = snprintf( sbuf, buf_space, "*2\r\n$7\r\nCLUSTER\r\n$5\r\nSLOTS\r\n" );
+  dbBE_Transport_sr_buffer_add_data( iobuf, len, 1 );
+
+  // send the request
+  int rc = dbBE_Redis_connection_send( conn, iobuf );
+  if( rc > 0 )
+  {
+    dbBE_Transport_sr_buffer_reset( iobuf );
+    while( (rc = dbBE_Redis_connection_recv_direct( conn, iobuf )) == 0 );
+
+    result = (dbBE_Redis_result_t*)calloc( 1, sizeof( dbBE_Redis_result_t ) );
+    if( result == NULL )
+      goto error;
+
+    rc = dbBE_Redis_parse_sr_buffer( iobuf, result );
+
+    while( rc == -EAGAIN )
+    {
+      LOG( DBG_VERBOSE, stdout, "Incomplete recv. Trying to retrieve more data.\n" );
+      rc = dbBE_Redis_connection_recv_direct( conn, iobuf );
+      if( rc == 0 )
+      {
+        rc = -EAGAIN;
+      }
+      dbBE_Redis_result_cleanup( result, 0 );
+      rc = dbBE_Redis_parse_sr_buffer( iobuf, result );
+    }
+  }
+  if( rc != 0 )
+  {
+    if( result != NULL )
+      free( result );
+    result = NULL;
+  }
+  return result;
+
+error:
+  if( iobuf )
+    dbBE_Transport_sr_buffer_free( iobuf );
+  return NULL;
+}
