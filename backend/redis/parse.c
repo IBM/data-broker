@@ -401,9 +401,9 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
 
       if( tmp_len == DBBE_REDIS_NAN )
       {
-	result->_type = dbBE_REDIS_TYPE_INT;
-	result->_data._integer = -EPROTO;
-	break;
+        result->_type = dbBE_REDIS_TYPE_INT;
+        result->_data._integer = -EPROTO;
+        break;
       }
       result->_data._array._data = (dbBE_Redis_result_t*)malloc( sizeof (dbBE_Redis_result_t ) * result->_data._array._len );
       memset( result->_data._array._data, 0, sizeof (dbBE_Redis_result_t ) * result->_data._array._len );
