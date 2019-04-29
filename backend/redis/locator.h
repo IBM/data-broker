@@ -18,8 +18,6 @@
 #ifndef BACKEND_REDIS_LOCATOR_H_
 #define BACKEND_REDIS_LOCATOR_H_
 
-#define DBBE_REDIS_HASH_SLOT_MAX ( 16384 )
-
 /*
  * The locator is responsible to keep track of the mapping between
  * Redis hash slots and server addresses
@@ -30,6 +28,7 @@
 
 #include "address.h"
 #include "slot_bitmap.h"
+#include "definitions.h"
 
 typedef uint16_t dbBE_Redis_hash_slot_t;
 typedef uint16_t dbBE_Redis_locator_index_t;
