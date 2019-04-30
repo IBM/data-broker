@@ -766,7 +766,6 @@ int main( int argc, char ** argv )
 
   memset( buffer, 0, 1024 );
   snprintf( buffer, 1024, "Target" );
-  req = dbBE_Redis_request_allocate( ureq );
 
   ureq->_opcode = DBBE_OPCODE_MOVE;
   ureq->_sge_count = 2;

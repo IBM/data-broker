@@ -1068,6 +1068,8 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
           }
           dbBE_Refcounter_up( scan->_status.nsdetach.reference );
         }
+        dbBE_Redis_result_cleanup( result, 0 );
+        result->_type = dbBE_REDIS_TYPE_INT;
         result->_data._integer = 0;
 
         *in_out_request = request; // could be NULL if there was a scan list

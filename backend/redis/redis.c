@@ -175,6 +175,8 @@ int Redis_exit( dbBE_Handle_t be )
     if( temp != 0 ) rc = temp;
     temp = dbBE_Request_set_destroy( context->_cancellations );
     if( temp != 0 ) rc = temp;
+    temp = dbBE_Redis_cluster_info_destroy( context->_cluster_info );
+    if( temp != 0 ) rc = temp;
     dbBE_Transport_sr_buffer_free( context->_sender_buffer );
     temp = dbBE_Redis_s2r_queue_destroy( context->_retry_q );
     if( temp != 0 ) rc = temp;
@@ -367,7 +369,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   }
 
   dbBE_Redis_cluster_info_t *cl_info = dbBE_Redis_cluster_info_create( result );
-  dbBE_Redis_result_cleanup( result, 0 );
+  dbBE_Redis_result_cleanup( result, 1 );
 
   // do we have single-node Redis server?
   if( cl_info == NULL )
@@ -408,6 +410,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
         goto exit_connect;
       }
 
+      // replica connections will be created only if a master goes down
       if( s > 0 )
         continue;
 
