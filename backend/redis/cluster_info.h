@@ -41,149 +41,50 @@ typedef struct
   dbBE_Redis_server_info_t *_nodes[ DBBE_REDIS_CLUSTER_MAX_SIZE ];
 } dbBE_Redis_cluster_info_t;
 
-static
-int dbBE_Redis_cluster_info_destroy( dbBE_Redis_cluster_info_t *ci );
-
-static
-dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create_single( char *url )
-{
-  // don't attempt to create cluster info for NULL-ptr url
-  if( url == NULL )
-    return NULL;
-
-  dbBE_Redis_cluster_info_t *ci = (dbBE_Redis_cluster_info_t*)calloc( 1, sizeof( dbBE_Redis_cluster_info_t ) );
-  if( ci == NULL )
-  {
-    LOG( DBG_ERR, stderr, "Unable to allocate sufficient memory for cluster info\n" );
-    return NULL;
-  }
-
-  ci->_cluster_size = 1;
-  ci->_nodes[0] = dbBE_Redis_server_info_create_single( url );
-
-  if( ci->_nodes[0] == NULL )
-  {
-    dbBE_Redis_cluster_info_destroy( ci );
-    ci = NULL;
-  }
-  return ci;
-}
-
-static
-dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create( dbBE_Redis_result_t *cir )
-{
-  if(( cir == NULL ) || ( cir->_type != dbBE_REDIS_TYPE_ARRAY ))
-    return NULL;
-
-  if(( cir->_data._array._len <= 0 ) || ( cir->_data._array._len > DBBE_REDIS_CLUSTER_MAX_SIZE ))
-  {
-    LOG( DBG_ERR, stderr, "Redis cluster size (%d) invalid or exceeds pre-defined limit of %d\n", cir->_data._array._len, DBBE_REDIS_CLUSTER_MAX_SIZE );
-    return NULL;
-  }
-
-
-  dbBE_Redis_cluster_info_t *ci = (dbBE_Redis_cluster_info_t*)calloc( 1, sizeof( dbBE_Redis_cluster_info_t ) );
-  if( ci == NULL )
-  {
-    LOG( DBG_ERR, stderr, "Unable to allocate sufficient memory for cluster info\n" );
-    return NULL;
-  }
-
-  ci->_cluster_size = cir->_data._array._len;
-
-  // extract cluster slots info from result and fill cluster info structure
-  int n;
-  for( n=0; n < ci->_cluster_size; ++n )
-  {
-    dbBE_Redis_result_t *srv = &cir->_data._array._data[ n ];
-    if( srv->_type != dbBE_REDIS_TYPE_ARRAY )
-    {
-      LOG( DBG_ERR, stderr, "Expected ARRAY type in CLUSTER SLOTS response at index %d. Found %d\n", n, srv->_type );
-      goto error;
-    }
-
-    ci->_nodes[ n ] = dbBE_Redis_server_info_create( srv );
-    if( ci->_nodes[ n ] == NULL )
-    {
-      LOG( DBG_ERR, stderr, "Error while creating server info of entry: %d\n", n );
-      goto error;
-    }
-  }
-
-  return ci;
-
-error:
-  dbBE_Redis_cluster_info_destroy( ci );
-  return NULL;
-}
-
+/*
+ * return the size of the cluster (number of master processes without replicas)
+ */
 static inline
+int dbBE_Redis_cluster_info_getsize( dbBE_Redis_cluster_info_t *ci )
+{
+  return ( ci != NULL ) ? ci->_cluster_size : 0;
+}
+
+/*
+ * return a ptr to the server info indicated by index
+ */
+static inline
+dbBE_Redis_server_info_t* dbBE_Redis_cluster_info_get_server( dbBE_Redis_cluster_info_t *ci, const int index )
+{
+  return ( ci != NULL ) && ( index >= 0 ) && ( index < DBBE_REDIS_CLUSTER_MAX_SIZE ) ? ci->_nodes[ index ] : NULL;
+}
+
+
+/*
+ * create cluster info of a single-node Redis based on the url
+ */
+dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create_single( char *url );
+
+/*
+ * create cluster info from a parsed result of a CLUSTER SLOTS call
+ */
+dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create( dbBE_Redis_result_t *cir );
+
+/*
+ * remove a server info entry from a cluster based on the ptr/address
+ */
 int dbBE_Redis_cluster_info_remove_entry_ptr( dbBE_Redis_cluster_info_t *ci,
-                                              dbBE_Redis_server_info_t *srv )
-{
-  if(( ci == NULL ) || ( srv == NULL ))
-    return -EINVAL;
+                                              dbBE_Redis_server_info_t *srv );
 
-  int n;
-  int rc = 0;
-  int shift = 0;
-  for( n = 0; n < ci->_cluster_size; ++n )
-  {
-    if( srv == ci->_nodes[ n ] )
-    {
-      rc = dbBE_Redis_server_info_destroy( ci->_nodes[ n ] );
-      ci->_nodes[ n ] = NULL;
-      ++shift;
-    }
-    if( n < ci->_cluster_size - 1 )
-      ci->_nodes[ n ] = ci->_nodes[ shift ];
-  }
-  if( shift == 0 )
-    return -ENOENT;
+/*
+ * remove a server info entry from a cluster based on the index in the server array
+ */
+int dbBE_Redis_cluster_info_remove_entry_idx( dbBE_Redis_cluster_info_t *ci,
+                                              const int idx );
 
-  ci->_nodes[ ci->_cluster_size - shift ] = NULL;
-
-  return rc;
-}
-
-static inline
-int dbBE_Redis_cluster_info_remove_entry_idx( dbBE_Redis_cluster_info_t *ci, const int idx )
-{
-  if(( ci == NULL ) || ( idx >= ci->_cluster_size ))
-    return -EINVAL;
-
-  int n;
-  // remove the entry
-  int rc = dbBE_Redis_server_info_destroy( ci->_nodes[ idx ] );
-
-  // move all following entries to close any gaps
-  for( n = idx; ( rc == 0 ) && ( n < ci->_cluster_size - 1 ); ++n )
-    ci->_nodes[ n ] = ci->_nodes[ n+1 ];
-  ci->_nodes[ ci->_cluster_size - 1 ] = NULL;
-  --ci->_cluster_size;
-
-  return rc;
-}
-
-static
-int dbBE_Redis_cluster_info_destroy( dbBE_Redis_cluster_info_t *ci )
-{
-  if( ci == NULL )
-    return -EINVAL;
-
-  if( ci->_nodes )
-  {
-    int n;
-    for( n=0; n<ci->_cluster_size; ++n )
-    {
-      dbBE_Redis_server_info_destroy( ci->_nodes[ n ] );
-      ci->_nodes[ n ] = NULL;
-    }
-  }
-
-  memset( ci, 0, sizeof( dbBE_Redis_cluster_info_t ) );
-  free( ci );
-  return 0;
-}
+/*
+ * cleanup and destroy the cluster info structure
+ */
+int dbBE_Redis_cluster_info_destroy( dbBE_Redis_cluster_info_t *ci );
 
 #endif /* BACKEND_REDIS_CLUSTER_INFO_H_ */
