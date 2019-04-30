@@ -37,6 +37,7 @@
 #include "utility.h"
 #include "redis.h"
 #include "result.h"
+#include "cluster_info.h"
 
 const dbBE_api_t g_dbBE =
     { .initialize = Redis_initialize,
@@ -345,6 +346,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 
   char *url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
 
+
   LOG(DBG_VERBOSE, stderr, "url=%s\n", url );
 
   dbBE_Redis_connection_t *initial_conn = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, url );
@@ -364,81 +366,77 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     goto exit_connect;
   }
 
-  dbBE_Redis_hash_slot_t first_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
-  dbBE_Redis_hash_slot_t last_slot = DBBE_REDIS_LOCATOR_INDEX_INVAL;
-  char *ip = NULL;
-  dbBE_Redis_result_t *range = NULL;
+  dbBE_Redis_cluster_info_t *cl_info = dbBE_Redis_cluster_info_create( result );
+  dbBE_Redis_result_cleanup( result, 0 );
 
-  if( result->_type == dbBE_REDIS_TYPE_ARRAY )
+  // do we have single-node Redis server?
+  if( cl_info == NULL )
   {
-    LOG( DBG_VERBOSE, stdout, "Cluster config with %d slot ranges. Creating connections...\n", result->_data._array._len );
-    int n;
-    char address[ 1024 ];
-    for( n = 0; n < result->_data._array._len; ++n )
+    cl_info = dbBE_Redis_cluster_info_create_single( url );
+  }
+
+  // if we cannot even get info for single node, then we're done here..
+  if( cl_info == NULL )
+  {
+    rc = -ENOTCONN;
+    goto exit_connect;
+  }
+
+  ctx->_cluster_info = cl_info;
+
+  int n, s;
+  for( n = 0; n < dbBE_Redis_cluster_info_getsize( cl_info ); ++n )
+  {
+    dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server( cl_info, n );
+    if( si == NULL )
     {
-      range = &result->_data._array._data[ n ];
-      if( range == NULL )
+      LOG( DBG_ERR, stderr, "No server info available for node %d\n", n );
+      rc = -ENOTCONN;
+      goto exit_connect;
+    }
+
+    dbBE_Redis_hash_slot_t first_slot = dbBE_Redis_server_info_get_first_slot( si );
+    dbBE_Redis_hash_slot_t last_slot = dbBE_Redis_server_info_get_last_slot( si );
+
+    for( s = 0; s < dbBE_Redis_server_info_getsize( si ); ++ s )
+    {
+      char *url = dbBE_Redis_server_info_get_replica( si, s );
+      if( url == NULL )
+      {
+        LOG( DBG_ERR, stderr, "No replica url available for node %d:%d\n", n, s );
+        rc = -ENOTCONN;
+        goto exit_connect;
+      }
+
+      if( s > 0 )
         continue;
 
-      first_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 0 ]._data._integer;
-      last_slot = (dbBE_Redis_hash_slot_t)range->_data._array._data[ 1 ]._data._integer;
+      // check and create connection
+      // check connection exists,
+      dbBE_Redis_connection_t *dest =
+          dbBE_Redis_connection_mgr_get_connection_to( ctx->_conn_mgr, url );
 
-      // loop over master+replica info
-      int replica;
-      for( replica=2; replica < range->_data._array._len; ++replica )
+      if( dest == NULL )
+        dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, url );
+
+      if( dest == NULL )
       {
-        dbBE_Redis_result_t *node_info = &range->_data._array._data[ replica ];
-        if( node_info == NULL )
-          continue;
-
-        ip = node_info->_data._array._data[ 0 ]._data._string._data;
-        int64_t port = node_info->_data._array._data[ 1 ]._data._integer;
-        snprintf( address, 1024, "%s:%"PRId64, ip, port );
-
-        // check and create connection
-        // check connection exists,
-        dbBE_Redis_connection_t *dest =
-            dbBE_Redis_connection_mgr_get_connection_to( ctx->_conn_mgr, address );
-
-        // reform address to url
-        snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s:%"PRId64, ip, port );
-        if( dest == NULL )
-          dest = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, address );
-
-        if( dest == NULL )
-        {
-          rc = -ENOTCONN;
-          dbBE_Redis_result_cleanup( result, 0 );
-          goto exit_connect;
-        }
-
-        dbBE_Redis_connection_assign_slot_range( dest, first_slot, last_slot );
-
-        // for now: don't assign replica connections to locator
-        if( replica > 2 )
-          continue;
-
-        // update locator
-        int slot;
-        for( slot = first_slot; slot <= last_slot; ++slot )
-          dbBE_Redis_locator_assign_conn_index( ctx->_locator,
-                                                dest->_index,
-                                                slot );
+        rc = -ENOTCONN;
+        goto exit_connect;
       }
+
+      dbBE_Redis_connection_assign_slot_range( dest,
+                                               first_slot,
+                                               last_slot );
+
+      // update locator
+      int slot;
+      for( slot = first_slot; slot <= last_slot; ++slot )
+        dbBE_Redis_locator_assign_conn_index( ctx->_locator,
+                                              dest->_index,
+                                              slot );
     }
   }
-  else
-  {
-    // no-cluster setup with single connection
-    int slot;
-    dbBE_Redis_connection_assign_slot_range( initial_conn, 0, DBBE_REDIS_HASH_SLOT_MAX );
-    for( slot = 0; slot <= DBBE_REDIS_HASH_SLOT_MAX; ++slot )
-      dbBE_Redis_locator_assign_conn_index( ctx->_locator,
-                                            initial_conn->_index,
-                                            slot );
-    rc = 0;
-  }
-  dbBE_Redis_result_cleanup( result, 0 );
 
 exit_connect:
   if( iobuf != NULL )

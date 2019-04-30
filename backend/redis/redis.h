@@ -29,10 +29,12 @@
 #include "s2r_queue.h"
 #include "locator.h"
 #include "conn_mgr.h"
+#include "cluster_info.h"
 
 typedef struct
 {
   dbBE_Redis_command_stage_spec_t *_spec;
+  dbBE_Redis_cluster_info_t *_cluster_info;
   dbBE_Redis_locator_t *_locator;
   dbBE_Redis_connection_mgr_t *_conn_mgr;
   dbBE_Request_queue_t *_work_q;

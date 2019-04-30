@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str,
 /*
  * convert a string into a sockaddr
  */
-dbBE_Redis_address_t* dbBE_Redis_address_from_string( char *str );
+dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str );
 
 
 /*
@@ -76,6 +76,12 @@ char* dbBE_Redis_address_split( char *input )
 
   return port;
 }
+
+/*
+ * compare 2 input addresses and return 0 if equal; 1 otherwise
+ */
+int dbBE_Redis_address_compare( dbBE_Redis_address_t *a,
+                                dbBE_Redis_address_t *b );
 
 /*
  * destroy the address and clean up memory

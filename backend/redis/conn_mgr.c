@@ -298,17 +298,22 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_get_connection_to( dbBE_Redis
                                                                       const char *dest )
 {
   unsigned i;
+  if( dest == NULL )
+    return NULL;
+
+  dbBE_Redis_address_t *d_addr = dbBE_Redis_address_from_string( dest );
+  if( d_addr == NULL )
+    return NULL;
+
+  dbBE_Redis_connection_t *conn = NULL;
   for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS); ++i )
   {
-    if( conn_mgr->_connections[ i ] != NULL )
-    {
-      char addr[ 32 ];
-      dbBE_Redis_address_to_string( conn_mgr->_connections[ i ]->_address, addr, 32 );
-      if( strncmp( addr, dest, 32 ) == 0 )
-        return conn_mgr->_connections[ i ];
-    }
+    conn = conn_mgr->_connections[ i ];
+    if(( conn  != NULL ) && ( dbBE_Redis_address_compare( conn->_address, d_addr ) == 0 ))
+      break;
   }
-  return NULL;
+  dbBE_Redis_address_destroy( d_addr );
+  return conn;
 }
 
 

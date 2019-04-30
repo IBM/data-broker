@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 
 
 #include "address.h"
+#include "definitions.h"
 
 dbBE_Redis_address_t* dbBE_Redis_address_allocate()
 {
@@ -98,24 +99,49 @@ const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str,
   if(( str == NULL ) || ( addr == NULL ))
     return NULL;
 
-  char ip[ 32 ];
-  if( inet_ntop( AF_INET, &(addr->_address.sin_addr.s_addr), ip, 32 ) == NULL )
+  char ip[ DBR_SERVER_URL_MAX_LENGTH ];
+  if( inet_ntop( AF_INET, &(addr->_address.sin_addr.s_addr), ip, DBR_SERVER_URL_MAX_LENGTH ) == NULL )
     return NULL;
 
-  sprintf( str, "%s:%d", ip, ntohs( addr->_address.sin_port ) );
+  // for now just use the sock prefix until there are more/other url types
+  sprintf( str, "sock://%s:%d", ip, ntohs( addr->_address.sin_port ) );
 
   return str;
 }
 
 
-dbBE_Redis_address_t* dbBE_Redis_address_from_string( char *str )
+dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str )
 {
-  char *port = strchr( str, ':' );
-  if( port == NULL )
+  char *tmp = strdup( str );
+  char *host = strchr( tmp, ':');
+  if( host == NULL )
+  {
+    free( tmp );
     return NULL;
+  }
+  host += 3;
+
+  char *port = strchr( host, ':' );
+  if( port == NULL )
+  {
+    free( tmp );
+    return NULL;
+  }
 
   *port = '\0';
   port++;
 
-  return dbBE_Redis_address_create( str, port );
+  dbBE_Redis_address_t *ret = dbBE_Redis_address_create( host, port );
+  free( tmp );
+  return ret;
+}
+
+
+int dbBE_Redis_address_compare( dbBE_Redis_address_t *a,
+                                dbBE_Redis_address_t *b )
+{
+  int rc = (a->_address.sin_family == b->_address.sin_family );
+  rc &= (a->_address.sin_port == b->_address.sin_port );
+  rc &= (a->_address.sin_addr.s_addr == b->_address.sin_addr.s_addr );
+  return (rc == 0 );
 }
