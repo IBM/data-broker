@@ -45,6 +45,31 @@ static
 int dbBE_Redis_cluster_info_destroy( dbBE_Redis_cluster_info_t *ci );
 
 static
+dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create_single( char *url )
+{
+  // don't attempt to create cluster info for NULL-ptr url
+  if( url == NULL )
+    return NULL;
+
+  dbBE_Redis_cluster_info_t *ci = (dbBE_Redis_cluster_info_t*)calloc( 1, sizeof( dbBE_Redis_cluster_info_t ) );
+  if( ci == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Unable to allocate sufficient memory for cluster info\n" );
+    return NULL;
+  }
+
+  ci->_cluster_size = 1;
+  ci->_nodes[0] = dbBE_Redis_server_info_create_single( url );
+
+  if( ci->_nodes[0] == NULL )
+  {
+    dbBE_Redis_cluster_info_destroy( ci );
+    ci = NULL;
+  }
+  return ci;
+}
+
+static
 dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create( dbBE_Redis_result_t *cir )
 {
   if(( cir == NULL ) || ( cir->_type != dbBE_REDIS_TYPE_ARRAY ))

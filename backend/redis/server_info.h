@@ -152,6 +152,49 @@ error:
   return NULL;
 }
 
+/*
+ * create server info for a single-node Redis server
+ * todo: currently wouldn't support single master + replicas
+ */
+dbBE_Redis_server_info_t* dbBE_Redis_server_info_create_single( char *url )
+{
+  if( url == NULL )
+    return NULL;
+
+  dbBE_Redis_server_info_t *si = (dbBE_Redis_server_info_t*)calloc( 1, sizeof( dbBE_Redis_server_info_t ) );
+  if( si == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Unable to allocate sufficient memory for server info\n" );
+    return NULL;
+  }
+
+  // check and set number of replicas+master count
+  si->_urls = (char*)calloc( DBR_SERVER_URL_MAX_LENGTH * (DBBE_REDIS_CLUSTER_MAX_REPLICA + 1 ), sizeof( char ) );
+  if( si->_urls == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Unable to allocate sufficient memory to hold master+replica urls\n" );
+    goto error;
+  }
+
+  if( snprintf( si->_urls, DBR_SERVER_URL_MAX_LENGTH, "%s", url ) < 0 )
+  {
+    LOG( DBG_ERR, stderr, "Error creating url entry in server info. Check URL length limit (%d) or format.\n", DBR_SERVER_URL_MAX_LENGTH );
+    goto error;
+  }
+  si->_first_slot = 0;
+  si->_last_slot = DBBE_REDIS_HASH_SLOT_MAX - 1;
+  si->_servers[0] = si->_urls;
+  si->_servers[0][DBR_SERVER_URL_MAX_LENGTH - 1 ] = '\0'; // terminate
+  si->_master = si->_servers[0];
+  si->_server_count = 1;
+
+  return si;
+error:
+  if( si != NULL )
+    dbBE_Redis_server_info_destroy( si );
+  return NULL;
+}
+
 
 int dbBE_Redis_server_info_destroy( dbBE_Redis_server_info_t *si )
 {

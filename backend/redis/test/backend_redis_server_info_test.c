@@ -230,6 +230,49 @@ int cluster_info_test()
   return rc;
 }
 
+int single_node_test()
+{
+  int rc = 0;
+
+  rc += TEST( dbBE_Redis_server_info_create_single( NULL ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_create_single( NULL ), NULL );
+
+  dbBE_Redis_server_info_t *si;
+  dbBE_Redis_cluster_info_t *ci;
+
+  // test single node server info-creation from url
+  rc += TEST_NOT_RC( dbBE_Redis_server_info_create_single( "sock://localhost:6300" ), NULL, si );
+
+  TEST_BREAK( rc, "NULL-ptr server-info" );
+  rc += TEST( si->_first_slot, 0 );
+  rc += TEST( si->_last_slot, DBBE_REDIS_HASH_SLOT_MAX - 1 );
+  rc += TEST( strncmp( si->_master, "sock://localhost:6300", DBR_SERVER_URL_MAX_LENGTH ), 0 );
+  rc += TEST( strncmp( si->_servers[ 0 ], "sock://localhost:6300", DBR_SERVER_URL_MAX_LENGTH ), 0 );
+  rc += TEST( si->_server_count, 1 );
+
+  rc += TEST( dbBE_Redis_server_info_destroy( si ), 0 );
+  rc += TEST( dbBE_Redis_server_info_destroy( NULL ), -EINVAL );
+
+  // test single node cluster info creation from url
+  rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create_single( "sock://localhost:6300" ), NULL, ci );
+
+  TEST_BREAK( rc, "NULL-ptr server-info" );
+  rc += TEST( ci->_cluster_size, 1 );
+  rc += TEST_NOT( ci->_nodes[0], NULL );
+  rc += TEST( ci->_nodes[1], NULL );
+  rc += TEST( ci->_nodes[0]->_first_slot, 0 );
+  rc += TEST( ci->_nodes[0]->_last_slot, DBBE_REDIS_HASH_SLOT_MAX - 1 );
+  rc += TEST( strncmp( ci->_nodes[0]->_master, "sock://localhost:6300", DBR_SERVER_URL_MAX_LENGTH ), 0 );
+  rc += TEST( strncmp( ci->_nodes[0]->_servers[0], "sock://localhost:6300", DBR_SERVER_URL_MAX_LENGTH ), 0 );
+  rc += TEST( ci->_nodes[0]->_server_count, 1 );
+
+  rc += TEST( dbBE_Redis_cluster_info_destroy( ci ), 0 );
+  rc += TEST( dbBE_Redis_cluster_info_destroy( NULL ), -EINVAL );
+
+  printf( "Single_node_test exiting with rc=%d\n", rc );
+  return rc;
+}
+
 
 int main( int argc, char ** argv )
 {
@@ -237,6 +280,7 @@ int main( int argc, char ** argv )
 
   rc += server_info_test();
   rc += cluster_info_test();
+  rc += single_node_test();
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
