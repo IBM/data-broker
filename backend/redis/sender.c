@@ -66,6 +66,7 @@ int dbBE_Redis_cmd_stage_needs_rekeying( dbBE_Redis_request_t *request )
   int check = 0;
   check += ( request->_step->_stage == 0 ); // all first-stage requests need to get checked
   check += ( request->_user->_opcode == DBBE_OPCODE_MOVE ); // MOVE cmd needs re-keying for each stage
+  check += (( request->_user->_opcode == DBBE_OPCODE_NSDETACH ) && ( request->_step->_stage == DBBE_REDIS_NSDETACH_STAGE_DELNS ) );
 
   return check;
 }
