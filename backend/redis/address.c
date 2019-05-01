@@ -113,14 +113,17 @@ const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str,
 dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str )
 {
   char *tmp = strdup( str );
-  char *host = strchr( tmp, ':');
-  if( host == NULL )
+  char *host = tmp;
+  if( strchr( tmp, '/' ) != NULL )
   {
-    free( tmp );
-    return NULL;
+    host = strchr( tmp, ':');
+    if( host == NULL )
+    {
+      free( tmp );
+      return NULL;
+    }
+    host += 3;
   }
-  host += 3;
-
   char *port = strchr( host, ':' );
   if( port == NULL )
   {
