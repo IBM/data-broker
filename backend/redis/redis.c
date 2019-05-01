@@ -347,10 +347,15 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   }
 
   char *url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
-
+  if( url == NULL )
+  {
+    errno = ENODEV;
+    return -1;
+  }
 
   LOG(DBG_VERBOSE, stderr, "url=%s\n", url );
 
+  dbBE_Redis_sr_buffer_t *iobuf = NULL;
   dbBE_Redis_connection_t *initial_conn = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, url );
   if( initial_conn == NULL )
   {
@@ -359,7 +364,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   }
 
 #define DBBE_REDIS_INFO_PER_SERVER ( 4096 )
-  dbBE_Redis_sr_buffer_t *iobuf = dbBE_Transport_sr_buffer_allocate( dbBE_Redis_connection_mgr_get_connections( ctx->_conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
+  iobuf = dbBE_Transport_sr_buffer_allocate( dbBE_Redis_connection_mgr_get_connections( ctx->_conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
 
   dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_clusterinfo( ctx->_conn_mgr, initial_conn, iobuf );
   if( result == NULL )

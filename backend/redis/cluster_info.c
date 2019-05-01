@@ -148,14 +148,11 @@ int dbBE_Redis_cluster_info_destroy( dbBE_Redis_cluster_info_t *ci )
   if( ci == NULL )
     return -EINVAL;
 
-  if( ci->_nodes )
+  int n;
+  for( n=0; n<ci->_cluster_size; ++n )
   {
-    int n;
-    for( n=0; n<ci->_cluster_size; ++n )
-    {
-      dbBE_Redis_server_info_destroy( ci->_nodes[ n ] );
-      ci->_nodes[ n ] = NULL;
-    }
+    dbBE_Redis_server_info_destroy( ci->_nodes[ n ] );
+    ci->_nodes[ n ] = NULL;
   }
 
   memset( ci, 0, sizeof( dbBE_Redis_cluster_info_t ) );
