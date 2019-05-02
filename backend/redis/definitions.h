@@ -50,6 +50,13 @@
 #define DBBE_REDIS_MAX_CONNECTIONS ( (unsigned)256 )
 
 /*
+ * max number of Redis hash slots
+ * note: this is the number of slots i.e. the first invalid index!
+ */
+#define DBBE_REDIS_HASH_SLOT_MAX ( 16384 )
+
+
+/*
  * max number of SGEs in assembled redis commands (IOV_MAX replacement)
  */
 #define DBBE_SGE_MAX ( 256 )

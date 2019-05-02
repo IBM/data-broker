@@ -1,3 +1,7 @@
+version 0.6.1
+ * cluster/server info to enable replica handling
+ * improved sender side handling of commands (using sge+sendmsg to avoid copying user data buffers)
+
 version 0.6.0
  * python binding upgrade for cffi compatibility with python3
  * python API simplified and less C-style

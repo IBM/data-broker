@@ -19,6 +19,8 @@ include(${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake)
 include_directories(/usr/local/include)
 set( LIBDBBE_REDIS_SOURCE
 	address.c
+	server_info.c
+	cluster_info.c
 	connection.c
 	locator.c
 	protocol.c

@@ -26,6 +26,7 @@
 #define TEST( function, expect ) ( (function)==(expect)? 0 : 1 )
 #define TEST_RC( function, expect, returned ) ( ((returned)=(function))==(expect)? 0 : 1 )
 #define TEST_NOT( function, expect ) ( 1 - TEST( function, expect ) )
+#define TEST_NOT_RC( function, expect, returned ) (  ((returned)=(function))!=(expect)? 0 : 1 )
 
 #define TEST_LOG( rc, text ) { if( (rc) != 0 ) printf("%s; rc=%d\n", (text), (rc) ); }
 

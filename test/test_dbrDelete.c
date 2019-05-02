@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <libdatabroker.h>
 #include "test_utils.h"
 
+#define DBR_DELETE_TEST_NS_START ( 0 )
 #define DBR_DELETE_TEST_NS_COUNT ( DBR_MAX_KEY_LEN )
 
 int main( int argc, char ** argv )
@@ -37,7 +38,7 @@ int main( int argc, char ** argv )
   DBR_State_t cs_state;
 
   int n;
-  for( n = 0; (n < DBR_DELETE_TEST_NS_COUNT) && (rc == 0); ++n )
+  for( n = DBR_DELETE_TEST_NS_START; (n < DBR_DELETE_TEST_NS_COUNT) && (rc == 0); ++n )
   {
 //    name[ n ] = generateLongMsg( (random() % DBR_MAX_KEY_LEN) + 1 );
     name[ n ] = generateLongMsg( n + 1 );
@@ -53,7 +54,7 @@ int main( int argc, char ** argv )
 
   rc += TEST( n, DBR_DELETE_TEST_NS_COUNT );
   --n;
-  for( ; n >=0; --n )
+  for( ; n >=DBR_DELETE_TEST_NS_START; --n )
   {
 //    int index = DBR_DELETE_TEST_NS_COUNT - n - 1;
     int index = n;

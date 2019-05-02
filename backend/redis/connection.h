@@ -150,6 +150,13 @@ ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn );
 ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn );
 
 /*
+ * receive into user-provided buffer instead of connection-attached default
+ * no buffer reset or cleanup is done.
+ */
+ssize_t dbBE_Redis_connection_recv_direct( dbBE_Redis_connection_t *conn,
+                                           dbBE_Redis_sr_buffer_t *buf );
+
+/*
  * flush the send buffer by sending it to the connected Redis instance
  */
 int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn,
