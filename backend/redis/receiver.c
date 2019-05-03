@@ -15,6 +15,13 @@
  *
  */
 
+#include "logutil.h"
+#include "redis.h"
+#include "result.h"
+#include "request.h"
+#include "parse.h"
+#include "complete.h"
+
 #ifdef __APPLE__
 #include <stdlib.h>
 #else
@@ -23,13 +30,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
-
-#include "logutil.h"
-#include "redis.h"
-#include "result.h"
-#include "request.h"
-#include "parse.h"
-#include "complete.h"
+#include <errno.h>
 
 /*
  * receiver thread function, retrieves and parses Redis responses
@@ -83,25 +84,12 @@ void* dbBE_Redis_receiver( void *args )
         LOG( DBG_ERR, stderr, "Recv from conn %d returned %d\n", conn->_index, rc );
         // remove the connection from the locator index
 
-        // drain the posted queue of this connection
+        // drain the posted queue of this connection and place the requests for retry
         dbBE_Redis_request_t *request;
-        dbBE_Redis_result_t result = {
-            ._type = dbBE_REDIS_TYPE_INT,
-            ._data = -ENOTCONN
-        };
-        char address[255];
-        dbBE_Redis_address_to_string( conn->_address, address, 255 );
         while( ( request = dbBE_Redis_s2r_queue_pop( conn->_posted_q ) ) != NULL )
         {
-          dbBE_Completion_t *completion = dbBE_Redis_complete_error(
-              request,
-              &result,
-              rc );
-          dbBE_Redis_request_destroy( request );
-          if( dbBE_Completion_queue_push( input->_backend->_compl_q, completion ) != 0 )
-            fprintf( stderr, "RedisBE: Failed to create error completion after Redis connection failure to %s.\n", address );
+          dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
         }
-
         dbBE_Redis_locator_reassociate_conn_index( input->_backend->_locator,
                                                    conn->_index,
                                                    DBBE_REDIS_LOCATOR_INDEX_INVAL );
