@@ -207,9 +207,10 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
 }
 
 int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                            dbBE_Redis_locator_t *locator )
+                                            dbBE_Redis_locator_t *locator,
+                                            dbBE_Redis_cluster_info_t *cluster )
 {
-  if( conn_mgr == NULL )
+  if(( conn_mgr == NULL ) || ( locator == NULL ) || ( cluster == NULL ))
     return -EINVAL;
 
   unsigned c;
@@ -238,7 +239,49 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
       }
       else
       {
-        LOG( DBG_VERBOSE, stderr, "conn_mgr_conn_recover: failed to reconnect index %d\n", rec->_index );
+        char url[ DBR_SERVER_URL_MAX_LENGTH ];
+        dbBE_Redis_address_to_string( rec->_address, url, DBR_SERVER_URL_MAX_LENGTH );
+        dbBE_Redis_server_info_t *server = dbBE_Redis_cluster_info_get_server_by_addr( cluster,
+                                                                                       url );
+        if( server != NULL )
+        {
+          int first_slot = dbBE_Redis_server_info_get_first_slot( server );
+          int last_slot = dbBE_Redis_server_info_get_last_slot( server );
+          int n;
+
+          for( n = 0; ( n < server->_server_count ) && ( recovered == 0 ); ++n )
+          {
+            // don't retry the master, that failed above already. (assuming the bookkeeping is correct)
+            char *addr = dbBE_Redis_server_info_get_replica( server, n );
+            if( addr == dbBE_Redis_server_info_get_master( server ) )
+              continue;
+
+            dbBE_Redis_connection_t *repl_conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, addr );
+            if( repl_conn == NULL )
+            {
+              recovered = 0;
+              break;
+            }
+
+            dbBE_Redis_connection_assign_slot_range( repl_conn,
+                                                     first_slot,
+                                                     last_slot );
+
+            // update locator
+            int slot;
+            for( slot = first_slot; slot <= last_slot; ++slot )
+              dbBE_Redis_locator_assign_conn_index( locator,
+                                                    repl_conn->_index,
+                                                    slot );
+            ++recovered;
+            dbBE_Redis_server_info_update_master( server, n ); // make the connection to this replica the new master
+            dbBE_Redis_connection_mgr_rm( conn_mgr, rec ); // remove the old connection
+            dbBE_Redis_connection_destroy( rec ); // delete the old connection
+          }
+        }
+
+        if( recovered == 0 )
+          LOG( DBG_VERBOSE, stderr, "conn_mgr_conn_recover: failed to reconnect or recover index %d. Also failed to find/connect to replicas\n", rec->_index );
       }
     }
   }
