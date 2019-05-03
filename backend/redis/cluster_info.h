@@ -59,6 +59,19 @@ dbBE_Redis_server_info_t* dbBE_Redis_cluster_info_get_server( dbBE_Redis_cluster
   return ( ci != NULL ) && ( index >= 0 ) && ( index < DBBE_REDIS_CLUSTER_MAX_SIZE ) ? ci->_nodes[ index ] : NULL;
 }
 
+static inline
+dbBE_Redis_server_info_t* dbBE_Redis_cluster_info_get_server_by_addr( dbBE_Redis_cluster_info_t *ci,
+                                                                      const char *url )
+{
+  if(( url == NULL ) || ( ci == NULL ))
+    return NULL;
+
+  int n;
+  for( n=0; n < ci->_cluster_size; ++n )
+    if( strncmp( dbBE_Redis_server_info_get_master( ci->_nodes[ n ] ), url, DBR_SERVER_URL_MAX_LENGTH ) == 0 )
+      return ci->_nodes[ n ];
+  return NULL;
+}
 
 /*
  * create cluster info of a single-node Redis based on the url
