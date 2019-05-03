@@ -70,6 +70,24 @@ char* dbBE_Redis_server_info_get_replica( dbBE_Redis_server_info_t *si, const in
   return ( si != NULL ) && ( index >= 0 ) && ( index < DBBE_REDIS_CLUSTER_MAX_REPLICA ) ? si->_servers[ index ] : NULL;
 }
 
+static inline
+char* dbBE_Redis_server_info_get_master( dbBE_Redis_server_info_t *si )
+{
+  return ( si != NULL ) ? si->_master : NULL;
+}
+
+/*
+ * update the ptr of the master to point to replica with index
+ */
+static inline
+int dbBE_Redis_server_info_update_master( dbBE_Redis_server_info_t *si, const int index )
+{
+  if(( si == NULL ) || ( index < 0 ) || ( index >= si->_server_count ))
+    return -EINVAL;
+
+  si->_master = si->_servers[ index ];
+  return 0;
+}
 
 /*
  * create a server info entry from a result (needs to be a sub-result of cluster slots response)
