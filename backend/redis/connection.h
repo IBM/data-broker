@@ -41,7 +41,7 @@ typedef enum
 } dbBE_Connection_status_t;
 
 
-typedef struct
+typedef struct dbBE_Redis_connection
 {
   int _socket;
   int _index;

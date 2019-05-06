@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,10 @@ int main( int argc, char ** argv )
   dbBE_Redis_request_t *ret;
 
   for( i=0; i<10; ++i )
-    req[ i ]._conn_index = i;
+  {
+    req[ i ]._location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT;
+    req[ i ]._location._data._conn_idx = i;
+  }
 
   rc += TEST_NOT( queue, NULL );
   rc += TEST( dbBE_Redis_s2r_queue_pop( queue ), NULL );
@@ -53,7 +56,7 @@ int main( int argc, char ** argv )
     ret = dbBE_Redis_s2r_queue_pop( queue );
     rc += TEST_NOT( ret, NULL );
     if( ret != NULL )
-      rc += TEST( ret->_conn_index, i );
+      rc += TEST( ret->_location._data._conn_idx, i );
   }
   rc += TEST( dbBE_Redis_s2r_queue_len( queue ), 6 );
 
@@ -68,7 +71,7 @@ int main( int argc, char ** argv )
     ret = dbBE_Redis_s2r_queue_pop( queue );
     rc += TEST_NOT( ret, NULL );
     if( ret != NULL )
-      rc += TEST( ret->_conn_index, i );
+      rc += TEST( ret->_location._data._conn_idx, i );
   }
   rc += TEST( dbBE_Redis_s2r_queue_len( queue ), 3 );
 
@@ -78,7 +81,7 @@ int main( int argc, char ** argv )
     ret = dbBE_Redis_s2r_queue_pop( queue );
     rc += TEST_NOT( ret, NULL );
     if( ret != NULL )
-      rc += TEST( ret->_conn_index, i );
+      rc += TEST( ret->_location._data._conn_idx, i );
   }
   rc += TEST( dbBE_Redis_s2r_queue_len( queue ), 0 );
 

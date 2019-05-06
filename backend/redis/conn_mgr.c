@@ -387,7 +387,8 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
       dbBE_Redis_request_t *req = dbBE_Redis_request_allocate( template_request->_user );
       if( req == NULL )
         continue;
-      req->_conn_index = conn_mgr->_connections[ i ]->_index;
+      req->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT;
+      req->_location._data._conn_idx = conn_mgr->_connections[ i ]->_index;
       req->_step = template_request->_step;
       memcpy( &req->_status, &template_request->_status, sizeof( dbBE_Redis_intern_data_t ));
       req->_next = queue;

@@ -62,8 +62,8 @@ int test_request_each( dbBE_Redis_connection_mgr_t *conn_mgr )
     req_queue = req_queue->_next;
 
     // check whether the request's connection index changes from request to request
-    rc += TEST_NOT( last_idx, req->_conn_index );
-    last_idx = req->_conn_index;
+    rc += TEST_NOT( last_idx, req->_location._data._conn_idx );
+    last_idx = req->_location._data._conn_idx;
 
     dbBE_Redis_request_destroy( req );
   }

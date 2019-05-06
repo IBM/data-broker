@@ -204,7 +204,7 @@ process_next_item:
       }
 
       // push request to sender queue as is
-      request->_conn_index = dbBE_Redis_connection_get_index( dest );
+      request->_location._data._conn_idx = dbBE_Redis_connection_get_index( dest );
       dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
       break;
     }

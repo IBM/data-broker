@@ -1124,7 +1124,8 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
         dbBE_Redis_request_t *delkey = dbBE_Redis_request_allocate( request->_user );
         if( ! delkey )
           continue;
-        delkey->_conn_index = request->_conn_index;
+        delkey->_location._type = request->_location._type;
+        delkey->_location._data._conn_idx = request->_location._data._conn_idx;
         delkey->_next = request->_next;
         delkey->_step = request->_step;
         delkey->_status.nsdetach.reference = request->_status.nsdetach.reference;
@@ -1146,7 +1147,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
         dbBE_Redis_s2r_queue_push( post_queue, request );
         dbBE_Refcounter_up( request->_status.nsdetach.reference );
 
-        LOG( DBG_TRACE, stdout, "Creating next scan cursor %s for conn %d\n", request->_status.nsdetach.scankey, request->_conn_index );
+        LOG( DBG_TRACE, stdout, "Creating next scan cursor %s for conn %d\n", request->_status.nsdetach.scankey, request->_location._data._conn_idx );
         // all new requests are pushed to s2r queue, we need to clean up the inbound request to prevent memleak
         *in_out_request = NULL;
       }
