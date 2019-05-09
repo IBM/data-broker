@@ -86,6 +86,8 @@ deleted_slot_retry:
   tail = dbBE_Redis_connection_queue_tail( queue );
   if( head == tail )
   {
+    head = 0;  // use the empty queue status to reset the counters
+    tail = 0;
     pthread_mutex_unlock( &queue->_mutex );
     return NULL;
   }
