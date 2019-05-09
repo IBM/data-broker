@@ -110,8 +110,14 @@ int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
     return -ENOMEM;
   }
 
+  if( dbBE_Redis_connection_RTR( conn ) == 0 )
+  {
+    LOG( DBG_ERR, stderr, "connection_mgr_add: Can only add connections that are in RTR state.\n" );
+    return -ENOTCONN;
+  }
+
   unsigned i = 0;
-  for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS) && (conn_mgr->_connections[ i ] != NULL); ++i ) {}
+  for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS) && ((conn_mgr->_connections[ i ] != NULL) || ( conn_mgr->_broken[ i ] != NULL )); ++i ) {}
   if( i >= DBBE_REDIS_MAX_CONNECTIONS )
   {
     LOG( DBG_ERR, stderr, "connection_mgr_add: connection slots exhausted. Can't add new connection.\n" );
@@ -119,6 +125,7 @@ int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
   }
 
   conn_mgr->_connections[ i ] = conn;
+  conn_mgr->_broken[ i ] = NULL;
   ++conn_mgr->_connection_count;
   conn->_index = i;
 
@@ -196,6 +203,8 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
     return -ENOENT;
   }
 
+  dbBE_Redis_connection_mgr_rm( conn_mgr, conn ); // remove the connection from further recv processing
+
   conn_mgr->_broken[ conn->_index ] = conn;
   conn_mgr->_connections[ conn->_index ] = NULL;
   --conn_mgr->_connection_count;
@@ -256,6 +265,7 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
             if( addr == dbBE_Redis_server_info_get_master( server ) )
               continue;
 
+            dbBE_Redis_connection_mgr_rm( conn_mgr, rec ); // remove the old connection from recv processing
             dbBE_Redis_connection_t *repl_conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, addr );
             if( repl_conn == NULL )
             {
@@ -268,14 +278,13 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
                                                      last_slot );
 
             // update locator
-            int slot;
-            for( slot = first_slot; slot <= last_slot; ++slot )
-              dbBE_Redis_locator_assign_conn_index( locator,
-                                                    repl_conn->_index,
-                                                    slot );
+            dbBE_Redis_locator_associate_range_conn_index( locator,
+                                                           first_slot,
+                                                           last_slot,
+                                                           repl_conn->_index );
+
             ++recovered;
             dbBE_Redis_server_info_update_master( server, n ); // make the connection to this replica the new master
-            dbBE_Redis_connection_mgr_rm( conn_mgr, rec ); // remove the old connection
             dbBE_Redis_connection_destroy( rec ); // delete the old connection
           }
         }
