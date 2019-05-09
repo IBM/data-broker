@@ -346,17 +346,17 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     return -1;
   }
 
-  char *url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
-  if( url == NULL )
+  char *env_url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+  if( env_url == NULL )
   {
     errno = ENODEV;
     return -1;
   }
 
-  LOG(DBG_VERBOSE, stderr, "url=%s\n", url );
+  LOG(DBG_VERBOSE, stderr, "url=%s\n", env_url );
 
   dbBE_Redis_sr_buffer_t *iobuf = NULL;
-  dbBE_Redis_connection_t *initial_conn = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, url );
+  dbBE_Redis_connection_t *initial_conn = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, env_url );
   if( initial_conn == NULL )
   {
     rc = -ENOTCONN;
@@ -379,7 +379,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   // do we have single-node Redis server?
   if( cl_info == NULL )
   {
-    cl_info = dbBE_Redis_cluster_info_create_single( url );
+    cl_info = dbBE_Redis_cluster_info_create_single( env_url );
   }
 
   // if we cannot even get info for single node, then we're done here..
@@ -438,17 +438,13 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
                                                last_slot );
 
       // update locator
-      int slot;
-      for( slot = first_slot; slot <= last_slot; ++slot )
-        dbBE_Redis_locator_assign_conn_index( ctx->_locator,
-                                              dest->_index,
-                                              slot );
+      dbBE_Redis_locator_associate_range_conn_index( ctx->_locator, first_slot, last_slot, dest->_index );
     }
   }
 
 exit_connect:
   if( iobuf != NULL )
     dbBE_Transport_sr_buffer_free( iobuf );
-  free( url );
+  free( env_url );
   return rc;
 }
