@@ -203,7 +203,7 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
     return -ENOENT;
   }
 
-  dbBE_Redis_connection_mgr_rm( conn_mgr, conn ); // remove the connection from further recv processing
+  dbBE_Redis_event_mgr_rm( conn_mgr->_ev_mgr, conn ); // remove the connection from further recv processing
 
   conn_mgr->_broken[ conn->_index ] = conn;
   conn_mgr->_connections[ conn->_index ] = NULL;
@@ -233,9 +233,9 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
       if( dbBE_Redis_connection_reconnect( rec ) == 0 )
       {
         int slot;
-        conn_mgr->_connections[ c ] = rec;
+        conn_mgr->_connections[ c ] = NULL;
         conn_mgr->_broken[ c ] = NULL;
-        ++conn_mgr->_connection_count;
+        dbBE_Redis_connection_mgr_add( conn_mgr, rec );
         ++recovered;
         dbBE_Redis_slot_bitmap_t *bitmap = dbBE_Redis_connection_get_slot_range( rec );
         for( slot=0;
