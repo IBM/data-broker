@@ -125,6 +125,9 @@ int main( int argc, char ** argv )
 
   rc += TEST_NOT( dbBE_Redis_connection_link( conn, host, auth ), NULL );
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn ), 0 );
+  rc += TEST( dbBE_Redis_connection_mgr_retrieve_clusterinfo( NULL, NULL, NULL ), NULL );
+  rc += TEST( dbBE_Redis_connection_mgr_retrieve_clusterinfo( mgr, NULL, NULL ), NULL );
+  rc += TEST( dbBE_Redis_connection_mgr_retrieve_clusterinfo( mgr, conn, NULL ), NULL );
   rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_clusterinfo( mgr, conn, conn->_recvbuf ), NULL, result );
   rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create( result ), NULL, cluster );
   rc += TEST( dbBE_Redis_result_cleanup( result, 1 ), 0 );
