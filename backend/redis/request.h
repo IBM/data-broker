@@ -22,6 +22,7 @@
 #include "definitions.h"
 #include "protocol.h"
 #include "refcounter.h"
+#include "locator.h"
 
 typedef struct dbBE_Redis_intern_detach_data
 {
@@ -48,6 +49,29 @@ typedef union dbBE_Redis_intern_data
   dbBE_Redis_intern_move_data_t move;
 } dbBE_Redis_intern_data_t;
 
+typedef enum
+{
+  DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN = 0,
+  DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT = 1,
+  DBBE_REDIS_REQUEST_LOCATION_TYPE_CONNECTION = 2,
+  DBBE_REDIS_REQUEST_LOCATION_TYPE_MAX = 3
+} dbBE_Redis_request_location_type_t;
+
+// temporary forward decl of connection type
+// will become actual server info reference when implementation is complete
+struct dbBE_Redis_connection;
+
+typedef union dbBE_Redis_request_location_data
+{
+  dbBE_Redis_hash_slot_t _conn_idx;
+  struct dbBE_Redis_connection *_connection;
+} dbBE_Redis_request_location_data_t;
+
+typedef struct dbBE_Redis_request_location
+{
+  dbBE_Redis_request_location_type_t _type;
+  dbBE_Redis_request_location_data_t _data;
+} dbBE_Redis_request_location_t;
 
 typedef struct dbBE_Redis_request
 {
@@ -55,7 +79,7 @@ typedef struct dbBE_Redis_request
   dbBE_Request_t *_user;
   dbBE_Redis_command_stage_spec_t *_step;
   dbBE_Completion_t *_completion;  // multi-stage requests with early completions need to hold that here
-  int _conn_index;
+  dbBE_Redis_request_location_t _location; // where this request should go (in case we know)
   struct dbBE_Redis_request *_next;
 } dbBE_Redis_request_t;
 

@@ -110,8 +110,14 @@ int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
     return -ENOMEM;
   }
 
+  if( dbBE_Redis_connection_RTR( conn ) == 0 )
+  {
+    LOG( DBG_ERR, stderr, "connection_mgr_add: Can only add connections that are in RTR state.\n" );
+    return -ENOTCONN;
+  }
+
   unsigned i = 0;
-  for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS) && (conn_mgr->_connections[ i ] != NULL); ++i ) {}
+  for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS) && ((conn_mgr->_connections[ i ] != NULL) || ( conn_mgr->_broken[ i ] != NULL )); ++i ) {}
   if( i >= DBBE_REDIS_MAX_CONNECTIONS )
   {
     LOG( DBG_ERR, stderr, "connection_mgr_add: connection slots exhausted. Can't add new connection.\n" );
@@ -119,6 +125,7 @@ int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
   }
 
   conn_mgr->_connections[ i ] = conn;
+  conn_mgr->_broken[ i ] = NULL;
   ++conn_mgr->_connection_count;
   conn->_index = i;
 
@@ -196,6 +203,8 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
     return -ENOENT;
   }
 
+  dbBE_Redis_event_mgr_rm( conn_mgr->_ev_mgr, conn ); // remove the connection from further recv processing
+
   conn_mgr->_broken[ conn->_index ] = conn;
   conn_mgr->_connections[ conn->_index ] = NULL;
   --conn_mgr->_connection_count;
@@ -207,9 +216,10 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
 }
 
 int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                            dbBE_Redis_locator_t *locator )
+                                            dbBE_Redis_locator_t *locator,
+                                            dbBE_Redis_cluster_info_t *cluster )
 {
-  if( conn_mgr == NULL )
+  if(( conn_mgr == NULL ) || ( locator == NULL ) || ( cluster == NULL ))
     return -EINVAL;
 
   unsigned c;
@@ -223,9 +233,9 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
       if( dbBE_Redis_connection_reconnect( rec ) == 0 )
       {
         int slot;
-        conn_mgr->_connections[ c ] = rec;
+        conn_mgr->_connections[ c ] = NULL;
         conn_mgr->_broken[ c ] = NULL;
-        ++conn_mgr->_connection_count;
+        dbBE_Redis_connection_mgr_add( conn_mgr, rec );
         ++recovered;
         dbBE_Redis_slot_bitmap_t *bitmap = dbBE_Redis_connection_get_slot_range( rec );
         for( slot=0;
@@ -238,7 +248,49 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
       }
       else
       {
-        LOG( DBG_VERBOSE, stderr, "conn_mgr_conn_recover: failed to reconnect index %d\n", rec->_index );
+        char url[ DBR_SERVER_URL_MAX_LENGTH ];
+        dbBE_Redis_address_to_string( rec->_address, url, DBR_SERVER_URL_MAX_LENGTH );
+        dbBE_Redis_server_info_t *server = dbBE_Redis_cluster_info_get_server_by_addr( cluster,
+                                                                                       url );
+        if( server != NULL )
+        {
+          int first_slot = dbBE_Redis_server_info_get_first_slot( server );
+          int last_slot = dbBE_Redis_server_info_get_last_slot( server );
+          int n;
+
+          for( n = 0; ( n < server->_server_count ) && ( recovered == 0 ); ++n )
+          {
+            // don't retry the master, that failed above already. (assuming the bookkeeping is correct)
+            char *addr = dbBE_Redis_server_info_get_replica( server, n );
+            if( addr == dbBE_Redis_server_info_get_master( server ) )
+              continue;
+
+            dbBE_Redis_connection_mgr_rm( conn_mgr, rec ); // remove the old connection from recv processing
+            dbBE_Redis_connection_t *repl_conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, addr );
+            if( repl_conn == NULL )
+            {
+              recovered = 0;
+              break;
+            }
+
+            dbBE_Redis_connection_assign_slot_range( repl_conn,
+                                                     first_slot,
+                                                     last_slot );
+
+            // update locator
+            dbBE_Redis_locator_associate_range_conn_index( locator,
+                                                           first_slot,
+                                                           last_slot,
+                                                           repl_conn->_index );
+
+            ++recovered;
+            dbBE_Redis_server_info_update_master( server, n ); // make the connection to this replica the new master
+            dbBE_Redis_connection_destroy( rec ); // delete the old connection
+          }
+        }
+
+        if( recovered == 0 )
+          LOG( DBG_VERBOSE, stderr, "conn_mgr_conn_recover: failed to reconnect or recover index %d. Also failed to find/connect to replicas\n", rec->_index );
       }
     }
   }
@@ -344,7 +396,8 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
       dbBE_Redis_request_t *req = dbBE_Redis_request_allocate( template_request->_user );
       if( req == NULL )
         continue;
-      req->_conn_index = conn_mgr->_connections[ i ]->_index;
+      req->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT;
+      req->_location._data._conn_idx = conn_mgr->_connections[ i ]->_index;
       req->_step = template_request->_step;
       memcpy( &req->_status, &template_request->_status, sizeof( dbBE_Redis_intern_data_t ));
       req->_next = queue;

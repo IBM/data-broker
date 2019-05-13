@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -238,6 +238,9 @@ int dbBE_Redis_event_mgr_rm( dbBE_Redis_event_mgr_t *ev_mgr,
   }
 
   event_free( ev );
+
+  // remove entry from connection queue
+  rc = dbBE_Redis_connection_queue_remove_connection( ev_mgr->_active_queue, conn );
 
   // remove entry from tracking
   ev_mgr->_events[ conn->_index ] = NULL;

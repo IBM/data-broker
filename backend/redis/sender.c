@@ -121,6 +121,23 @@ void* dbBE_Redis_sender( void *args )
   }
 
   /*
+   * check server connections,
+   * fail any request if there's a connection missing
+   * because the cluster will not accept new requests anyway
+   */
+  if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
+  {
+    if( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr,
+                                                input->_backend->_locator,
+                                                input->_backend->_cluster_info ) == 0 )
+    {
+      dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
+      goto skip_sending;
+    }
+  }
+
+  // check for any cancelled requests and process cancellations
+  /*
    * Do the location check/retrieval each time and also for multi-stage requests
    * because the key might have changed and then the conn-index would be off.
    * Also, check the hash-coverage in case there were any connection failures.
@@ -134,32 +151,28 @@ void* dbBE_Redis_sender( void *args )
       goto skip_sending;
     }
 
-    // use locator to retrieve address (unless it's a redirect - ASK redirects are temporary and will not update the locator mapping)
+    /*
+     * use locator to retrieve address
+     * unless it's a redirect (ASK) which directly contains
+     * a direct connection pointer for temporary requesting a different server
+     */
     uint16_t slot = dbBE_Redis_locator_hash( keybuffer, strnlen( keybuffer, DBBE_REDIS_MAX_KEY_LEN ) );
-    request->_conn_index = dbBE_Redis_locator_get_conn_index( input->_backend->_locator, slot );
+    if( request->_location._type != DBBE_REDIS_REQUEST_LOCATION_TYPE_CONNECTION )
+    {
+      request->_location._data._conn_idx = dbBE_Redis_locator_get_conn_index( input->_backend->_locator, slot );
+      if( request->_location._data._conn_idx == DBBE_REDIS_LOCATOR_INDEX_INVAL )
+        request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN;
+      else
+        request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT;
+    }
 
-    if( request->_conn_index == DBBE_REDIS_LOCATOR_INDEX_INVAL )
+    if( request->_location._type == DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN )
     {
       dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
       goto skip_sending;
     }
   }
 
-  /*
-   * check server connections,
-   * fail any request if there's a connection missing
-   * because the cluster will not accept new requests anyway
-   */
-  if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
-  {
-    if( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr, input->_backend->_locator ) == 0 )
-    {
-      dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
-      goto skip_sending;
-    }
-  }
-
-  // check for any cancelled requests and process cancellations
   if( dbBE_Request_set_delete( input->_backend->_cancellations, request->_user) != 0 )
   {
     dbBE_Completion_t *completion = dbBE_Redis_complete_cancel(
@@ -183,10 +196,15 @@ void* dbBE_Redis_sender( void *args )
   }
 
   // connection mgr to retrieve the sr_buffer + socket
-  dbBE_Redis_connection_t *conn = dbBE_Redis_connection_mgr_get_connection_at( input->_backend->_conn_mgr, request->_conn_index );
+  dbBE_Redis_connection_t *conn = NULL;
+  if( request->_location._type == DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT )
+    conn = dbBE_Redis_connection_mgr_get_connection_at( input->_backend->_conn_mgr, request->_location._data._conn_idx );
+  else
+    conn = request->_location._data._connection;
+
   if( conn == NULL )
   {
-    fprintf( stderr, "Failed to get back-end connection %d.\n", request->_conn_index );
+    fprintf( stderr, "Failed to get back-end connection.\n" );
 
     // todo: might have to create completion (unless there are more sub-tasks in flight)
     rc = -ENOMSG;

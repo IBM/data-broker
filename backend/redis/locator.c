@@ -114,6 +114,24 @@ int dbBE_Redis_locator_remove_conn_index( dbBE_Redis_locator_t *locator,
 }
 
 /*
+ * assign new_idx to a range of slots between [first;last] (includes last)
+ */
+int dbBE_Redis_locator_associate_range_conn_index( dbBE_Redis_locator_t *locator,
+                                                   const dbBE_Redis_locator_index_t first,
+                                                   const dbBE_Redis_locator_index_t last,
+                                                   const dbBE_Redis_locator_index_t new_idx )
+{
+  int slot;
+  int rc = 0;
+  for( slot = first; (rc == 0 ) && ( slot <= last ); ++slot )
+    rc = dbBE_Redis_locator_assign_conn_index( locator,
+                                               new_idx,
+                                               slot );
+  return rc;
+}
+
+
+/*
  * resassociate:migrate all hash slots from one address to another
  * this is an expensive O(n) operation
  * can also be used to disassociate after a disconnect

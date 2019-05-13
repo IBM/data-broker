@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,15 +73,21 @@ int dbBE_Redis_connection_queue_destroy( dbBE_Redis_connection_queue_t *queue )
 static inline
 dbBE_Redis_connection_t* dbBE_Redis_connection_queue_pop( dbBE_Redis_connection_queue_t *queue )
 {
+  uint64_t head, tail;
+
   if( queue == NULL )
     return NULL;
 
   pthread_mutex_lock( &queue->_mutex );
 
-  uint64_t head = dbBE_Redis_connection_queue_head( queue );
-  uint64_t tail = dbBE_Redis_connection_queue_tail( queue );
+deleted_slot_retry:
+
+  head = dbBE_Redis_connection_queue_head( queue );
+  tail = dbBE_Redis_connection_queue_tail( queue );
   if( head == tail )
   {
+    head = 0;  // use the empty queue status to reset the counters
+    tail = 0;
     pthread_mutex_unlock( &queue->_mutex );
     return NULL;
   }
@@ -97,6 +103,9 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_queue_pop( dbBE_Redis_connection_
     dbBE_Redis_connection_queue_head( queue ) = 0;
     dbBE_Redis_connection_queue_tail( queue ) = 0;
   }
+
+  if( conn == NULL )
+    goto deleted_slot_retry;
 
   pthread_mutex_unlock( &queue->_mutex );
 
@@ -123,6 +132,34 @@ int dbBE_Redis_connection_queue_push( dbBE_Redis_connection_queue_t *queue,
 
   queue->_connections[ head ] = conn;
   ++dbBE_Redis_connection_queue_head( queue );
+
+  pthread_mutex_unlock( &queue->_mutex );
+
+  return 0;
+}
+
+static inline
+int dbBE_Redis_connection_queue_remove_connection( dbBE_Redis_connection_queue_t *queue,
+                                                   const dbBE_Redis_connection_t *conn )
+{
+  if(( queue == NULL ) || ( conn == NULL ))
+    return -EINVAL;
+
+  pthread_mutex_lock( &queue->_mutex );
+
+  uint64_t n;
+  uint64_t head = dbBE_Redis_connection_queue_head( queue );
+  uint64_t tail = dbBE_Redis_connection_queue_tail( queue );
+
+  if( head == tail )
+  {
+    pthread_mutex_unlock( &queue->_mutex );
+    return 0;
+  }
+
+  for( n=tail; n<head; ++n )
+    if( queue->_connections[ n % DBBE_REDIS_MAX_CONNECTIONS ] == conn )
+      queue->_connections[ n % DBBE_REDIS_MAX_CONNECTIONS ] = NULL;
 
   pthread_mutex_unlock( &queue->_mutex );
 

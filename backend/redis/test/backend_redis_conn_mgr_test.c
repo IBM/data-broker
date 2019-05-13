@@ -62,8 +62,8 @@ int test_request_each( dbBE_Redis_connection_mgr_t *conn_mgr )
     req_queue = req_queue->_next;
 
     // check whether the request's connection index changes from request to request
-    rc += TEST_NOT( last_idx, req->_conn_index );
-    last_idx = req->_conn_index;
+    rc += TEST_NOT( last_idx, req->_location._data._conn_idx );
+    last_idx = req->_location._data._conn_idx;
 
     dbBE_Redis_request_destroy( req );
   }
@@ -82,6 +82,8 @@ int main( int argc, char ** argv )
   dbBE_Redis_connection_mgr_t *mgr = NULL;
   dbBE_Redis_connection_t *carray[ DBBE_REDIS_MAX_CONNECTIONS + 5 ];
   dbBE_Redis_locator_t *locator = NULL;
+  dbBE_Redis_cluster_info_t *cluster = NULL;
+  dbBE_Redis_result_t *result = NULL;
 
   char *host = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
   rc += TEST_NOT( host, NULL );
@@ -106,15 +108,15 @@ int main( int argc, char ** argv )
   LOG( DBG_ALL, stdout, "Connections limited to #%"PRId64"\n", flimit );
 
 
-  mgr = dbBE_Redis_connection_mgr_init();
-
-  rc += TEST_NOT( mgr, NULL );
+  rc += TEST_NOT_RC( dbBE_Redis_locator_create(), NULL, locator );
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_init(), NULL, mgr );
 
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_mgr_rm( mgr, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, NULL ), -EINVAL );
-  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( NULL, locator ), -EINVAL );
-  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, NULL ), 0 );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( NULL, NULL, NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, NULL, NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( NULL, locator, NULL ), -EINVAL );
 
   dbBE_Redis_connection_t *conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
@@ -123,7 +125,9 @@ int main( int argc, char ** argv )
 
   rc += TEST_NOT( dbBE_Redis_connection_link( conn, host, auth ), NULL );
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn ), 0 );
-
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_clusterinfo( mgr, conn, conn->_recvbuf ), NULL, result );
+  rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create( result ), NULL, cluster );
+  rc += TEST( dbBE_Redis_result_cleanup( result, 1 ), 0 );
 
   // test the NULL-ptr exit path, expect no changes after the first added connection
   dbBE_Redis_connection_mgr_exit( NULL );
@@ -176,7 +180,7 @@ int main( int argc, char ** argv )
   // fail one connection and try to recover
   dbBE_Redis_connection_t *dconn = carray[ 10 ];
   rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, dconn ), 0 );
-  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, locator ), 1 );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, locator, cluster ), 1 );
 
 
   // remove all connections
