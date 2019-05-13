@@ -32,6 +32,69 @@
 #include "test_utils.h"
 
 
+int dbBE_Redis_server_info_unit_tests()
+{
+  int rc = 0;
+
+  dbBE_Redis_server_info_t si;
+  memset( &si, 0, sizeof( dbBE_Redis_server_info_t ) );
+  si._server_count = 5;
+  si._first_slot = 0;
+  si._last_slot = DBBE_REDIS_HASH_SLOT_MAX-1;
+
+  // int dbBE_Redis_server_info_getsize( dbBE_Redis_server_info_t *si )
+  rc += TEST( dbBE_Redis_server_info_getsize( NULL ), 0 );
+  rc += TEST( dbBE_Redis_server_info_getsize( &si ), 5 );
+
+  // int dbBE_Redis_server_info_get_first_slot( dbBE_Redis_server_info_t *si )
+  rc += TEST( dbBE_Redis_server_info_get_first_slot( NULL ), DBBE_REDIS_HASH_SLOT_INVAL );
+  rc += TEST( dbBE_Redis_server_info_get_first_slot( &si ), 0 );
+
+  // int dbBE_Redis_server_info_get_last_slot( dbBE_Redis_server_info_t *si )
+  rc += TEST( dbBE_Redis_server_info_get_last_slot( NULL ), DBBE_REDIS_HASH_SLOT_INVAL );
+  rc += TEST( dbBE_Redis_server_info_get_last_slot( &si ), DBBE_REDIS_HASH_SLOT_MAX-1 );
+
+  // char* dbBE_Redis_server_info_get_replica( dbBE_Redis_server_info_t *si, const int index )
+  rc += TEST( dbBE_Redis_server_info_get_replica( NULL, 0 ), NULL );
+  rc += TEST( dbBE_Redis_server_info_get_replica( &si, -1 ), NULL );
+  rc += TEST( dbBE_Redis_server_info_get_replica( &si, 6 ), NULL );
+  rc += TEST( dbBE_Redis_server_info_get_replica( &si, DBBE_REDIS_CLUSTER_MAX_REPLICA ), NULL );
+  rc += TEST( dbBE_Redis_server_info_get_replica( &si, 1 ), NULL );
+
+  // char* dbBE_Redis_server_info_get_master( dbBE_Redis_server_info_t *si )
+  rc += TEST( dbBE_Redis_server_info_get_master( NULL ), NULL );
+  rc += TEST( dbBE_Redis_server_info_get_master( &si ), NULL ); // uninitialized si should return NULL as master
+
+  // int dbBE_Redis_server_info_update_master( dbBE_Redis_server_info_t *si, const int index )
+  rc += TEST( dbBE_Redis_server_info_update_master( NULL, 0 ), -EINVAL );
+  rc += TEST( dbBE_Redis_server_info_update_master( &si, -1 ), -EINVAL );
+  rc += TEST( dbBE_Redis_server_info_update_master( &si, 6 ), -EINVAL );
+  rc += TEST( dbBE_Redis_server_info_update_master( &si, 0 ), 0 );
+
+  // dbBE_Redis_server_info_t* dbBE_Redis_server_info_create( dbBE_Redis_result_t *sir );
+  dbBE_Redis_result_t result;
+  dbBE_REDIS_DATA_TYPE n;
+  for( n = dbBE_REDIS_TYPE_UNSPECIFIED; n < dbBE_REDIS_TYPE_MAX; ++n )
+  {
+    if( n == dbBE_REDIS_TYPE_ARRAY ) continue; // good case is tested elsewhere
+    result._type = n;
+    rc += TEST( dbBE_Redis_server_info_create( &result ), NULL );
+  }
+
+  result._type = dbBE_REDIS_TYPE_ARRAY;
+  result._data._array._len = 1;
+  rc += TEST( dbBE_Redis_server_info_create( &result ), NULL ); // array too short
+
+  // dbBE_Redis_server_info_t* dbBE_Redis_server_info_create_single( char *url )
+  rc += TEST( dbBE_Redis_server_info_create_single( NULL ), NULL );
+
+  // int dbBE_Redis_server_info_destroy( dbBE_Redis_server_info_t *si )
+  rc += TEST( dbBE_Redis_server_info_destroy( NULL ), -EINVAL );
+
+  printf( "Server_info_unit_test exiting with rc=%d\n", rc );
+  return rc;
+}
+
 int server_info_test()
 {
   int rc = 0;
@@ -127,6 +190,71 @@ int server_info_test()
   return rc;
 }
 
+// checking error/corner cases of cluster info type
+int dbBE_Redis_cluster_info_unit_tests()
+{
+  int rc = 0;
+  dbBE_Redis_cluster_info_t ci;
+  memset( &ci, 0, sizeof( dbBE_Redis_cluster_info_t ) );
+
+  // dbBE_Redis_cluster_info_getsize( ci )
+  ci._cluster_size = 5; // create an invalid/incomplete cluster info
+  rc += TEST( dbBE_Redis_cluster_info_getsize( NULL ), 0 );
+  rc += TEST( dbBE_Redis_cluster_info_getsize( &ci ), 5 );
+
+  // dbBE_Redis_server_info_t* dbBE_Redis_cluster_info_get_server( ci, index )
+  rc += TEST( dbBE_Redis_cluster_info_get_server( NULL, 0 ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server( &ci, -1 ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server( &ci, DBBE_REDIS_CLUSTER_MAX_SIZE ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server( &ci, 2 ), NULL ); // nothing added to cluster (except size set) should return clean NULL
+
+  // dbBE_Redis_server_info_t* dbBE_Redis_cluster_info_get_server_by_addr( ci, url )
+  rc += TEST( dbBE_Redis_cluster_info_get_server_by_addr( NULL, NULL ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server_by_addr( &ci, NULL ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server_by_addr( NULL, "sock://localhost:6300" ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server_by_addr( &ci, "sock://localhost:6300"), NULL ); // nothing added to cluster (except size set) should return clean NULL
+
+  // dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create_single( char *url );
+  rc += TEST( dbBE_Redis_cluster_info_create_single( NULL ), NULL );
+
+  // dbBE_Redis_cluster_info_t* dbBE_Redis_cluster_info_create( dbBE_Redis_result_t *cir )
+  dbBE_Redis_result_t result;
+  rc += TEST( dbBE_Redis_cluster_info_create( NULL ), NULL );
+  dbBE_REDIS_DATA_TYPE n;
+  for( n = dbBE_REDIS_TYPE_UNSPECIFIED; n < dbBE_REDIS_TYPE_MAX; ++n )
+  {
+    if( n == dbBE_REDIS_TYPE_ARRAY ) continue; // good case is tested elsewhere
+    result._type = n;
+    rc += TEST( dbBE_Redis_cluster_info_create( &result ), NULL );
+  }
+
+  // int dbBE_Redis_cluster_info_remove_entry_ptr( ci, *srv )
+  dbBE_Redis_server_info_t si;
+  memset( &si, 0, sizeof( dbBE_Redis_server_info_t ) );
+
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_ptr( NULL, NULL), -EINVAL );
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_ptr( &ci, NULL), -EINVAL );
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_ptr( NULL, &si), -EINVAL );
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_ptr( &ci, &si), -ENOENT );
+
+  ci._cluster_size = 0;
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_ptr( &ci, &si), -ENOENT );
+  ci._cluster_size = 5;
+
+  // int dbBE_Redis_cluster_info_remove_entry_idx( dbBE_Redis_cluster_info_t *ci, const int idx )
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_idx( NULL, 0 ), -EINVAL );
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_idx( &ci, -1 ), -EINVAL );
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_idx( &ci, 6 ), -EINVAL );
+  rc += TEST( dbBE_Redis_cluster_info_remove_entry_idx( &ci, 0 ), -EINVAL ); // attempt to delete NULL-ptr srv_entry will result in EINVAL
+
+  // int dbBE_Redis_cluster_info_destroy( dbBE_Redis_cluster_info_t *ci )
+  rc += TEST( dbBE_Redis_cluster_info_destroy( NULL ), -EINVAL );
+
+  printf( "Cluster_info_unit_tests exiting with rc=%d\n", rc );
+  return rc;
+}
+
+
 int cluster_info_test_create_server( dbBE_Redis_result_t *res, int idx, int scnt )
 {
   res->_type = dbBE_REDIS_TYPE_ARRAY;
@@ -147,7 +275,7 @@ int cluster_info_test_create_server( dbBE_Redis_result_t *res, int idx, int scnt
 
     res->_data._array._data[n]._data._array._data[0]._type = dbBE_REDIS_TYPE_CHAR;
     res->_data._array._data[n]._data._array._data[0]._data._string._data = strdup("127.0.0.1");
-    res->_data._array._data[n]._data._array._data[0]._data._string._data[8] += n;
+    res->_data._array._data[n]._data._array._data[0]._data._string._data[8] += (n-2);
     res->_data._array._data[n]._data._array._data[0]._data._string._size = 9;
 
     res->_data._array._data[n]._data._array._data[1]._type = dbBE_REDIS_TYPE_INT;
@@ -200,18 +328,38 @@ int cluster_info_test()
 
   dbBE_Redis_cluster_info_t *ci;
   rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create( result ), NULL, ci );
-
   rc += TEST( ci->_cluster_size, 3 );
-  rc += TEST( ci->_nodes[ 0 ]->_first_slot, 0 );
-  rc += TEST( ci->_nodes[ 1 ]->_first_slot, 1000 );
-  rc += TEST( ci->_nodes[ 2 ]->_first_slot, 2000 );
-  rc += TEST( ci->_nodes[ 0 ]->_last_slot, 999 );
-  rc += TEST( ci->_nodes[ 1 ]->_last_slot, 1999 );
-  rc += TEST( ci->_nodes[ 2 ]->_last_slot, 2999 );
 
-  rc += TEST( ci->_nodes[ 0 ]->_server_count, 1 );
-  rc += TEST( ci->_nodes[ 1 ]->_server_count, 2 );
-  rc += TEST( ci->_nodes[ 2 ]->_server_count, 4 );
+  dbBE_Redis_server_info_t *si = NULL;
+
+  // failure cases of get server
+  rc += TEST( dbBE_Redis_cluster_info_get_server( NULL, 0 ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server( ci, -1 ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server( ci, 3 ), NULL );
+
+  rc += TEST( dbBE_Redis_cluster_info_get_server_by_addr( NULL, NULL ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server_by_addr( NULL, "sock://127.0.0.1:6300" ), NULL );
+  rc += TEST( dbBE_Redis_cluster_info_get_server_by_addr( ci, NULL ), NULL );
+
+
+  // testing server data of server 0 (retrieved via index)
+  rc += TEST_NOT_RC( dbBE_Redis_cluster_info_get_server( ci, 0 ), NULL, si );
+  rc += TEST( dbBE_Redis_server_info_get_first_slot( si ), 0 );
+  rc += TEST( dbBE_Redis_server_info_get_last_slot( si ), 999 );
+  rc += TEST( dbBE_Redis_server_info_getsize( si ), 1 );
+
+  // testing server data of server 1 (retrieved via address)
+  rc += TEST_NOT_RC( dbBE_Redis_cluster_info_get_server_by_addr( ci, "sock://127.0.0.1:6301" ), NULL, si );
+  rc += TEST( dbBE_Redis_server_info_get_first_slot( si ), 1000 );
+  rc += TEST( dbBE_Redis_server_info_get_last_slot( si ), 1999 );
+  rc += TEST( dbBE_Redis_server_info_getsize( si ), 2 );
+
+  // testing server data of server 2 (retrieved via index)
+  rc += TEST_NOT_RC( dbBE_Redis_cluster_info_get_server( ci, 2 ), NULL, si );
+  rc += TEST( dbBE_Redis_server_info_get_first_slot( si ), 2000 );
+  rc += TEST( dbBE_Redis_server_info_get_last_slot( si ), 2999 );
+  rc += TEST( dbBE_Redis_server_info_getsize( si ), 4 );
+
 
   // result cleanup
   // free up the strdup-allocated entries in the result since they are not cleaned up by result_cleanup()
@@ -278,6 +426,8 @@ int main( int argc, char ** argv )
 {
   int rc = 0;
 
+  rc += dbBE_Redis_server_info_unit_tests();
+  rc += dbBE_Redis_cluster_info_unit_tests();
   rc += server_info_test();
   rc += cluster_info_test();
   rc += single_node_test();
