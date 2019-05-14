@@ -129,7 +129,22 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_mgr_retrieve_info( mgr, NULL, NULL, DBBE_INFO_CATEGORY_UNSPECIFIED ), NULL );
   rc += TEST( dbBE_Redis_connection_mgr_retrieve_info( mgr, conn, NULL, DBBE_INFO_CATEGORY_UNSPECIFIED ), NULL );
   rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_info( mgr, conn, conn->_recvbuf, DBBE_INFO_CATEGORY_CLUSTER_SLOTS ), NULL, result );
-  rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create( result ), NULL, cluster );
+
+  // split path to handle single node and cluster mode situations
+  if( result->_type == dbBE_REDIS_TYPE_ARRAY )
+    rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create( result ), NULL, cluster );
+  else
+    rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create_single( host ), NULL, cluster );
+
+
+  rc += TEST( dbBE_Redis_result_cleanup( result, 0 ), 0 );
+
+  TEST_BREAK( rc, "Cluster Info creation failed" );
+
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_info( mgr, conn, conn->_recvbuf, DBBE_INFO_CATEGORY_ROLE ), NULL, result );
+  rc += TEST( result->_type, dbBE_REDIS_TYPE_ARRAY );
+  rc += ( result->_data._array._len >= 3 ) ? 0 : 1;
+
   rc += TEST( dbBE_Redis_result_cleanup( result, 1 ), 0 );
 
   // test the NULL-ptr exit path, expect no changes after the first added connection
