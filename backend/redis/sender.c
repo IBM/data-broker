@@ -72,6 +72,107 @@ int dbBE_Redis_cmd_stage_needs_rekeying( dbBE_Redis_request_t *request )
 }
 
 
+static
+dbBE_Redis_request_t* dbBE_Redis_sender_acquire_request( dbBE_Redis_context_t *backend )
+{
+  // check for any activity according to priority
+  //  - request shelf (anything that had to wait because of broken connections)
+  //  - repeat/multistage/redirect (anything that needs an additional iteration)
+  //  - new user requests
+  dbBE_Redis_request_t *request = NULL; // todo: pick from shelf
+  dbBE_Request_t *user_req = NULL;
+
+  do
+  {
+    if( request == NULL )
+      request = dbBE_Redis_s2r_queue_pop( backend->_retry_q );
+
+    if( request == NULL )
+    {
+      user_req = dbBE_Request_queue_pop( backend->_work_q );
+      if( user_req != NULL )
+        request = dbBE_Redis_request_allocate( user_req );
+    }
+
+    // if there's really nothing to do: skip
+    if( request == NULL )
+      return NULL;
+
+
+    // Check if this request has been cancelled before continuing to process it
+    if( dbBE_Request_set_delete( backend->_cancellations, request->_user) != 0 )
+    {
+      dbBE_Completion_t *completion = dbBE_Redis_complete_cancel(
+          request,
+          DBR_ERR_CANCELLED );
+
+      if( completion != NULL )
+        if( dbBE_Completion_queue_push( backend->_compl_q, completion ) != 0 )
+        {
+          free( completion );
+          dbBE_Redis_request_destroy( request );
+          fprintf( stderr, "RedisBE: Failed to queue completion.\n" );
+          // todo: save the status to mark the request for cleanup during the next stages
+        }
+
+      // clean the RedisBE request struct
+      dbBE_Redis_request_destroy( request );
+      request = NULL;
+    }
+  } while( request == NULL ); // repeat in case there was a cancellation
+  return request;
+}
+
+static
+dbBE_Redis_connection_t* dbBE_Redis_sender_find_connection( dbBE_Redis_context_t *backend,
+                                                            dbBE_Redis_request_t *request )
+{
+  dbBE_Redis_connection_t *conn = NULL;
+
+  /*
+   * Do the location check/retrieval each time and also for multi-stage requests
+   * because the key might have changed and then the conn-index would be off.
+   */
+  if( dbBE_Redis_cmd_stage_needs_rekeying( request ) != 0 )
+  {
+    char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
+    if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
+    {
+      dbBE_Redis_create_send_error( backend->_compl_q, request, -EINVAL );
+      return NULL;
+    }
+
+    /*
+     * use locator to retrieve address
+     * unless it's a redirect (ASK) which directly contains
+     * a direct connection pointer for temporary requesting a different server
+     */
+    uint16_t slot = dbBE_Redis_locator_hash( keybuffer, strnlen( keybuffer, DBBE_REDIS_MAX_KEY_LEN ) );
+    if( request->_location._type != DBBE_REDIS_REQUEST_LOCATION_TYPE_CONNECTION )
+    {
+      request->_location._data._conn_idx = dbBE_Redis_locator_get_conn_index( backend->_locator, slot );
+      if( request->_location._data._conn_idx == DBBE_REDIS_LOCATOR_INDEX_INVAL )
+        request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN;
+      else
+        request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT;
+    }
+
+    if( request->_location._type == DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN )
+    {
+      dbBE_Redis_create_send_error( backend->_compl_q, request, -ENOTCONN );
+      return NULL;
+    }
+  }
+
+  // connection mgr to retrieve the sr_buffer + socket
+  if( request->_location._type == DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT )
+    conn = dbBE_Redis_connection_mgr_get_connection_at( backend->_conn_mgr, request->_location._data._conn_idx );
+  else
+    conn = request->_location._data._connection;
+
+  return conn;
+}
+
 /*
  * sender function, creates requests to redis
  */
@@ -92,33 +193,6 @@ void* dbBE_Redis_sender( void *args )
     return NULL;
   }
 
-  /*
-   * Input:
-   *  - user request queue(s)
-   *  - redirection/retry queue from receiver
-   *  - list/map of send buffers + Redis server instance references
-   */
-
-  // check for any activity:
-  //  - on the redirect/retry queue (priority!!)
-  dbBE_Redis_request_t *request = dbBE_Redis_s2r_queue_pop( input->_backend->_retry_q );
-  dbBE_Request_t *user_req = NULL;
-
-  //  - on the request queue
-  if( request == NULL )
-  {
-    user_req = dbBE_Request_queue_pop( input->_backend->_work_q );
-    if( user_req == NULL )
-    {
-      goto skip_sending;
-    }
-
-    request = dbBE_Redis_request_allocate( user_req );
-    if( request == NULL )
-    {
-      goto skip_sending;
-    }
-  }
 
   /*
    * check server connections,
@@ -131,76 +205,22 @@ void* dbBE_Redis_sender( void *args )
                                                 input->_backend->_locator,
                                                 input->_backend->_cluster_info ) == 0 )
     {
-      dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
       goto skip_sending;
     }
   }
 
-  // check for any cancelled requests and process cancellations
-  /*
-   * Do the location check/retrieval each time and also for multi-stage requests
-   * because the key might have changed and then the conn-index would be off.
-   * Also, check the hash-coverage in case there were any connection failures.
-   */
-  if( dbBE_Redis_cmd_stage_needs_rekeying( request ) != 0 )
-  {
-    char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
-    if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
-    {
-      dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -EINVAL );
-      goto skip_sending;
-    }
+  dbBE_Redis_request_t *request = NULL;
+  int send_limit = 128 * 1024 * 1024;
 
-    /*
-     * use locator to retrieve address
-     * unless it's a redirect (ASK) which directly contains
-     * a direct connection pointer for temporary requesting a different server
-     */
-    uint16_t slot = dbBE_Redis_locator_hash( keybuffer, strnlen( keybuffer, DBBE_REDIS_MAX_KEY_LEN ) );
-    if( request->_location._type != DBBE_REDIS_REQUEST_LOCATION_TYPE_CONNECTION )
-    {
-      request->_location._data._conn_idx = dbBE_Redis_locator_get_conn_index( input->_backend->_locator, slot );
-      if( request->_location._data._conn_idx == DBBE_REDIS_LOCATOR_INDEX_INVAL )
-        request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN;
-      else
-        request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT;
-    }
+acquire_another_request:
 
-    if( request->_location._type == DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN )
-    {
-      dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
-      goto skip_sending;
-    }
-  }
-
-  if( dbBE_Request_set_delete( input->_backend->_cancellations, request->_user) != 0 )
-  {
-    dbBE_Completion_t *completion = dbBE_Redis_complete_cancel(
-        request,
-        rc );
-
-    if( completion != NULL )
-      if( dbBE_Completion_queue_push( input->_backend->_compl_q, completion ) != 0 )
-      {
-        free( completion );
-        dbBE_Redis_request_destroy( request );
-        fprintf( stderr, "RedisBE: Failed to queue completion.\n" );
-        // todo: save the status to mark the request for cleanup during the next stages
-      }
-
-    // clean the RedisBE request struct
-    dbBE_Redis_request_destroy( request );
-    request = NULL;
-    rc = 0;
+  request = dbBE_Redis_sender_acquire_request( input->_backend );
+  if( request == NULL )
     goto skip_sending;
-  }
 
-  // connection mgr to retrieve the sr_buffer + socket
-  dbBE_Redis_connection_t *conn = NULL;
-  if( request->_location._type == DBBE_REDIS_REQUEST_LOCATION_TYPE_SLOT )
-    conn = dbBE_Redis_connection_mgr_get_connection_at( input->_backend->_conn_mgr, request->_location._data._conn_idx );
-  else
-    conn = request->_location._data._connection;
+
+  // find out which connection to use
+  dbBE_Redis_connection_t *conn = dbBE_Redis_sender_find_connection( input->_backend, request );
 
   if( conn == NULL )
   {
@@ -237,6 +257,7 @@ void* dbBE_Redis_sender( void *args )
     dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
     goto skip_sending;
   }
+  send_limit -= rc;
   dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
 
   // store request to posted requests queue
@@ -247,13 +268,10 @@ void* dbBE_Redis_sender( void *args )
     goto skip_sending;
   }
 
+  if( send_limit > 0 )
+    goto acquire_another_request;
 
 skip_sending:
-  if(( rc < 0 ) && ( user_req != NULL ))
-  {
-    dbBE_Redis_request_destroy( request );
-    request = NULL;
-  }
   dbBE_Redis_receiver_trigger( input->_backend );
 
   // complete the request with an error
