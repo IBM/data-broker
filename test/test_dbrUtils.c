@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,9 @@ int dbrTag_get_test( dbrMain_context_t *mc )
   int rc = 0;
   int n = 0;
   DBR_Tag_t tag;
+
+  if( mc == NULL )
+    return 1;
   while(( tag = dbrTag_get( mc ) ) != DB_TAG_ERROR )
   {
     ++n;
