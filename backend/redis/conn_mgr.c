@@ -428,7 +428,7 @@ dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_info( dbBE_Redis_connect
   switch( category )
   {
     case DBBE_INFO_CATEGORY_ROLE:
-      len = snprintf( sbuf, buf_space, "$4\r\nROLE\r\n" );
+      len = snprintf( sbuf, buf_space, "*1\r\n$4\r\nROLE\r\n" );
       break;
     case DBBE_INFO_CATEGORY_CLUSTER_SLOTS:
       len = snprintf( sbuf, buf_space, "*2\r\n$7\r\nCLUSTER\r\n$5\r\nSLOTS\r\n" );
