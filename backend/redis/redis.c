@@ -366,7 +366,35 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 #define DBBE_REDIS_INFO_PER_SERVER ( 4096 )
   iobuf = dbBE_Transport_sr_buffer_allocate( dbBE_Redis_connection_mgr_get_connections( ctx->_conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
 
-  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_clusterinfo( ctx->_conn_mgr, initial_conn, iobuf );
+  // find out if we need to tear down the initial connection later because it's a connection to a replica
+  int replica_conn = 0;
+  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_info( ctx->_conn_mgr, initial_conn, iobuf, DBBE_INFO_CATEGORY_ROLE );
+  if( result == NULL )
+  {
+    rc = -ENOTCONN;
+    goto exit_connect;
+  }
+
+  if(( result->_type == dbBE_REDIS_TYPE_ARRAY ) &&
+      ( result->_data._array._len >= 3 ) &&
+      ( result->_data._array._data[0]._type == dbBE_REDIS_TYPE_CHAR ))
+  {
+    char *role = result->_data._array._data[0]._data._string._data;
+
+    // check if we're connected to a master or a replica: if replica, then mark initial connection to be disconnected
+    if( strncmp( role, "master", result->_data._array._data[0]._data._string._size ) != 0 )
+      replica_conn = 1;
+  }
+  else
+  {
+    rc = -ENOTCONN;
+    goto exit_connect;
+  }
+
+  // cleanup for the next stage
+  dbBE_Redis_result_cleanup( result, 0 );
+
+  result = dbBE_Redis_connection_mgr_retrieve_info( ctx->_conn_mgr, initial_conn, iobuf, DBBE_INFO_CATEGORY_CLUSTER_SLOTS );
   if( result == NULL )
   {
     rc = -ENOTCONN;
@@ -387,6 +415,14 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   {
     rc = -ENOTCONN;
     goto exit_connect;
+  }
+
+  // replica connection needs to be torn down to make sure the initial connections are all master connections
+  if( replica_conn != 0 )
+  {
+    dbBE_Redis_connection_mgr_rm( ctx->_conn_mgr, initial_conn );
+    dbBE_Redis_connection_destroy( initial_conn );
+    initial_conn = NULL;
   }
 
   ctx->_cluster_info = cl_info;

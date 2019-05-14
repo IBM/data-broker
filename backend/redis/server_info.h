@@ -55,19 +55,19 @@ int dbBE_Redis_server_info_getsize( dbBE_Redis_server_info_t *si )
 static inline
 int dbBE_Redis_server_info_get_first_slot( dbBE_Redis_server_info_t *si )
 {
-  return ( si != NULL ) ? si->_first_slot : 0;
+  return ( si != NULL ) ? si->_first_slot : DBBE_REDIS_HASH_SLOT_INVAL;
 }
 
 static inline
 int dbBE_Redis_server_info_get_last_slot( dbBE_Redis_server_info_t *si )
 {
-  return ( si != NULL ) ? si->_last_slot : 0;
+  return ( si != NULL ) ? si->_last_slot : DBBE_REDIS_HASH_SLOT_INVAL;
 }
 
 static inline
 char* dbBE_Redis_server_info_get_replica( dbBE_Redis_server_info_t *si, const int index )
 {
-  return ( si != NULL ) && ( index >= 0 ) && ( index < DBBE_REDIS_CLUSTER_MAX_REPLICA ) ? si->_servers[ index ] : NULL;
+  return ( si != NULL ) && ( index >= 0 ) && ( index < si->_server_count ) ? si->_servers[ index ] : NULL;
 }
 
 static inline

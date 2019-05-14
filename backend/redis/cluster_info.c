@@ -112,7 +112,7 @@ int dbBE_Redis_cluster_info_remove_entry_ptr( dbBE_Redis_cluster_info_t *ci,
     if( n < ci->_cluster_size - 1 )
       ci->_nodes[ n ] = ci->_nodes[ shift ];
   }
-  if( shift == 0 )
+  if(( shift == 0 )||( ci->_cluster_size == 0 ))
     return -ENOENT;
 
   ci->_nodes[ ci->_cluster_size - shift ] = NULL;
@@ -124,7 +124,7 @@ int dbBE_Redis_cluster_info_remove_entry_ptr( dbBE_Redis_cluster_info_t *ci,
 
 int dbBE_Redis_cluster_info_remove_entry_idx( dbBE_Redis_cluster_info_t *ci, const int idx )
 {
-  if(( ci == NULL ) || ( idx >= ci->_cluster_size ))
+  if(( ci == NULL ) || ( idx >= ci->_cluster_size ) || ( idx < 0 ))
     return -EINVAL;
 
   int n;

@@ -483,7 +483,7 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
                                     dbBE_sge_t *cmd,
                                     const int cmdlen )
 {
-  if(( conn == NULL ) || ( cmd == NULL ))
+  if(( conn == NULL ) || ( cmd == NULL ) || ( cmdlen <= 0 ) || ( cmdlen > DBBE_SGE_MAX ))
     return -EINVAL;
   if( ! dbBE_Redis_connection_RTS( conn ) )
     return -ENOTCONN;

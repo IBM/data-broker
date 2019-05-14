@@ -28,6 +28,14 @@
 #include "result.h"
 #include "cluster_info.h"
 
+typedef enum
+{
+  DBBE_INFO_CATEGORY_UNSPECIFIED = 0,
+  DBBE_INFO_CATEGORY_ROLE = 1,
+  DBBE_INFO_CATEGORY_CLUSTER_SLOTS = 2,
+  DBBE_INFO_CATEGORY_MAX = 3
+}  dbBE_Redis_cluster_info_category_t;
+
 typedef struct
 {
   // connection list
@@ -132,8 +140,9 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
 /*
  * send CLUSTER command to Redis and retrieve+parse the response into result structure
  */
-dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_clusterinfo( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                                                     dbBE_Redis_connection_t *conn,
-                                                                     dbBE_Redis_sr_buffer_t *iobuf );
+dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_info( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                              dbBE_Redis_connection_t *conn,
+                                                              dbBE_Redis_sr_buffer_t *iobuf,
+                                                              const dbBE_Redis_cluster_info_category_t category );
 
 #endif /* BACKEND_REDIS_CONN_MGR_H_ */
