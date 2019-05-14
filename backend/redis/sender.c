@@ -199,15 +199,11 @@ void* dbBE_Redis_sender( void *args )
    * fail any request if there's a connection missing
    * because the cluster will not accept new requests anyway
    */
-  if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
-  {
-    if( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr,
+  if(( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 ) &&
+      ( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr,
                                                 input->_backend->_locator,
-                                                input->_backend->_cluster_info ) == 0 )
-    {
-      goto skip_sending;
-    }
-  }
+                                                input->_backend->_cluster_info ) <= 0 ))
+      return NULL;
 
   dbBE_Redis_request_t *request = NULL;
   int send_limit = 128 * 1024 * 1024;
