@@ -66,7 +66,12 @@ void* dbBE_Redis_receiver( void *args )
   //  - on the receive buffers/Redis sockets
   //  - on a notification/wake-up pipe for cancellations/urgent matters
 
-  dbBE_Redis_connection_t *conn = dbBE_Redis_connection_mgr_get_active( input->_backend->_conn_mgr, 0 );
+  int receive_limit = 128 * 1024 * 1024;
+  dbBE_Redis_connection_t *conn = NULL;
+
+receive_more_responses:
+
+  conn = dbBE_Redis_connection_mgr_get_active( input->_backend->_conn_mgr, 0 );
   if( conn == NULL )
     goto skip_receiving;
 
@@ -109,6 +114,7 @@ void* dbBE_Redis_receiver( void *args )
 
   // assume this is a new request
   int responses_remain = 0;
+  receive_limit -= rc;
 
 process_next_item:
 
@@ -367,6 +373,8 @@ process_next_item:
     goto process_next_item;
   dbBE_Redis_result_cleanup( &result, 0 );
 
+  if( receive_limit > 0 )
+    goto receive_more_responses;
 
 skip_receiving:
   free( args );
