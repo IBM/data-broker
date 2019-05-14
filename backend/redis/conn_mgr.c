@@ -408,9 +408,10 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
 }
 
 // this is an expensive operation, don't put it into the critical path
-dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_clusterinfo( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                                                     dbBE_Redis_connection_t *conn,
-                                                                     dbBE_Redis_sr_buffer_t *iobuf )
+dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_info( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                              dbBE_Redis_connection_t *conn,
+                                                              dbBE_Redis_sr_buffer_t *iobuf,
+                                                              const dbBE_Redis_cluster_info_category_t category )
 {
   if(( conn == NULL ) || ( conn_mgr == NULL ) || ( iobuf == NULL ))
     return NULL;
@@ -423,7 +424,22 @@ dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_clusterinfo( dbBE_Redis_
   int64_t buf_space = dbBE_Transport_sr_buffer_remaining( iobuf );
 
   // send cluster-info request
-  int len = snprintf( sbuf, buf_space, "*2\r\n$7\r\nCLUSTER\r\n$5\r\nSLOTS\r\n" );
+  int len = 0;
+  switch( category )
+  {
+    case DBBE_INFO_CATEGORY_ROLE:
+      len = snprintf( sbuf, buf_space, "$4\r\nROLE\r\n" );
+      break;
+    case DBBE_INFO_CATEGORY_CLUSTER_SLOTS:
+      len = snprintf( sbuf, buf_space, "*2\r\n$7\r\nCLUSTER\r\n$5\r\nSLOTS\r\n" );
+      break;
+    default:
+      return NULL;
+  }
+
+  if( len <= 0 )
+    return NULL;
+
   dbBE_Transport_sr_buffer_add_data( iobuf, len, 1 );
 
   // send the request

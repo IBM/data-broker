@@ -366,7 +366,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 #define DBBE_REDIS_INFO_PER_SERVER ( 4096 )
   iobuf = dbBE_Transport_sr_buffer_allocate( dbBE_Redis_connection_mgr_get_connections( ctx->_conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
 
-  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_clusterinfo( ctx->_conn_mgr, initial_conn, iobuf );
+  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_info( ctx->_conn_mgr, initial_conn, iobuf, DBBE_INFO_CATEGORY_CLUSTER_SLOTS );
   if( result == NULL )
   {
     rc = -ENOTCONN;
