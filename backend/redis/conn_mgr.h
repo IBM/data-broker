@@ -78,9 +78,10 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
 /*
  * attempt to recover the conn_mgr connectivity
  */
-int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                            dbBE_Redis_locator_t *locator,
-                                            dbBE_Redis_cluster_info_t *cluster );
+dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
+    dbBE_Redis_connection_mgr_t *conn_mgr,
+    dbBE_Redis_locator_t *locator,
+    dbBE_Redis_cluster_info_t *cluster );
 
 /*
  * Remove a connection from the mgr
@@ -144,5 +145,20 @@ dbBE_Redis_result_t* dbBE_Redis_connection_mgr_retrieve_info( dbBE_Redis_connect
                                                               dbBE_Redis_connection_t *conn,
                                                               dbBE_Redis_sr_buffer_t *iobuf,
                                                               const dbBE_Redis_cluster_info_category_t category );
+
+/*
+ * contact the node and retrieve role information.
+ * then return
+ *  0  - if not master
+ *  1  - if master
+ *  <0 - if error
+ */
+int dbBE_Redis_connection_mgr_is_master( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                         dbBE_Redis_connection_t *conn );
+
+/*
+ * create a cluster info structure after retrieving an updated cluster info (works for non-cluster as well)
+ */
+dbBE_Redis_cluster_info_t* dbBE_Redis_connection_mgr_get_cluster_info( dbBE_Redis_connection_mgr_t *conn_mgr );
 
 #endif /* BACKEND_REDIS_CONN_MGR_H_ */

@@ -33,6 +33,9 @@
 
 #define DBBE_REDIS_CONN_MGR_TRACKED_EVENTS ( EPOLLET | EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLPRI )
 
+#define DBBE_REDIS_INFO_PER_SERVER ( 4096 )
+
+
 /*
  * initialize the connection mgr
  */
@@ -215,20 +218,30 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
   return 0;
 }
 
-int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                            dbBE_Redis_locator_t *locator,
-                                            dbBE_Redis_cluster_info_t *cluster )
+/*
+ * return recoverable status
+ * -1 -> impossible to recover
+ * 0 -> successfully recovered
+ * 1 -> recovery still possible
+ */
+dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
+    dbBE_Redis_connection_mgr_t *conn_mgr,
+    dbBE_Redis_locator_t *locator,
+    dbBE_Redis_cluster_info_t *cluster )
 {
   if(( conn_mgr == NULL ) || ( locator == NULL ) || ( cluster == NULL ))
-    return -EINVAL;
+    return DBBE_REDIS_CONNECTION_ERROR;
 
   unsigned c;
+  int orig_conn_index = -1;
+  dbBE_Redis_connection_recoverable_t recoverable = DBBE_REDIS_CONNECTION_RECOVERABLE;  // assume recoverable but not yet recovered
   int recovered = 0;
   for( c=0; c < DBBE_REDIS_MAX_CONNECTIONS; ++c )
   {
     dbBE_Redis_connection_t *rec = conn_mgr->_broken[ c ];
     if( rec != NULL )
     {
+      orig_conn_index = rec->_index;
       rec->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
       if( dbBE_Redis_connection_reconnect( rec ) == 0 )
       {
@@ -236,7 +249,6 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
         conn_mgr->_connections[ c ] = NULL;
         conn_mgr->_broken[ c ] = NULL;
         dbBE_Redis_connection_mgr_add( conn_mgr, rec );
-        ++recovered;
         dbBE_Redis_slot_bitmap_t *bitmap = dbBE_Redis_connection_get_slot_range( rec );
         for( slot=0;
             (locator != NULL) && ( bitmap != NULL ) && (slot < DBBE_REDIS_HASH_SLOT_MAX);
@@ -245,6 +257,7 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
           if( dbBE_Redis_slot_bitmap_get( bitmap, slot ) != 0 )
             dbBE_Redis_locator_assign_conn_index( locator, c, slot );
         }
+        ++recovered;
       }
       else
       {
@@ -258,6 +271,11 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
           int last_slot = dbBE_Redis_server_info_get_last_slot( server );
           int n;
 
+          if(( server->_server_count == 1 ) && ( dbBE_Redis_connection_recoverable( rec ) == DBBE_REDIS_CONNECTION_UNRECOVERABLE ))
+          {
+            return DBBE_REDIS_CONNECTION_UNRECOVERABLE;  // return as unable to recover
+          }
+
           for( n = 0; ( n < server->_server_count ) && ( recovered == 0 ); ++n )
           {
             // don't retry the master, that failed above already. (assuming the bookkeeping is correct)
@@ -269,7 +287,7 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
             dbBE_Redis_connection_t *repl_conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, addr );
             if( repl_conn == NULL )
             {
-              recovered = 0;
+              recoverable = DBBE_REDIS_CONNECTION_RECOVERABLE;
               break;
             }
 
@@ -283,18 +301,25 @@ int dbBE_Redis_connection_mgr_conn_recover( dbBE_Redis_connection_mgr_t *conn_mg
                                                            last_slot,
                                                            repl_conn->_index );
 
-            ++recovered;
             dbBE_Redis_server_info_update_master( server, n ); // make the connection to this replica the new master
             dbBE_Redis_connection_destroy( rec ); // delete the old connection
+            ++recovered;
           }
-        }
+        } // if( server != NULL )
+      } // if( dbBE_Redis_connection_reconnect( rec ) == 0 )
 
-        if( recovered == 0 )
-          LOG( DBG_VERBOSE, stderr, "conn_mgr_conn_recover: failed to reconnect or recover index %d. Also failed to find/connect to replicas\n", rec->_index );
-      }
-    }
-  }
-  return recovered;
+      if( recovered == 0 )
+        LOG( DBG_VERBOSE, stderr, "conn_mgr_conn_recover: failed to reconnect or recover index %d. Also failed to find/connect to replicas\n", orig_conn_index );
+    } // if( rec != NULL )
+  } // for( c=0; c < DBBE_REDIS_MAX_CONNECTIONS; ++c )
+
+  // check how far we got with recovery
+  if( dbBE_Redis_locator_hash_covered( locator ) == 1 )
+    recoverable = DBBE_REDIS_CONNECTION_RECOVERED;
+  else
+    recoverable = DBBE_REDIS_CONNECTION_RECOVERABLE;
+
+  return recoverable;
 }
 
 /*
@@ -479,4 +504,95 @@ error:
   if( iobuf )
     dbBE_Transport_sr_buffer_free( iobuf );
   return NULL;
+}
+
+int dbBE_Redis_connection_mgr_is_master( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                         dbBE_Redis_connection_t *conn )
+{
+  if(( conn_mgr == NULL ) || ( conn == NULL ))
+    return -EINVAL;
+
+  dbBE_Redis_sr_buffer_t *iobuf = dbBE_Transport_sr_buffer_allocate(
+      dbBE_Redis_connection_mgr_get_connections( conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
+  if( iobuf == NULL )
+    return -ENOMEM;
+
+  int rc = 0;
+  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_info( conn_mgr, conn, iobuf, DBBE_INFO_CATEGORY_ROLE );
+  if( result == NULL )
+  {
+    rc = -ENOTCONN;
+    goto exit_is_master;
+  }
+
+  if(( result->_type == dbBE_REDIS_TYPE_ARRAY ) &&
+      ( result->_data._array._len >= 3 ) &&
+      ( result->_data._array._data[0]._type == dbBE_REDIS_TYPE_CHAR ))
+  {
+    char *role = result->_data._array._data[0]._data._string._data;
+
+    // check if we're connected to a master or a replica: if replica, then mark initial connection to be disconnected
+    if( strncmp( role, "master", result->_data._array._data[0]._data._string._size ) == 0 )
+      rc = 1;
+  }
+  else
+    rc = -ENOTCONN;
+
+  // cleanup for the next stage
+  dbBE_Redis_result_cleanup( result, 1 );
+
+exit_is_master:
+  if( iobuf != NULL )
+    dbBE_Transport_sr_buffer_free( iobuf );
+  return rc;
+
+}
+
+
+dbBE_Redis_cluster_info_t* dbBE_Redis_connection_mgr_get_cluster_info( dbBE_Redis_connection_mgr_t *conn_mgr )
+{
+  if( conn_mgr == NULL )
+    return NULL;
+
+  // search for a functional connection
+  dbBE_Redis_connection_t *initial_conn = NULL;
+  unsigned n;
+  for( n=0; (n<DBBE_REDIS_MAX_CONNECTIONS) && (initial_conn == NULL); ++n )
+    if( dbBE_Redis_connection_RTR( conn_mgr->_connections[ n ] ) )
+      initial_conn = conn_mgr->_connections[ n ];
+
+  if( initial_conn == NULL )
+    return NULL;
+
+  dbBE_Redis_sr_buffer_t *iobuf = dbBE_Transport_sr_buffer_allocate(
+      dbBE_Redis_connection_mgr_get_connections( conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
+  if( iobuf == NULL )
+    return NULL;
+
+  // retrieve the cluster info
+  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_info(
+      conn_mgr, initial_conn, iobuf, DBBE_INFO_CATEGORY_CLUSTER_SLOTS );
+  if( result == NULL )
+  {
+    dbBE_Transport_sr_buffer_free( iobuf );
+    return NULL;
+  }
+
+  dbBE_Redis_cluster_info_t *cl_info = dbBE_Redis_cluster_info_create( result );
+  dbBE_Redis_result_cleanup( result, 1 );
+
+  dbBE_Transport_sr_buffer_free( iobuf );
+
+  // do we have single-node Redis server?
+  if( cl_info == NULL )
+  {
+    char *env_url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+    if( env_url != NULL )
+    {
+      cl_info = dbBE_Redis_cluster_info_create_single( env_url );
+      free( env_url);
+    }
+  }
+
+  return cl_info;
 }
