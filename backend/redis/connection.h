@@ -98,11 +98,15 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
         (conn)->_status = DBBE_CONNECTION_STATUS_FAILED; \
     }
 
-#define dbBE_Redis_connection_RTR( conn ) \
+#define dbBE_Redis_connection_RTR_nocheck( conn ) \
     ( ((conn)->_status == DBBE_CONNECTION_STATUS_AUTHORIZED ) || ((conn)->_status == DBBE_CONNECTION_STATUS_PENDING_DATA ) )
 
+#define dbBE_Redis_connection_RTR( conn ) \
+    ( ( (conn) != NULL ) && dbBE_Redis_connection_RTR_nocheck( conn ) )
+
+
 #define dbBE_Redis_connection_RTS( conn ) \
-  ( ((conn)->_status == DBBE_CONNECTION_STATUS_CONNECTED ) || dbBE_Redis_connection_RTR( conn ) )
+  ( ( (conn) != NULL ) && ( ((conn)->_status == DBBE_CONNECTION_STATUS_CONNECTED ) || dbBE_Redis_connection_RTR_nocheck( conn ) ) )
 
 
 /*
