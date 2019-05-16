@@ -199,11 +199,33 @@ void* dbBE_Redis_sender( void *args )
    * fail any request if there's a connection missing
    * because the cluster will not accept new requests anyway
    */
-  if(( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 ) &&
-      ( dbBE_Redis_connection_mgr_conn_recover( input->_backend->_conn_mgr,
-                                                input->_backend->_locator,
-                                                input->_backend->_cluster_info ) <= 0 ))
-      return NULL;
+  if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
+  {
+    dbBE_Redis_connection_recoverable_t recoverable = dbBE_Redis_connection_mgr_conn_recover(
+        input->_backend->_conn_mgr,
+        input->_backend->_locator,
+        input->_backend->_cluster_info );
+
+    switch( recoverable )
+    {
+      case DBBE_REDIS_CONNECTION_RECOVERABLE:  // recoverable but not yet recovered
+        return NULL;
+        break;
+      case DBBE_REDIS_CONNECTION_RECOVERED: // recovered
+        // nothing to do, we're good to continue
+        break;
+      case DBBE_REDIS_CONNECTION_UNRECOVERABLE: // not recoverable at the moment
+      default: // unrecognized
+      {
+        // flush queues
+        dbBE_Redis_request_t *request;
+        while( ( request = dbBE_Redis_s2r_queue_pop( input->_backend->_retry_q )) != NULL )
+          dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
+        return NULL;
+        break;
+      }
+    }
+  }
 
   dbBE_Redis_request_t *request = NULL;
   int send_limit = 128 * 1024 * 1024;
