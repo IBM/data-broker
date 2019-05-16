@@ -265,6 +265,19 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   return conn->_address;
 }
 
+dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_recoverable( dbBE_Redis_connection_t *conn )
+{
+  // grab the timestamp or reconnection counter and decide based on that whether it's considered recoverable or not
+  if( dbBE_Redis_connection_RTR( conn ) )
+    return DBBE_REDIS_CONNECTION_RECOVERED;
+
+  struct timeval now;
+  gettimeofday( &now, NULL );
+  if(( now.tv_sec - conn->_last_alive.tv_sec ) < 10 )
+    return DBBE_REDIS_CONNECTION_RECOVERABLE;
+  return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
+}
+
 int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
 {
   int rc = 0;
@@ -537,6 +550,7 @@ int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
 //  dbBE_Redis_address_destroy( conn->_address );
 //  conn->_address = NULL;
 
+  gettimeofday( &conn->_last_alive, NULL );
   return 0;
 }
 

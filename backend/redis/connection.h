@@ -40,6 +40,13 @@ typedef enum
   DBBE_CONNECTION_STATUS_MAX
 } dbBE_Connection_status_t;
 
+typedef enum
+{
+  DBBE_REDIS_CONNECTION_ERROR = -1,
+  DBBE_REDIS_CONNECTION_RECOVERED = 0,
+  DBBE_REDIS_CONNECTION_RECOVERABLE = 1,
+  DBBE_REDIS_CONNECTION_UNRECOVERABLE = 2
+} dbBE_Redis_connection_recoverable_t;
 
 typedef struct dbBE_Redis_connection
 {
@@ -53,6 +60,7 @@ typedef struct dbBE_Redis_connection
   dbBE_Redis_s2r_queue_t *_posted_q;
   dbBE_Redis_slot_bitmap_t *_slots;
   volatile dbBE_Connection_status_t _status;
+  struct timeval _last_alive;
 } dbBE_Redis_connection_t;
 
 
@@ -136,6 +144,12 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
 dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
                                                   const char *url,
                                                   const char *authfile );
+
+/*
+ * return 0 if the connection is considered not recoverable
+ * return 1 otherwise
+ */
+dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_recoverable( dbBE_Redis_connection_t *conn );
 
 /*
  * reconnect to a Redis instance that was connected before
