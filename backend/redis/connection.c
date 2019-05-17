@@ -158,7 +158,7 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
     int n;
 
     dbBE_Redis_slot_bitmap_reset( conn->_slots );
-    for( n=first_slot; n<last_slot; ++n )
+    for( n=first_slot; n<=last_slot; ++n )
       dbBE_Redis_slot_bitmap_set( conn->_slots, n );
   }
   return 0;
