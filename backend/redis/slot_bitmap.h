@@ -119,7 +119,7 @@ int dbBE_Redis_slot_bitmap_get( dbBE_Redis_slot_bitmap_t *sb, int slot )
     return -EINVAL;
 
   // just need to check the bottom, since the top only reflects the total
-  if(sb->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) & (1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot)) ] != 0)
+  if( (sb->_bottom[ DBBE_REDIS_SLOT_BITMAP_IBOT(slot) ] & (1ull << DBBE_REDIS_SLOT_BITMAP_OBOT(slot)) ) != 0)
     return 1;
   else
     return 0;
