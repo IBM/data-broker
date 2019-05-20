@@ -75,6 +75,20 @@ dbBE_Redis_server_info_t* dbBE_Redis_cluster_info_get_server_by_addr( dbBE_Redis
     if( strncmp( master, url, DBR_SERVER_URL_MAX_LENGTH ) == 0 )
       return ci->_nodes[ n ];
   }
+  // if the requested URL was not a master:
+  for( n=0; n < ci->_cluster_size; ++n )
+  {
+    dbBE_Redis_server_info_t *si = ci->_nodes[ n ];
+    int s;
+    for( s=0; s < dbBE_Redis_server_info_getsize( si ); ++s )
+    {
+      char *srv = dbBE_Redis_server_info_get_replica( si, s );
+      if( srv == NULL )
+        continue;
+      if( strncmp( srv, url, DBR_SERVER_URL_MAX_LENGTH ) == 0 )
+        return ci->_nodes[ n ];
+    }
+  }
   return NULL;
 }
 
