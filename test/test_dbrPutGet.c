@@ -211,6 +211,13 @@ int main( int argc, char ** argv )
   rc += TEST_RC( dbrRemove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "" ), DBR_SUCCESS, ret );
   rc += TEST_RC( dbrGet( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NOWAIT ), DBR_ERR_UNAVAIL, ret );
 
+  // testing short-buffer read
+  rc += PutTest( cs_hdl, "shortTest", longIn, longLen );
+  longRet = 100;
+  rc += TEST_RC( dbrRead( cs_hdl, longOut, &longRet, "shortTest", "", 0, DBR_FLAGS_PARTIAL ), DBR_ERR_UBUFFER, ret );
+  rc += TEST( longRet, longLen );
+  rc += GetTest( cs_hdl, "shortTest", longOut, longLen );
+
   free( longIn );
   free( longOut );
 

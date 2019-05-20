@@ -508,18 +508,20 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
                                                 result->_data._string._size,
                                                 request->_user->_sge_count,
                                                 request->_user->_sge );
-      if( transferred != result->_data._string._size )
+      if(( transferred == result->_data._string._size ) ||
+          (( (request->_user->_flags & DBBE_OPCODE_FLAGS_PARTIAL) != 0 ) && ( transferred < result->_data._string._size )) )
+      {
+        int64_t tmplen = result->_data._string._size;
+        dbBE_Redis_result_cleanup( result, 0 );  // clean up and set transferred size
+        result->_type = dbBE_REDIS_TYPE_INT;
+        result->_data._integer = tmplen;
+      }
+      else
       {
         rc = -EBADMSG;
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
         result->_type = dbBE_REDIS_TYPE_INT;
         result->_data._integer = rc;
-      }
-      else
-      {
-        dbBE_Redis_result_cleanup( result, 0 );  // clean up and set transferred size
-        result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = transferred;
       }
     }
   }
