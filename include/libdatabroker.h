@@ -85,6 +85,7 @@ typedef enum {
 typedef enum {
   DBR_FLAGS_NONE = 0, /**< Read/Get keep checking for the existence of the requested tuple until a timeout is met.*/
   DBR_FLAGS_NOWAIT = 1, /**< Read/Get return immediately if the requested tuple is not present.*/
+  DBR_FLAGS_PARTIAL = 2, /**< Read/Get return success even if the provided buffer was too small. In this case the returned size is set to the size of the value in storage */
   DBR_FLAGS_MAX
 } DBR_Request_flags_t;
 
