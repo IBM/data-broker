@@ -47,7 +47,7 @@ libdbrTestKey( DBR_Handle_t cs_handle,
                      tuple_name,
                      match_template,
                      group,
-                     0 );
+                     DBBE_OPCODE_FLAGS_IMMEDIATE );
 }
 
 
@@ -61,7 +61,7 @@ libdbrRead(DBR_Handle_t cs_handle,
            DBR_Tuple_name_t tuple_name,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
-           int enable_timeout)
+           int flags)
 {
   if(( cs_handle == NULL ) || ( sge == NULL ))
     return DBR_ERR_INVALID;
@@ -71,6 +71,9 @@ libdbrRead(DBR_Handle_t cs_handle,
     return DBR_ERR_NSINVAL;
 
   BIGLOCK_LOCK( cs->_reverse );
+
+  int enable_timeout = (flags & DBBE_OPCODE_FLAGS_IMMEDIATE ) != 0 ? 0 : 1;
+
 
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
   if( tag == DB_TAG_ERROR )
@@ -94,7 +97,7 @@ libdbrRead(DBR_Handle_t cs_handle,
     goto error;
   }
 
-  ctx->_req._flags = (enable_timeout == 0 ? DBBE_OPCODE_FLAGS_IMMEDIATE : DBBE_OPCODE_FLAGS_NONE );
+  ctx->_req._flags = flags;
 
   if( dbrInsert_request( cs, ctx ) == DB_TAG_ERROR )
   {
@@ -117,7 +120,7 @@ libdbrRead(DBR_Handle_t cs_handle,
   case DBR_ERR_UNAVAIL:
     if( enable_timeout == 0 )
       break;
-    // intentionally on break in case of timeout enabled
+    // intentionally no break in case of timeout enabled
   case DBR_ERR_INPROGRESS:
     rc = DBR_ERR_TIMEOUT;
     break;

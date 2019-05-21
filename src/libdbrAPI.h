@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ libdbrRead( DBR_Handle_t cs_handle,
             DBR_Tuple_name_t tuple_name,
             DBR_Tuple_template_t match_template,
             DBR_Group_t group,
-            int enable_timeout );
+            int flags );
 
 DBR_Tag_t
 libdbrReadA( DBR_Handle_t cs_handle,
