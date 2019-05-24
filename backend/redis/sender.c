@@ -204,17 +204,18 @@ void* dbBE_Redis_sender( void *args )
     dbBE_Redis_connection_recoverable_t recoverable = dbBE_Redis_connection_mgr_conn_recover(
         input->_backend->_conn_mgr,
         input->_backend->_locator,
-        input->_backend->_cluster_info );
+        &( input->_backend->_cluster_info ) );
 
     switch( recoverable )
     {
       case DBBE_REDIS_CONNECTION_RECOVERABLE:  // recoverable but not yet recovered
-        return NULL;
+        goto skip_sending;
         break;
       case DBBE_REDIS_CONNECTION_RECOVERED: // recovered
         // nothing to do, we're good to continue
         break;
       case DBBE_REDIS_CONNECTION_UNRECOVERABLE: // not recoverable at the moment
+        LOG(DBG_ERR, stderr, "Unrecoverable cluster connection. Completing all requests as failed.\n")
       default: // unrecognized
       {
         // flush queues

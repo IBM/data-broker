@@ -199,7 +199,7 @@ int main( int argc, char ** argv )
   dbBE_Redis_connection_t *dconn = carray[ 10 ];
   rc += TEST( dbBE_Redis_connection_assign_slot_range( dconn, 0, DBBE_REDIS_HASH_SLOT_MAX - 1 ), 0 );
   rc += TEST( dbBE_Redis_connection_mgr_conn_fail( mgr, dconn ), 0 );
-  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, locator, cluster ), DBBE_REDIS_CONNECTION_RECOVERED );
+  rc += TEST( dbBE_Redis_connection_mgr_conn_recover( mgr, locator, &cluster ), DBBE_REDIS_CONNECTION_RECOVERED );
 
 
   // remove all connections

@@ -81,7 +81,7 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
 dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
     dbBE_Redis_connection_mgr_t *conn_mgr,
     dbBE_Redis_locator_t *locator,
-    dbBE_Redis_cluster_info_t *cluster );
+    dbBE_Redis_cluster_info_t **cluster );
 
 /*
  * Remove a connection from the mgr
