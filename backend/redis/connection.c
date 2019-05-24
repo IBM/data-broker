@@ -77,7 +77,8 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 //  conn->_recvdev = recv_tr;
 
   conn->_recvbuf = recvb;
-  conn->_index = -1;
+  conn->_index = DBBE_REDIS_LOCATOR_INDEX_INVAL;
+  conn->_socket = -1;
   conn->_status = DBBE_CONNECTION_STATUS_INITIALIZED;
   if(( send_tr == NULL ) || ( recvb == NULL ))
     conn->_status = DBBE_CONNECTION_STATUS_UNSPEC;
@@ -209,6 +210,8 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
           return NULL;
 
         default:
+          LOG( DBG_ERR, stderr, "socket creation error: %s\n", strerror( errno ) );
+          iface = iface->ai_next;
           continue;
       }
     }
@@ -234,6 +237,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   if( conn->_status != DBBE_CONNECTION_STATUS_CONNECTED )
   {
     dbBE_Redis_address_destroy( conn->_address );
+    conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
     errno = ENOTCONN;
     return NULL;
   }
@@ -273,7 +277,7 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_recoverable( dbBE_Redi
 
   struct timeval now;
   gettimeofday( &now, NULL );
-  if(( now.tv_sec - conn->_last_alive.tv_sec ) < 10 )
+  if(( now.tv_sec - conn->_last_alive.tv_sec ) < DBBE_REDIS_RECONNECT_TIMEOUT )
     return DBBE_REDIS_CONNECTION_RECOVERABLE;
   return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
 }
@@ -341,7 +345,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn, dbBE_Red
     if( rc == 0 )
     {
       LOG( DBG_INFO, stderr, "recv() got no data, Redis server down?\n" );
-      dbBE_Redis_connection_fail( conn );
+      dbBE_Redis_connection_unlink( conn );
       rc = -1;
       stored_errno = ENOTCONN;
       break;
@@ -541,7 +545,7 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
  */
 int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
 {
-  if(( conn == NULL ) || ( ! dbBE_Redis_connection_RTS( conn ) && ( conn->_status != DBBE_CONNECTION_STATUS_FAILED )) )
+  if( ! dbBE_Redis_connection_RTS( conn ))
     return -EINVAL;
 
   close( conn->_socket );

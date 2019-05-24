@@ -120,7 +120,7 @@ int main( int argc, char ** argv )
 
   dbBE_Redis_connection_t *conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
-  // adding connection with socket = 0 should fail
+  // adding connection with uninitialized socket should fail
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, conn ), -EINVAL );
 
   rc += TEST_NOT( dbBE_Redis_connection_link( conn, host, auth ), NULL );

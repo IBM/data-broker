@@ -127,4 +127,6 @@ typedef struct dbBE_Redis_result {
 #define DBBE_REDIS_NAMESPACE_SEPARATOR "::"
 #define DBBE_REDIS_NAMESPACE_SEPARATOR_LEN ( 2 )
 
+#define DBBE_REDIS_RECONNECT_TIMEOUT ( 5 )
+
 #endif /* BACKEND_REDIS_DEFINITIONS_H_ */

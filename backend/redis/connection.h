@@ -35,7 +35,6 @@ typedef enum
   DBBE_CONNECTION_STATUS_CONNECTED,
   DBBE_CONNECTION_STATUS_AUTHORIZED,
   DBBE_CONNECTION_STATUS_PENDING_DATA,
-  DBBE_CONNECTION_STATUS_FAILED,
   DBBE_CONNECTION_STATUS_DISCONNECTED,
   DBBE_CONNECTION_STATUS_MAX
 } dbBE_Connection_status_t;
@@ -96,14 +95,6 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
     { \
       if( (conn)->_status == DBBE_CONNECTION_STATUS_AUTHORIZED ) \
         (conn)->_status = DBBE_CONNECTION_STATUS_PENDING_DATA; \
-    }
-
-/*
- * set connection status to reflect a non-working but still initialized connection
- */
-#define dbBE_Redis_connection_fail( conn ) \
-    { \
-        (conn)->_status = DBBE_CONNECTION_STATUS_FAILED; \
     }
 
 #define dbBE_Redis_connection_RTR_nocheck( conn ) \
