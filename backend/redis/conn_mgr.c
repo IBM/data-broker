@@ -120,6 +120,17 @@ int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
     return -ENOTCONN;
   }
 
+  // if it has an index already
+  if( conn->_index != DBBE_REDIS_LOCATOR_INDEX_INVAL )
+  {
+    if( conn_mgr->_connections[ conn->_index ] != NULL )
+      return 0;
+    else
+    {
+      LOG( DBG_ERR, stderr, "BUG: Connection to %s has index %d but is not tracked in conn_mgr. Solving by finding new place for it\n", conn->_url, conn->_index );
+    }
+  }
+
   unsigned i = 0;
   for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS) && ((conn_mgr->_connections[ i ] != NULL) || ( conn_mgr->_broken[ i ] != NULL )); ++i ) {}
   if( i >= DBBE_REDIS_MAX_CONNECTIONS )
