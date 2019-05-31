@@ -104,7 +104,7 @@ const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str,
     return NULL;
 
   // for now just use the sock prefix until there are more/other url types
-  sprintf( str, "sock://%s:%d", ip, ntohs( addr->_address.sin_port ) );
+  snprintf( str, strmaxlen, "sock://%s:%d", ip, ntohs( addr->_address.sin_port ) );
 
   return str;
 }
