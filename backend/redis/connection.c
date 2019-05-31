@@ -306,6 +306,7 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
   else
   {
     LOG( DBG_ERR, stderr, "Reconnection failed: %s\n", strerror( errno ) );
+    close( s );
     return -errno;
   }
 
