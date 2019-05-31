@@ -223,6 +223,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
       conn->_socket = s;
       conn->_address = dbBE_Redis_address_copy( iface->ai_addr, iface->ai_addrlen );
       conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
+      dbBE_Redis_address_to_string( conn->_address, conn->_url, DBR_SERVER_URL_MAX_LENGTH );
       LOG( DBG_VERBOSE, stdout, "Connected to %s\n", url );
       break;
     }
@@ -238,6 +239,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   if( conn->_status != DBBE_CONNECTION_STATUS_CONNECTED )
   {
     dbBE_Redis_address_destroy( conn->_address );
+    memset( conn->_url, 0, DBR_SERVER_URL_MAX_LENGTH );
     conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
     errno = ENOTCONN;
     return NULL;
@@ -552,6 +554,7 @@ int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
   close( conn->_socket );
   conn->_socket = -1;
   conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
+//  don't touch the address, it can be reused during reconnect
 //  dbBE_Redis_address_destroy( conn->_address );
 //  conn->_address = NULL;
 
@@ -691,7 +694,6 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
   dbBE_Redis_s2r_queue_destroy( conn->_posted_q );
   dbBE_Transport_sr_buffer_free( conn->_recvbuf );
   dbBE_Redis_address_destroy( conn->_address );
-
 
   // wipe memory
   memset( conn, 0, sizeof( dbBE_Redis_connection_t ) );

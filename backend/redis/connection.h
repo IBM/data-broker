@@ -60,6 +60,7 @@ typedef struct dbBE_Redis_connection
   dbBE_Redis_slot_bitmap_t *_slots;
   volatile dbBE_Connection_status_t _status;
   struct timeval _last_alive;
+  char _url[ DBR_SERVER_URL_MAX_LENGTH ];
 } dbBE_Redis_connection_t;
 
 
@@ -118,6 +119,11 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
  */
 #define dbBE_Redis_connection_get_recv_dev( conn ) ( (conn) != NULL ? (conn)->_recvdev : NULL )
 
+
+/*
+ * return the url of the currently connected redis instance
+ */
+#define dbBE_Redis_connection_get_url( conn ) ( (conn) != NULL ? (conn)->_url : NULL )
 
 
 /*
