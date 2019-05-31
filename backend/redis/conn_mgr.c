@@ -222,7 +222,6 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
 
   conn_mgr->_broken[ conn->_index ] = conn;
   conn_mgr->_connections[ conn->_index ] = NULL;
-  --conn_mgr->_connection_count;
 
   dbBE_Redis_connection_unlink( conn ); // and shut down/disconnect without deleting the addr info
 
@@ -459,11 +458,12 @@ int dbBE_Redis_connection_mgr_rm( dbBE_Redis_connection_mgr_t *conn_mgr,
       LOG( DBG_ERR, stderr, "connection_mgr_rm: failed to remove connection from event mgr.\n" );
       return rc;
     }
-    --conn_mgr->_connection_count;
   }
 
   conn_mgr->_broken[ i ] = NULL;
   conn_mgr->_connections[ i ] = NULL;
+  --conn_mgr->_connection_count;
+  conn->_index = DBBE_REDIS_LOCATOR_INDEX_INVAL;
 
   return 0;
 }
