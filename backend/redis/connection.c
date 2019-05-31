@@ -201,7 +201,8 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
       switch( errno )
       {
         case ENFILE:
-          LOG( DBG_ERR, stderr, "Open File Descriptor limit exceeded\n" );
+        case EMFILE:
+          LOG( DBG_ERR, stderr, "Open File Descriptor limit exceeded: %s\n", strerror( errno ) );
           return NULL;
 
         case ENOBUFS:
