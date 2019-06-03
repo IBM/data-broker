@@ -155,7 +155,7 @@ int dbBE_Redis_connection_mgr_add( dbBE_Redis_connection_mgr_t *conn_mgr,
 }
 
 dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                                            char *url )
+                                                            const char *url )
 {
   int rc = 0;
   if( conn_mgr == NULL )

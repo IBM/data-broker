@@ -93,7 +93,7 @@ int dbBE_Redis_connection_mgr_rm( dbBE_Redis_connection_mgr_t *conn_mgr,
  * Insert and connect a new connection
  */
 dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connection_mgr_t *conn_mgr,
-                                                            char *url );
+                                                            const char *url );
 
 /*
  * get the number of (active) connections
