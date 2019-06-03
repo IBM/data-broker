@@ -238,7 +238,307 @@ int dbBE_Redis_connection_mgr_conn_fail( dbBE_Redis_connection_mgr_t *conn_mgr,
  */
 #define DBBE_CONNECTION_MGR_SLOT_EMPTY( cm, n ) (( (cm)->_connections[ (n) ] == NULL ) && ( (cm)->_broken[ (n) ] == NULL ))
 
+static int dbBE_Redis_connection_mgr_restore_master_conn( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                          dbBE_Redis_locator_t *locator,
+                                                          dbBE_Redis_connection_t *conn,
+                                                          dbBE_Redis_locator_index_t idx )
+{
+  int slot;
+  conn_mgr->_connections[ idx ] = conn;
+  conn_mgr->_broken[ idx ] = NULL;
+  dbBE_Redis_event_mgr_add( conn_mgr->_ev_mgr, conn );
+  dbBE_Redis_slot_bitmap_t *bitmap = dbBE_Redis_connection_get_slot_range( conn );
+  for( slot=0;
+      ( bitmap != NULL ) && (slot < DBBE_REDIS_HASH_SLOT_MAX);
+      ++slot )
+  {
+    if( dbBE_Redis_slot_bitmap_get( bitmap, slot ) != 0 )
+      dbBE_Redis_locator_assign_conn_index( locator, idx, slot );
+  }
+  LOG( DBG_VERBOSE, stderr, "Recovered as master connection idx: %d\n", conn->_index );
+  return 0;
+}
 
+
+/*
+ * replace the input connection (replica) with its master connection after updating the cluster info
+ */
+static int dbBE_Redis_connection_mgr_fail_over_new_master( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                           dbBE_Redis_locator_t *locator,
+                                                           dbBE_Redis_connection_t *conn,
+                                                           dbBE_Redis_cluster_info_t **cluster )
+{
+  dbBE_Redis_cluster_info_t *tmp_cluster = dbBE_Redis_connection_mgr_get_cluster_info( conn_mgr );
+  if( tmp_cluster == NULL )
+    return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
+
+  // update global cluster info since we got a new one here
+  dbBE_Redis_cluster_info_destroy( *cluster );
+  *cluster = tmp_cluster;
+
+  char *url = dbBE_Redis_connection_get_url( conn );
+  dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server_by_addr( tmp_cluster, url );
+  if( si == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Unable to find updated master info for %s\n", url );
+    return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
+  }
+
+  // clean up the old connection
+  dbBE_Redis_connection_mgr_rm( conn_mgr, conn );
+  dbBE_Redis_connection_destroy( conn );
+
+  conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, dbBE_Redis_server_info_get_master( si ) );
+  if( conn == NULL )
+    return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
+
+  dbBE_Redis_hash_slot_t first_slot = dbBE_Redis_server_info_get_first_slot( si );
+  dbBE_Redis_hash_slot_t last_slot = dbBE_Redis_server_info_get_last_slot( si );
+
+  dbBE_Redis_connection_assign_slot_range( conn,
+                                           first_slot,
+                                           last_slot );
+
+  // update locator
+  dbBE_Redis_locator_associate_range_conn_index( locator, first_slot, last_slot, conn->_index );
+  LOG( DBG_ALL, stderr, "Recovered connection by switching to %s\n", dbBE_Redis_server_info_get_master( si ) );
+
+  return DBBE_REDIS_CONNECTION_RECOVERED;
+}
+
+
+static dbBE_Redis_connection_recoverable_t
+dbBE_Redis_connection_mgr_connect_check_replica( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                 dbBE_Redis_locator_t *locator,
+                                                 dbBE_Redis_server_info_t *server,
+                                                 dbBE_Redis_connection_t *conn,
+                                                 const char *url,
+                                                 dbBE_Redis_locator_index_t first_slot,
+                                                 dbBE_Redis_locator_index_t last_slot )
+{
+  LOG( DBG_ALL, stderr, "Got replica: %s\n", url );
+
+  dbBE_Redis_connection_t *repl_conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, url );
+  if( repl_conn == NULL )
+  {
+    LOG( DBG_ALL, stderr, "Replica: %s not yet ready to connect\n", url );
+    return DBBE_REDIS_CONNECTION_RECOVERABLE;
+  }
+
+  LOG( DBG_ALL, stderr, "Replica: %s connected\n", url );
+
+  // assign the connection slot range
+  dbBE_Redis_connection_assign_slot_range( repl_conn,
+                                           first_slot,
+                                           last_slot );
+
+  dbBE_Redis_connection_mgr_rm( conn_mgr, conn ); // remove the old connection from recv processing
+  dbBE_Redis_connection_destroy( conn ); // delete the old connection
+
+  // if we connected to a replica that's still in replica mode, we end up with MOVED responses all over the place
+  // so tear it down and come back later...
+  switch( dbBE_Redis_connection_mgr_is_master( conn_mgr, repl_conn ) )
+  {
+    case 0:
+      LOG( DBG_ALL, stderr, "Cluster fail-over hasn't happen yet. Retrying later.\n");
+      return DBBE_REDIS_CONNECTION_RECOVERABLE;
+    case 1:
+      LOG( DBG_ALL, stderr, "Replica: %s is voted master by Redis now\n", url );
+
+      // update locator
+      dbBE_Redis_locator_associate_range_conn_index( locator,
+                                                     first_slot,
+                                                     last_slot,
+                                                     repl_conn->_index );
+
+      break;
+    default:
+      return DBBE_REDIS_CONNECTION_ERROR;
+  }
+
+  return DBBE_REDIS_CONNECTION_RECOVERED;
+}
+
+static int
+dbBE_Redis_connection_mgr_create_connection_list( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                  dbBE_Redis_connection_t ***connections )
+{
+  // create a temporary list of connections where we remove valid master connections to see which links need to get fixed
+  *connections = (dbBE_Redis_connection_t**)calloc( conn_mgr->_connection_count, sizeof( dbBE_Redis_connection_t*) );
+  if( connections == NULL )
+    return -1;
+
+  int n,i;
+  for( n=0, i=0; DBBE_CONNECTIONS_TO_GO( conn_mgr, n, i ); ++n )
+  {
+    // skip empty slots
+    if( DBBE_CONNECTION_MGR_SLOT_EMPTY( conn_mgr, n ) )
+      continue;
+    // double check that it's not a broken connection
+    if(( conn_mgr->_broken[ n ] != NULL ) || ( conn_mgr->_connections[ n ] == NULL ))
+    {
+      LOG( DBG_ERR, stderr, "Inconsistent connection mgmt. Broken connection found in unbroken state\n" );
+      free( connections );
+      return -1;
+    }
+    (*connections)[ i++ ] = conn_mgr->_connections[ n ];
+  }
+
+  if( i != conn_mgr->_connection_count )
+  {
+    LOG( DBG_ERR,
+         stderr,
+         "Inconsistent connection mgmt. Number of tracked connections %d differs from active connections %d.\n",
+         conn_mgr->_connection_count,
+         i );
+    free( connections );
+    return -1;
+  }
+
+  return i;
+}
+
+static int
+dbBE_Redis_connection_mgr_compare_cluster_info( dbBE_Redis_cluster_info_t *new_cluster,
+                                                dbBE_Redis_cluster_info_t *old_cluster,
+                                                dbBE_Redis_connection_t **connections,
+                                                int connection_count )
+{
+  int c, n;
+  int master_count = 0;
+  for( c=0; c<dbBE_Redis_cluster_info_getsize( new_cluster ); ++c )
+  {
+    dbBE_Redis_server_info_t *si_new = dbBE_Redis_cluster_info_get_server( new_cluster, c );
+    if( si_new == NULL )
+      return -1;
+
+    char *url = dbBE_Redis_server_info_get_master( si_new );
+    if( url == NULL )
+      return -1;
+
+    dbBE_Redis_server_info_t *si_old = dbBE_Redis_cluster_info_get_server_by_addr( old_cluster, url );
+    if( si_old == NULL )
+      return -1;
+
+    // remove any master connection from the tmp_conns list so that only replicas are left
+    for( n=0; n<connection_count; ++n )
+    {
+      dbBE_Redis_connection_t *conn = connections[ n ];
+      if( conn == NULL ) continue; // skip any entries that we might have removed earlier
+      char *c_url = dbBE_Redis_connection_get_url( conn );
+      if( strncmp( c_url, url, DBR_SERVER_URL_MAX_LENGTH ) == 0 )
+      {
+        connections[ n ] = NULL;
+        ++master_count;
+        break; // we found a connection to the si_new master; check the next one now...
+      }
+    }
+  }
+  return master_count;
+}
+
+static int
+dbBE_Redis_connection_mgr_wipe_replica_connections( dbBE_Redis_connection_mgr_t *conn_mgr )
+{
+  int n, i;
+  for( n=0, i=0; DBBE_CONNECTIONS_TO_GO( conn_mgr, n, i ); ++n )
+  {
+    if( DBBE_CONNECTION_MGR_SLOT_EMPTY( conn_mgr, n ))
+      continue;
+    if( conn_mgr->_broken[ n ] != NULL )
+    {
+      dbBE_Redis_connection_t *conn = conn_mgr->_broken[ n ];
+      dbBE_Redis_connection_mgr_rm( conn_mgr, conn );
+      dbBE_Redis_connection_destroy( conn );
+    }
+    dbBE_Redis_connection_t *conn = conn_mgr->_connections[ n ];
+    if( dbBE_Redis_connection_mgr_is_master( conn_mgr, conn ) == 0 )
+    {
+      dbBE_Redis_connection_mgr_rm( conn_mgr, conn );
+      dbBE_Redis_connection_destroy( conn );
+    }
+  }
+  return 0;
+}
+
+static dbBE_Redis_connection_recoverable_t
+dbBE_Redis_connection_mgr_update_all_hash_ranges( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                  dbBE_Redis_locator_t *locator,
+                                                  dbBE_Redis_cluster_info_t *cluster )
+{
+  int n, i;
+  for( n=0, i=0; DBBE_CONNECTIONS_TO_GO( conn_mgr, n, i ); ++n )
+  {
+    if( DBBE_CONNECTION_MGR_SLOT_EMPTY( conn_mgr, n ))
+      continue;
+    ++i;
+    dbBE_Redis_connection_t *conn = conn_mgr->_connections[ n ];
+    char *url = dbBE_Redis_connection_get_url( conn );
+    dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server_by_addr( cluster, url );
+    if( si == NULL )
+      continue;
+
+    int first_slot = dbBE_Redis_server_info_get_first_slot( si );
+    int last_slot = dbBE_Redis_server_info_get_last_slot( si );
+
+    // update locator
+    if( dbBE_Redis_locator_associate_range_conn_index( locator,
+                                                       first_slot,
+                                                       last_slot,
+                                                       conn->_index ) )
+      return DBBE_REDIS_CONNECTION_ERROR;
+  }
+  return DBBE_REDIS_CONNECTION_RECOVERED;
+}
+
+static dbBE_Redis_connection_recoverable_t
+dbBE_Redis_connection_mgr_replica_to_master( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                             dbBE_Redis_locator_t *locator,
+                                             dbBE_Redis_cluster_info_t *cluster,
+                                             dbBE_Redis_connection_t **connections,
+                                             int connection_count )
+{
+  int n;
+  for( n=0; n<connection_count; ++n )
+  {
+    dbBE_Redis_connection_t *sconn = connections[ n ];
+    if( sconn == NULL )
+      continue;
+
+    char *c_url = dbBE_Redis_connection_get_url( sconn );
+    dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server_by_addr( cluster, c_url );
+    if( si == NULL )
+    {
+      LOG( DBG_ERR, stderr, "Cluster/Server info unavailable for:%s\n", c_url );
+      return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
+    }
+
+    // check connection to master:
+    c_url = dbBE_Redis_server_info_get_master( si );
+    dbBE_Redis_connection_t *mconn = dbBE_Redis_connection_mgr_newlink( conn_mgr, c_url );
+    if( mconn == NULL )
+    {
+      LOG( DBG_ERR, stderr, "Master %s still unavailable without failover. Retry later\n", c_url );
+      return DBBE_REDIS_CONNECTION_RECOVERABLE;
+    }
+
+    dbBE_Redis_connection_mgr_rm( conn_mgr, sconn );
+    connections[ n ] = NULL;
+    int first_slot = dbBE_Redis_server_info_get_first_slot( si );
+    int last_slot = dbBE_Redis_server_info_get_last_slot( si );
+
+    // assign the connection slot range
+    dbBE_Redis_connection_assign_slot_range( mconn,
+                                             first_slot,
+                                             last_slot );
+    // update locator
+    dbBE_Redis_locator_associate_range_conn_index( locator,
+                                                   first_slot,
+                                                   last_slot,
+                                                   mconn->_index );
+  }
+  return DBBE_REDIS_CONNECTION_RECOVERED;
+}
 
 /*
  * return recoverable status
@@ -282,60 +582,18 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
         {
           case 1: // recovered connection is a master, we're back to normal
           {
-            int slot;
-            conn_mgr->_connections[ c ] = broke;
-            conn_mgr->_broken[ c ] = NULL;
-            dbBE_Redis_event_mgr_add( conn_mgr->_ev_mgr, broke );
-            dbBE_Redis_slot_bitmap_t *bitmap = dbBE_Redis_connection_get_slot_range( broke );
-            for( slot=0;
-                (locator != NULL) && ( bitmap != NULL ) && (slot < DBBE_REDIS_HASH_SLOT_MAX);
-                ++slot )
-            {
-              if( dbBE_Redis_slot_bitmap_get( bitmap, slot ) != 0 )
-                dbBE_Redis_locator_assign_conn_index( locator, c, slot );
-            }
-            LOG( DBG_ALL, stderr, "Recovered as master connection idx: %d\n", broke->_index );
+            dbBE_Redis_connection_mgr_restore_master_conn( conn_mgr, locator, broke, c );
             ++recovered;
             break;
           }
           case 0: // recovered connection is now a replica, need to update clusterinfo and connect to master
           {
             LOG( DBG_ALL, stderr, "Connection switching because it's a replica\n" );
-            dbBE_Redis_cluster_info_t *tmp_cluster = dbBE_Redis_connection_mgr_get_cluster_info( conn_mgr );
-            if( tmp_cluster == NULL )
-              return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-
-            // update global cluster info since we got a new one here
-            dbBE_Redis_cluster_info_destroy( *cluster );
-            *cluster = tmp_cluster;
-
-            char *url = dbBE_Redis_connection_get_url( broke );
-            dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server_by_addr( tmp_cluster, url );
-            if( si == NULL )
-            {
-              LOG( DBG_ERR, stderr, "Unable to find updated master info for %s\n", url );
-              return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-            }
-
-            // clean up the old connection
-            dbBE_Redis_connection_mgr_rm( conn_mgr, broke );
-            dbBE_Redis_connection_destroy( broke );
-
-            broke = dbBE_Redis_connection_mgr_newlink( conn_mgr, dbBE_Redis_server_info_get_master( si ) );
-            if( broke == NULL )
-              return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-
-            dbBE_Redis_hash_slot_t first_slot = dbBE_Redis_server_info_get_first_slot( si );
-            dbBE_Redis_hash_slot_t last_slot = dbBE_Redis_server_info_get_last_slot( si );
-
-            dbBE_Redis_connection_assign_slot_range( broke,
-                                                     first_slot,
-                                                     last_slot );
-
-            // update locator
-            dbBE_Redis_locator_associate_range_conn_index( locator, first_slot, last_slot, broke->_index );
-            LOG( DBG_ALL, stderr, "Recovered connection by switching to %s\n", dbBE_Redis_server_info_get_master( si ) );
-            ++recovered;
+            recoverable = dbBE_Redis_connection_mgr_fail_over_new_master( conn_mgr, locator, broke, cluster);
+            if( recoverable == DBBE_REDIS_CONNECTION_RECOVERED )
+              ++recovered;
+            else
+              return recoverable;
             break;
           }
           default:
@@ -345,6 +603,7 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
       }
       else // if reconnect failed
       {
+        // allow failed attempts to reconnect to original connection, until it's declared unrecoverable
         if( dbBE_Redis_connection_recoverable( broke ) != DBBE_REDIS_CONNECTION_UNRECOVERABLE )
         {
           usleep(250000);
@@ -373,52 +632,21 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
             if( addr == dbBE_Redis_server_info_get_master( server ) )
               continue;
 
-            LOG( DBG_ALL, stderr, "Got replica: %s\n", addr );
-
-            dbBE_Redis_connection_t *repl_conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, addr );
-            if( repl_conn == NULL )
+            recoverable = dbBE_Redis_connection_mgr_connect_check_replica( conn_mgr, locator, server,
+                                                                           broke, addr, first_slot, last_slot );
+            switch( recoverable )
             {
-              LOG( DBG_ALL, stderr, "Replica: %s not yet ready to connect\n", addr );
-              usleep( 250000 );
-              recoverable = DBBE_REDIS_CONNECTION_RECOVERABLE;
-              break;
-            }
-
-            LOG( DBG_ALL, stderr, "Replica: %s connected\n", addr );
-
-            // assign the connection slot range
-            dbBE_Redis_connection_assign_slot_range( repl_conn,
-                                                     first_slot,
-                                                     last_slot );
-
-            dbBE_Redis_connection_mgr_rm( conn_mgr, broke ); // remove the old connection from recv processing
-            dbBE_Redis_connection_destroy( broke ); // delete the old connection
-
-            // if we connected to a replica that's still in replica mode, we end up with MOVED responses all over the place
-            // so tear it down and come back later...
-            switch( dbBE_Redis_connection_mgr_is_master( conn_mgr, repl_conn ) )
-            {
-              case 0:
-                LOG( DBG_ALL, stderr, "Cluster fail-over hasn't happen yet. Retrying later.\n");
-                usleep( 250000 );
-                return DBBE_REDIS_CONNECTION_RECOVERABLE;
-              case 1:
-                LOG( DBG_ALL, stderr, "Replica: %s is voted master by Redis now\n", addr );
-
+              case DBBE_REDIS_CONNECTION_RECOVERED:
                 dbBE_Redis_server_info_update_master( server, n ); // make the connection to this replica the new master
-
-                // update locator
-                dbBE_Redis_locator_associate_range_conn_index( locator,
-                                                               first_slot,
-                                                               last_slot,
-                                                               repl_conn->_index );
-
+                ++recovered;
                 break;
+              case DBBE_REDIS_CONNECTION_RECOVERABLE:
+                usleep( 250000 );
+                break;
+              case DBBE_REDIS_CONNECTION_UNRECOVERABLE:
               default:
-                break;
+                return recoverable;
             }
-
-            ++recovered;
           }
         } // if( server != NULL )
       } // if( dbBE_Redis_connection_reconnect( rec ) == 0 )
@@ -438,82 +666,22 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
     if( new_cluster == NULL )
       return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
 
-    // create a temporary list of connections where we remove valid master connections to see which links need to get fixed
-    dbBE_Redis_connection_t **tmp_conns = (dbBE_Redis_connection_t**)calloc( conn_mgr->_connection_count, sizeof( dbBE_Redis_connection_t*) );
-    if( tmp_conns == NULL )
+
+    dbBE_Redis_connection_t **tmp_conns;
+    int tmp_conn_count = dbBE_Redis_connection_mgr_create_connection_list( conn_mgr, &tmp_conns );
+    if( tmp_conn_count < 0 )
     {
       dbBE_Redis_cluster_info_destroy( new_cluster );
       return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
     }
 
-    int n,i;
-    int tmp_conn_count = 0;
-    for( n=0, i=0; DBBE_CONNECTIONS_TO_GO( conn_mgr, n, i ); ++n )
+    // compare clusterinfo:
+    int master_count = dbBE_Redis_connection_mgr_compare_cluster_info( new_cluster, *cluster, tmp_conns, tmp_conn_count );
+    if( master_count < 0 )
     {
-      // skip empty slots
-      if( DBBE_CONNECTION_MGR_SLOT_EMPTY( conn_mgr, n ) )
-        continue;
-      // double check that it's not a broken connection
-      if(( conn_mgr->_broken[ n ] != NULL ) || ( conn_mgr->_connections[ n ] == NULL ))
-      {
-        LOG( DBG_ERR, stderr, "Inconsistent connection mgmt. Broken connection found in unbroken state\n" );
-        dbBE_Redis_cluster_info_destroy( new_cluster );
-        free( tmp_conns );
-        return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-      }
-      tmp_conns[ i++ ] = conn_mgr->_connections[ n ];
-    }
-    if( i != conn_mgr->_connection_count )
-    {
-      LOG( DBG_ERR, stderr, "Inconsistent connection mgmt. Number of tracked connections %d differs from active connections %d.\n", conn_mgr->_connection_count, i );
       dbBE_Redis_cluster_info_destroy( new_cluster );
       free( tmp_conns );
       return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-    }
-    tmp_conn_count = i;
-
-    // compare clusterinfo:
-    int c;
-    int master_count = 0;
-    for( c=0; c<dbBE_Redis_cluster_info_getsize( new_cluster ); ++c )
-    {
-      dbBE_Redis_server_info_t *si_new = dbBE_Redis_cluster_info_get_server( new_cluster, c );
-      if( si_new == NULL )
-      {
-        dbBE_Redis_cluster_info_destroy( new_cluster );
-        free( tmp_conns );
-        return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-      }
-
-      char *url = dbBE_Redis_server_info_get_master( si_new );
-      if( url == NULL )
-      {
-        dbBE_Redis_cluster_info_destroy( new_cluster );
-        free( tmp_conns );
-        return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-      }
-
-      dbBE_Redis_server_info_t *si_old = dbBE_Redis_cluster_info_get_server_by_addr( *cluster, url );
-      if( si_old == NULL )
-      {
-        dbBE_Redis_cluster_info_destroy( new_cluster );
-        free( tmp_conns );
-        return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
-      }
-
-      // remove any master connection from the tmp_conns list so that only replicas are left
-      for( n=0; n<tmp_conn_count; ++n )
-      {
-        dbBE_Redis_connection_t *conn = tmp_conns[ n ];
-        if( conn == NULL ) continue; // skip any entries that we might have removed earlier
-        char *c_url = dbBE_Redis_connection_get_url( conn );
-        if( strncmp( c_url, url, DBR_SERVER_URL_MAX_LENGTH ) == 0 )
-        {
-          tmp_conns[ n ] = NULL;
-          ++master_count;
-          break; // we found a connection to the si_new master; check the next one now...
-        }
-      }
     }
 
     // update global cluster info since we got a new one here
@@ -532,96 +700,35 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
       if( tmp_conn_count != conn_mgr->_connection_count )
       {
         LOG( DBG_ERR, stderr, "There are unnecessary connections: %d\n", conn_mgr->_connection_count - tmp_conn_count );
-
-        for( n=0, i=0; DBBE_CONNECTIONS_TO_GO( conn_mgr, n, i ); ++n )
-        {
-          if( DBBE_CONNECTION_MGR_SLOT_EMPTY( conn_mgr, n ))
-            continue;
-          if( conn_mgr->_broken[ n ] != NULL )
-          {
-            dbBE_Redis_connection_t *conn = conn_mgr->_broken[ n ];
-            dbBE_Redis_connection_mgr_rm( conn_mgr, conn );
-            dbBE_Redis_connection_destroy( conn );
-          }
-          dbBE_Redis_connection_t *conn = conn_mgr->_connections[ n ];
-          if( dbBE_Redis_connection_mgr_is_master( conn_mgr, conn ) == 0 )
-          {
-            dbBE_Redis_connection_mgr_rm( conn_mgr, conn );
-            dbBE_Redis_connection_destroy( conn );
-          }
-        }
+        dbBE_Redis_connection_mgr_wipe_replica_connections( conn_mgr );
       }
 
       // checking/updating hash coverage...
       if( dbBE_Redis_locator_hash_covered( locator ) )
         return DBBE_REDIS_CONNECTION_RECOVERED;
 
-      for( n=0, i=0; DBBE_CONNECTIONS_TO_GO( conn_mgr, n, i ); ++n )
-      {
-        if( DBBE_CONNECTION_MGR_SLOT_EMPTY( conn_mgr, n ))
-          continue;
-        ++i;
-        dbBE_Redis_connection_t *conn = conn_mgr->_connections[ n ];
-        char *url = dbBE_Redis_connection_get_url( conn );
-        dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server_by_addr( *cluster, url );
-        if( si == NULL )
-          continue;
-
-        int first_slot = dbBE_Redis_server_info_get_first_slot( si );
-        int last_slot = dbBE_Redis_server_info_get_last_slot( si );
-
-        // update locator
-        dbBE_Redis_locator_associate_range_conn_index( locator,
-                                                       first_slot,
-                                                       last_slot,
-                                                       conn->_index );
-      }
-
-      return DBBE_REDIS_CONNECTION_RECOVERED;
+      recoverable = dbBE_Redis_connection_mgr_update_all_hash_ranges( conn_mgr, locator, *cluster );
     }
 
     // any remaining connections must be replica links which need to be switched to their master
-    for( n=0; n<tmp_conn_count; ++n )
+    // only attempt to switch if we're still not recovered yet:
+    if( recoverable != DBBE_REDIS_CONNECTION_RECOVERED )
     {
-      dbBE_Redis_connection_t *sconn = tmp_conns[ n ];
-      if( sconn == NULL )
-        continue;
-
-      char *c_url = dbBE_Redis_connection_get_url( sconn );
-      dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server_by_addr( *cluster, c_url );
-      if( si == NULL )
+      recoverable = dbBE_Redis_connection_mgr_replica_to_master( conn_mgr, locator, *cluster, tmp_conns, tmp_conn_count );
+      switch( recoverable )
       {
-        LOG( DBG_ERR, stderr, "Cluster/Server info unavailable for:%s\n", c_url );
-        free( tmp_conns );
-        return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
+        case DBBE_REDIS_CONNECTION_RECOVERABLE:
+          usleep( 250000 );
+          break;
+        case DBBE_REDIS_CONNECTION_RECOVERED:
+          break;
+        case DBBE_REDIS_CONNECTION_UNRECOVERABLE:
+        default:
+          break;
       }
-
-      // check connection to master:
-      c_url = dbBE_Redis_server_info_get_master( si );
-      dbBE_Redis_connection_t *mconn = dbBE_Redis_connection_mgr_newlink( conn_mgr, c_url );
-      if( mconn == NULL )
-      {
-        LOG( DBG_ERR, stderr, "Master %s still unavailable without failover. Retry later\n", c_url );
-        free( tmp_conns );
-        usleep( 250000 );
-        return DBBE_REDIS_CONNECTION_RECOVERABLE;
-      }
-
-      dbBE_Redis_connection_mgr_rm( conn_mgr, sconn );
-      tmp_conns[ n ] = NULL;
-      int first_slot = dbBE_Redis_server_info_get_first_slot( si );
-      int last_slot = dbBE_Redis_server_info_get_last_slot( si );
-
-      // assign the connection slot range
-      dbBE_Redis_connection_assign_slot_range( mconn,
-                                               first_slot,
-                                               last_slot );
-      // update locator
-      dbBE_Redis_locator_associate_range_conn_index( locator,
-                                                     first_slot,
-                                                     last_slot,
-                                                     mconn->_index );
+      free( tmp_conns );
     }
+
   }
 
   // check how far we got with recovery
