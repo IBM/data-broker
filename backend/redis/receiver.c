@@ -66,7 +66,12 @@ void* dbBE_Redis_receiver( void *args )
   //  - on the receive buffers/Redis sockets
   //  - on a notification/wake-up pipe for cancellations/urgent matters
 
-  dbBE_Redis_connection_t *conn = dbBE_Redis_connection_mgr_get_active( input->_backend->_conn_mgr, 0 );
+  int receive_limit = 128 * 1024 * 1024;
+  dbBE_Redis_connection_t *conn = NULL;
+
+receive_more_responses:
+
+  conn = dbBE_Redis_connection_mgr_get_active( input->_backend->_conn_mgr, 0 );
   if( conn == NULL )
     goto skip_receiving;
 
@@ -82,7 +87,6 @@ void* dbBE_Redis_receiver( void *args )
         // no break intentionally
       default:
         LOG( DBG_ERR, stderr, "Recv from conn %d returned %d\n", conn->_index, rc );
-        // remove the connection from the locator index
 
         // drain the posted queue of this connection and place the requests for retry
         dbBE_Redis_request_t *request;
@@ -90,6 +94,7 @@ void* dbBE_Redis_receiver( void *args )
         {
           dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
         }
+        // remove the connection from the locator index
         dbBE_Redis_locator_reassociate_conn_index( input->_backend->_locator,
                                                    conn->_index,
                                                    DBBE_REDIS_LOCATOR_INDEX_INVAL );
@@ -109,6 +114,7 @@ void* dbBE_Redis_receiver( void *args )
 
   // assume this is a new request
   int responses_remain = 0;
+  receive_limit -= rc;
 
 process_next_item:
 
@@ -178,39 +184,90 @@ process_next_item:
       }
       else
       {
-        char address[ DBR_SERVER_URL_MAX_LENGTH ];
-        snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s", result._data._location._address );
+        /* a new connection required
+         * this can mean: the cluster got scaled up
+         * or we were talking to a replica and now get referred to the master
+         * in either case, we should review/update the cluster info
+         */
 
-        dest = dbBE_Redis_connection_mgr_newlink( input->_backend->_conn_mgr, address );
-        if( dest == NULL )
+        switch( dbBE_Redis_connection_mgr_is_master( input->_backend->_conn_mgr, conn ) )
         {
-          // unable to recreate connection, failing the request
-          dbBE_Completion_t *completion = dbBE_Redis_complete_error(
-              request,
-              &result,
-              -ENOTCONN );
-          dbBE_Redis_request_destroy( request );
-          if( completion == NULL )
+          case 0:
           {
-            fprintf( stderr, "RedisBE: Failed to create error completion.\n");
-            dbBE_Redis_result_cleanup( &result, 0 );
+            // switch from replica to master and repeat the request
+            LOG( DBG_ERR, stderr, "Received MOVED. Conn %d seems to be a replica\n", conn->_index );
+
+            // repeat the current request
+            dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
+
+            // drain the posted queue of this connection and place the requests for retry
+            while( ( request = dbBE_Redis_s2r_queue_pop( conn->_posted_q ) ) != NULL )
+            {
+              dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
+            }
+            // remove the connection from the locator index
+            dbBE_Redis_locator_reassociate_conn_index( input->_backend->_locator,
+                                                       conn->_index,
+                                                       DBBE_REDIS_LOCATOR_INDEX_INVAL );
+
+            // remove the connection from the connection mgr
+            // todo: drain the response pipe to avoid stuck requests
+            dbBE_Redis_connection_mgr_rm( input->_backend->_conn_mgr, conn );
             goto skip_receiving;
           }
+          case 1:
+          {
+            // new unknown connection to a (new) master, need to update cluster info
+            char address[ DBR_SERVER_URL_MAX_LENGTH ];
+            snprintf( address, DBR_SERVER_URL_MAX_LENGTH, "sock://%s", result._data._location._address );
+
+            dest = dbBE_Redis_connection_mgr_newlink( input->_backend->_conn_mgr, address );
+            if( dest == NULL )
+            {
+              // unable to recreate connection, failing the request
+              dbBE_Completion_t *completion = dbBE_Redis_complete_error(
+                  request,
+                  &result,
+                  -ENOTCONN );
+              dbBE_Redis_request_destroy( request );
+              if( completion == NULL )
+              {
+                fprintf( stderr, "RedisBE: Failed to create error completion.\n");
+                dbBE_Redis_result_cleanup( &result, 0 );
+                goto skip_receiving;
+              }
+            }
+            // update the connection slot in new destination
+            dbBE_Redis_slot_bitmap_t *slots = dbBE_Redis_connection_get_slot_range( dest );
+            dbBE_Redis_slot_bitmap_set( slots, result._data._location._hash );
+            dbBE_Redis_locator_assign_conn_index( input->_backend->_locator, dest->_index, result._data._location._hash );
+          }
+            break;
+          default:
+            // error checking for master
+
+            break;
         }
-        // update the connection slot in new destination
-        dbBE_Redis_slot_bitmap_t *slots = dbBE_Redis_connection_get_slot_range( dest );
-        dbBE_Redis_slot_bitmap_set( slots, result._data._location._hash );
-        dbBE_Redis_locator_assign_conn_index( input->_backend->_locator, dest->_index, result._data._location._hash );
       }
 
       // push request to sender queue as is
       request->_location._data._conn_idx = dbBE_Redis_connection_get_index( dest );
       dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
       break;
+
     }
     default:
       if( request != NULL )
       {
+        // in case we receive a CLUSTERDOWN error, assume this is recoverable and retry the request
+        if(( result._type == dbBE_REDIS_TYPE_ERROR ) &&
+            ( result._data._string._data != NULL ) &&
+            ( strncmp( result._data._string._data, "CLUSTERDOWN", 11 ) == 0 ))
+        {
+          dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
+          break;
+        }
+
         switch( request->_user->_opcode )
         {
           case DBBE_OPCODE_PUT:
@@ -367,6 +424,8 @@ process_next_item:
     goto process_next_item;
   dbBE_Redis_result_cleanup( &result, 0 );
 
+  if( receive_limit > 0 )
+    goto receive_more_responses;
 
 skip_receiving:
   free( args );

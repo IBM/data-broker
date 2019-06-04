@@ -77,7 +77,8 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 //  conn->_recvdev = recv_tr;
 
   conn->_recvbuf = recvb;
-  conn->_index = -1;
+  conn->_index = DBBE_REDIS_LOCATOR_INDEX_INVAL;
+  conn->_socket = -1;
   conn->_status = DBBE_CONNECTION_STATUS_INITIALIZED;
   if(( send_tr == NULL ) || ( recvb == NULL ))
     conn->_status = DBBE_CONNECTION_STATUS_UNSPEC;
@@ -158,7 +159,7 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
     int n;
 
     dbBE_Redis_slot_bitmap_reset( conn->_slots );
-    for( n=first_slot; n<last_slot; ++n )
+    for( n=first_slot; n<=last_slot; ++n )
       dbBE_Redis_slot_bitmap_set( conn->_slots, n );
   }
   return 0;
@@ -200,7 +201,8 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
       switch( errno )
       {
         case ENFILE:
-          LOG( DBG_ERR, stderr, "Open File Descriptor limit exceeded\n" );
+        case EMFILE:
+          LOG( DBG_ERR, stderr, "Open File Descriptor limit exceeded: %s\n", strerror( errno ) );
           return NULL;
 
         case ENOBUFS:
@@ -209,6 +211,8 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
           return NULL;
 
         default:
+          LOG( DBG_ERR, stderr, "socket creation error: %s\n", strerror( errno ) );
+          iface = iface->ai_next;
           continue;
       }
     }
@@ -219,6 +223,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
       conn->_socket = s;
       conn->_address = dbBE_Redis_address_copy( iface->ai_addr, iface->ai_addrlen );
       conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
+      dbBE_Redis_address_to_string( conn->_address, conn->_url, DBR_SERVER_URL_MAX_LENGTH );
       LOG( DBG_VERBOSE, stdout, "Connected to %s\n", url );
       break;
     }
@@ -234,6 +239,8 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   if( conn->_status != DBBE_CONNECTION_STATUS_CONNECTED )
   {
     dbBE_Redis_address_destroy( conn->_address );
+    memset( conn->_url, 0, DBR_SERVER_URL_MAX_LENGTH );
+    conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
     errno = ENOTCONN;
     return NULL;
   }
@@ -265,6 +272,19 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   return conn->_address;
 }
 
+dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_recoverable( dbBE_Redis_connection_t *conn )
+{
+  // grab the timestamp or reconnection counter and decide based on that whether it's considered recoverable or not
+  if( dbBE_Redis_connection_RTR( conn ) )
+    return DBBE_REDIS_CONNECTION_RECOVERED;
+
+  struct timeval now;
+  gettimeofday( &now, NULL );
+  if(( now.tv_sec - conn->_last_alive.tv_sec ) < DBBE_REDIS_RECONNECT_TIMEOUT )
+    return DBBE_REDIS_CONNECTION_RECOVERABLE;
+  return DBBE_REDIS_CONNECTION_UNRECOVERABLE;
+}
+
 int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
 {
   int rc = 0;
@@ -286,6 +306,7 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
   else
   {
     LOG( DBG_ERR, stderr, "Reconnection failed: %s\n", strerror( errno ) );
+    close( s );
     return -errno;
   }
 
@@ -328,7 +349,7 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn, dbBE_Red
     if( rc == 0 )
     {
       LOG( DBG_INFO, stderr, "recv() got no data, Redis server down?\n" );
-      dbBE_Redis_connection_fail( conn );
+      dbBE_Redis_connection_unlink( conn );
       rc = -1;
       stored_errno = ENOTCONN;
       break;
@@ -528,15 +549,17 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
  */
 int dbBE_Redis_connection_unlink( dbBE_Redis_connection_t *conn )
 {
-  if(( conn == NULL ) || ( ! dbBE_Redis_connection_RTS( conn ) && ( conn->_status != DBBE_CONNECTION_STATUS_FAILED )) )
+  if( ! dbBE_Redis_connection_RTS( conn ))
     return -EINVAL;
 
   close( conn->_socket );
   conn->_socket = -1;
   conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
+//  don't touch the address, it can be reused during reconnect
 //  dbBE_Redis_address_destroy( conn->_address );
 //  conn->_address = NULL;
 
+  gettimeofday( &conn->_last_alive, NULL );
   return 0;
 }
 
@@ -672,7 +695,6 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
   dbBE_Redis_s2r_queue_destroy( conn->_posted_q );
   dbBE_Transport_sr_buffer_free( conn->_recvbuf );
   dbBE_Redis_address_destroy( conn->_address );
-
 
   // wipe memory
   memset( conn, 0, sizeof( dbBE_Redis_connection_t ) );

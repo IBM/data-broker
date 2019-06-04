@@ -355,7 +355,6 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 
   LOG(DBG_VERBOSE, stderr, "url=%s\n", env_url );
 
-  dbBE_Redis_sr_buffer_t *iobuf = NULL;
   dbBE_Redis_connection_t *initial_conn = dbBE_Redis_connection_mgr_newlink( ctx->_conn_mgr, env_url );
   if( initial_conn == NULL )
   {
@@ -363,54 +362,16 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     goto exit_connect;
   }
 
-#define DBBE_REDIS_INFO_PER_SERVER ( 4096 )
-  iobuf = dbBE_Transport_sr_buffer_allocate( dbBE_Redis_connection_mgr_get_connections( ctx->_conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
-
   // find out if we need to tear down the initial connection later because it's a connection to a replica
-  int replica_conn = 0;
-  dbBE_Redis_result_t *result = dbBE_Redis_connection_mgr_retrieve_info( ctx->_conn_mgr, initial_conn, iobuf, DBBE_INFO_CATEGORY_ROLE );
-  if( result == NULL )
+  int replica_conn = dbBE_Redis_connection_mgr_is_master( ctx->_conn_mgr, initial_conn );
+  if( replica_conn < 0 )
   {
     rc = -ENOTCONN;
     goto exit_connect;
   }
+  replica_conn = 1 - replica_conn; // flip the logic, since so far it contains 1 if it's a master connection
 
-  if(( result->_type == dbBE_REDIS_TYPE_ARRAY ) &&
-      ( result->_data._array._len >= 3 ) &&
-      ( result->_data._array._data[0]._type == dbBE_REDIS_TYPE_CHAR ))
-  {
-    char *role = result->_data._array._data[0]._data._string._data;
-
-    // check if we're connected to a master or a replica: if replica, then mark initial connection to be disconnected
-    if( strncmp( role, "master", result->_data._array._data[0]._data._string._size ) != 0 )
-      replica_conn = 1;
-  }
-  else
-  {
-    rc = -ENOTCONN;
-    goto exit_connect;
-  }
-
-  // cleanup for the next stage
-  dbBE_Redis_result_cleanup( result, 0 );
-
-  result = dbBE_Redis_connection_mgr_retrieve_info( ctx->_conn_mgr, initial_conn, iobuf, DBBE_INFO_CATEGORY_CLUSTER_SLOTS );
-  if( result == NULL )
-  {
-    rc = -ENOTCONN;
-    goto exit_connect;
-  }
-
-  dbBE_Redis_cluster_info_t *cl_info = dbBE_Redis_cluster_info_create( result );
-  dbBE_Redis_result_cleanup( result, 1 );
-
-  // do we have single-node Redis server?
-  if( cl_info == NULL )
-  {
-    cl_info = dbBE_Redis_cluster_info_create_single( env_url );
-  }
-
-  // if we cannot even get info for single node, then we're done here..
+  dbBE_Redis_cluster_info_t *cl_info = dbBE_Redis_connection_mgr_get_cluster_info( ctx->_conn_mgr );
   if( cl_info == NULL )
   {
     rc = -ENOTCONN;
@@ -479,8 +440,6 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   }
 
 exit_connect:
-  if( iobuf != NULL )
-    dbBE_Transport_sr_buffer_free( iobuf );
   free( env_url );
   return rc;
 }

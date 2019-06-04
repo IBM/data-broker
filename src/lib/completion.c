@@ -233,6 +233,12 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
    * Only uses gettimeofday every N loops to reduce the number of syscalls
    */
 
+#ifndef DEVMODE
+#define DBR_TIMEOUT_CHECKLOOPS ( 0x3FFF )
+#else
+#define DBR_TIMEOUT_CHECKLOOPS ( 0x1 )
+#endif
+
   /*
    * have a loop count to reduce the amount of gettimeofday calls
    * start with negative offset to prevent the syscall for the first N iterations
@@ -245,7 +251,7 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
     if((rc == DBR_ERR_INPROGRESS)
        && enable_timeout)
     {
-      if( ((++timeloops) & 0x3FFF ) == 0 )
+      if( ((++timeloops) & DBR_TIMEOUT_CHECKLOOPS ) == 0 )
       {
         gettimeofday( &now, NULL );
         ++timecalls;

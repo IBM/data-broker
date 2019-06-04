@@ -35,11 +35,17 @@ typedef enum
   DBBE_CONNECTION_STATUS_CONNECTED,
   DBBE_CONNECTION_STATUS_AUTHORIZED,
   DBBE_CONNECTION_STATUS_PENDING_DATA,
-  DBBE_CONNECTION_STATUS_FAILED,
   DBBE_CONNECTION_STATUS_DISCONNECTED,
   DBBE_CONNECTION_STATUS_MAX
 } dbBE_Connection_status_t;
 
+typedef enum
+{
+  DBBE_REDIS_CONNECTION_ERROR = -1,
+  DBBE_REDIS_CONNECTION_RECOVERED = 0,
+  DBBE_REDIS_CONNECTION_RECOVERABLE = 1,
+  DBBE_REDIS_CONNECTION_UNRECOVERABLE = 2
+} dbBE_Redis_connection_recoverable_t;
 
 typedef struct dbBE_Redis_connection
 {
@@ -53,6 +59,8 @@ typedef struct dbBE_Redis_connection
   dbBE_Redis_s2r_queue_t *_posted_q;
   dbBE_Redis_slot_bitmap_t *_slots;
   volatile dbBE_Connection_status_t _status;
+  struct timeval _last_alive;
+  char _url[ DBR_SERVER_URL_MAX_LENGTH ];
 } dbBE_Redis_connection_t;
 
 
@@ -90,19 +98,15 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
         (conn)->_status = DBBE_CONNECTION_STATUS_PENDING_DATA; \
     }
 
-/*
- * set connection status to reflect a non-working but still initialized connection
- */
-#define dbBE_Redis_connection_fail( conn ) \
-    { \
-        (conn)->_status = DBBE_CONNECTION_STATUS_FAILED; \
-    }
-
-#define dbBE_Redis_connection_RTR( conn ) \
+#define dbBE_Redis_connection_RTR_nocheck( conn ) \
     ( ((conn)->_status == DBBE_CONNECTION_STATUS_AUTHORIZED ) || ((conn)->_status == DBBE_CONNECTION_STATUS_PENDING_DATA ) )
 
+#define dbBE_Redis_connection_RTR( conn ) \
+    ( ( (conn) != NULL ) && dbBE_Redis_connection_RTR_nocheck( conn ) )
+
+
 #define dbBE_Redis_connection_RTS( conn ) \
-  ( ((conn)->_status == DBBE_CONNECTION_STATUS_CONNECTED ) || dbBE_Redis_connection_RTR( conn ) )
+  ( ( (conn) != NULL ) && ( ((conn)->_status == DBBE_CONNECTION_STATUS_CONNECTED ) || dbBE_Redis_connection_RTR_nocheck( conn ) ) )
 
 
 /*
@@ -115,6 +119,11 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
  */
 #define dbBE_Redis_connection_get_recv_dev( conn ) ( (conn) != NULL ? (conn)->_recvdev : NULL )
 
+
+/*
+ * return the url of the currently connected redis instance
+ */
+#define dbBE_Redis_connection_get_url( conn ) ( (conn) != NULL ? (conn)->_url : NULL )
 
 
 /*
@@ -132,6 +141,12 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
 dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
                                                   const char *url,
                                                   const char *authfile );
+
+/*
+ * return 0 if the connection is considered not recoverable
+ * return 1 otherwise
+ */
+dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_recoverable( dbBE_Redis_connection_t *conn );
 
 /*
  * reconnect to a Redis instance that was connected before

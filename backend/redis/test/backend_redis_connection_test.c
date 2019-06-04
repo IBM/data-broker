@@ -36,6 +36,8 @@ int main( int argc, char ** argv )
 
   conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
+  rc += TEST( conn->_socket, -1 );
+  rc += TEST( conn->_index, DBBE_REDIS_LOCATOR_INDEX_INVAL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_INITIALIZED );
   fprintf(stderr,"0. rc=%d\n", rc);
 
@@ -93,8 +95,9 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_AUTHORIZED );
   fprintf(stderr,"8.rc=%d, url=%s, auth=%s\n", rc, url, auth);
 
-  dbBE_Redis_connection_fail( conn );
-  rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_FAILED );
+  dbBE_Redis_connection_unlink( conn );
+  rc += TEST( conn->_socket, -1 );
+  rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
   rc += TEST( dbBE_Redis_connection_RTS( conn ), 0 );
   rc += TEST( dbBE_Redis_connection_RTR( conn ), 0 );
 
@@ -110,7 +113,7 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_send_cmd( conn, NULL, 8 ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_send_cmd( conn, sge, DBBE_SGE_MAX + 1), -EINVAL );
 
-  rc += TEST( dbBE_Redis_connection_unlink( conn ), 0 );
+  rc += TEST( dbBE_Redis_connection_unlink( conn ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
 
   // now we should be able to link

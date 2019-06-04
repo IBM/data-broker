@@ -33,6 +33,7 @@ endif( NOT DEFINED APPLE )
 
 if(DEFINED DEVMODE)
   add_definitions(-Wextra -Wenum-compare -Wno-unused-parameter)
+  add_definitions( -DDEVMODE )
 endif(DEFINED DEVMODE)
 
 if( DEFINED DBR_DEBUG_LVL )

@@ -41,6 +41,16 @@ int main( int argc, char ** argv )
   // shouldn't be covered after initialization
   rc += TEST( dbBE_Redis_slot_bitmap_full( sb ), 0 );
 
+  // test if set/get/unset are ending up with the correct index
+  rc += TEST( dbBE_Redis_slot_bitmap_reset( sb ), 0 );
+  for( n=0; n<16384; ++n )
+  {
+    rc += TEST( dbBE_Redis_slot_bitmap_set( sb, n ), n );
+    rc += TEST( dbBE_Redis_slot_bitmap_get( sb, n ), 1 );
+    rc += TEST( dbBE_Redis_slot_bitmap_unset( sb, n ), n );
+    rc += TEST( dbBE_Redis_slot_bitmap_get( sb, n ), 0 );
+  }
+
   // fill the space
   for( n=0; n<16384; ++n )
     rc += TEST( dbBE_Redis_slot_bitmap_set( sb, n ), n );
