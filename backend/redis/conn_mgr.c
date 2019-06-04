@@ -445,6 +445,7 @@ dbBE_Redis_connection_mgr_wipe_replica_connections( dbBE_Redis_connection_mgr_t 
   {
     if( DBBE_CONNECTION_MGR_SLOT_EMPTY( conn_mgr, n ))
       continue;
+    ++i;
     if( conn_mgr->_broken[ n ] != NULL )
     {
       dbBE_Redis_connection_t *conn = conn_mgr->_broken[ n ];
@@ -656,7 +657,7 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
     } // if( rec != NULL )
     else
       ++unbroken;
-  } //   for( c=0; (c < DBBE_REDIS_MAX_CONNECTIONS) && (unbroken+recovered <= conn_mgr->_connection_count); ++c )
+  } //  for( c=0; ... )
 
   if( unbroken == conn_mgr->_connection_count ) // need recovery and have no broken connections? Lets check clusterinfo...
   {
