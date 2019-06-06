@@ -223,6 +223,11 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, "Long Put/Get" );
 
+  // zero-length data test
+  rc += PutTest( cs_hdl, "zerolen", "", 0 );
+  rc += ReadTest( cs_hdl, "zerolen", "", 0 );
+  rc += GetTest( cs_hdl, "zerolen", "", 0 );
+
   // binary data test
   size_t tlen = 122;
   char *tuplestr = (char*)malloc( tlen );

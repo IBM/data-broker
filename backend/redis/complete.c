@@ -75,6 +75,38 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       break;
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
+      if( spec->_result != 0 )
+      {
+        switch( completion->_rc )
+        {
+          case 0:
+            if( result->_data._integer < 0 )
+              completion->_status = DBR_ERR_INPROGRESS;
+            else
+            {
+              completion->_status = DBR_SUCCESS;
+              completion->_rc = result->_data._integer;
+            }
+            break;
+          case -ENOENT:
+            completion->_status = DBR_ERR_UNAVAIL;
+            completion->_rc = 0;
+            break;
+          default:
+            completion->_status = DBR_ERR_BE_GENERAL;
+            completion->_rc = result->_data._integer;
+            break;
+        }
+      }
+      else if( completion->_status == DBR_ERR_INPROGRESS )
+      {
+        if( result->_data._integer >= 0 )
+        {
+          completion->_status = DBR_SUCCESS;
+          completion->_rc = result->_data._integer;
+        }
+      }
+      break;
     case DBBE_OPCODE_DIRECTORY:
       if( spec->_result != 0 )
       {
