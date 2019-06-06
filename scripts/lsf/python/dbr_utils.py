@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import print_function
 import sys, getopt
 import os, socket
 import pickle
@@ -93,11 +94,11 @@ def gethost():
 def gethosts(jobid):
 	args=['-o','-noheader','exec_host', '%d' % jobid]
 	cmd=['bjobs'] + args
-	print cmd
+	print(cmd)
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
 	if stderr:
-		print 'gethosts error: %s' % stderr
+		print('gethosts error: %s' % stderr)
 		exit()
 	hosts = stdout.split(':')
 	hosts = hosts[1:]
@@ -121,13 +122,13 @@ def serversrunning(hosts):
 			args = '-h %s -p %s -a %s ping' % (h, port+j, pw)
 			args = args.split(' ')
 			cmd = cmd + args
-			print 'cmd=%s' % cmd
+			print('cmd=%s' % cmd)
 			noping = True
 			while noping == True:
 				p = Popen(cmd, stdin=PIPE, stderr=PIPE, stdout=PIPE)
 				stdout, stderr = p.communicate()
-				print 'stdout:%s' % stdout
-				print 'stderr:%s' % stderr
+				print('stdout:%s' % stdout)
+				print('stderr:%s' % stderr)
 				if stdout.replace('\n','') != 'PONG':
 					noping = True
 				else:
@@ -137,8 +138,8 @@ def createcluster(hosts):
 	global replicas
 	cnt = 0
 	hostlist = []
-	print 'num of hosts %d' % len(hosts)
-	print 'num of tasks  %d' % rs_per
+	print('num of hosts %d' % len(hosts))
+	print('num of tasks  %d' % rs_per)
 	for i in range(len(hosts)):
 		for j in range(rs_per):
 			nexthost = hosts[i]+'-ib0'
@@ -151,13 +152,13 @@ def createcluster(hosts):
 	args="--no-auth-warning --cluster create -a %s --cluster-replicas %d %s" % (pw, 0, hostlist)
 	args=args.split(' ')
 	cmd = cmd + args
-	print 'cmd to create cluster:%s' % str(cmd)
-	print 'Waiting for cluster creation'
+	print('cmd to create cluster:%s' % str(cmd))
+	print('Waiting for cluster creation')
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	p.stdin.write(b'yes\n')
 	stdout, stderr = p.communicate()
-	print 'stdout: %s' % stdout
-	print 'stderr: %s' % stderr
+	print('stdout: %s' % stdout)
+	print('stderr: %s' % stderr)
 #
 #
 def startservers(options):
@@ -186,12 +187,12 @@ def startservers(options):
 	'-m %s' % hosts,
 	'-d %s' % rdir]
 	cmd = cmd + args
-	print 'jsrun cmd:%s' % cmd
+	print('jsrun cmd:%s' % cmd)
 #
 	# start the redis server on the host
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
-	print 'startserver error: %s' % stderr
+	print('startserver error: %s' % stderr)
 	if stderr:
 		exit(1)
 #
@@ -211,14 +212,14 @@ def startserver(options):
 	# get the hostname of the node starting the redis-server
 	myhost,index = gethost()
 #
-	print 'myhost:%s' % myhost
-	print 'rank:%d' % rank
-	print 'index:%d' % index
-	print 'timeout:%d' % timeout
-	print 'pw:%s' % pw
-	print 'rdir:%s' % rdir
+	print('myhost:%s' % myhost)
+	print('rank:%d' % rank)
+	print('index:%d' % index)
+	print('timeout:%d' % timeout)
+	print('pw:%s' % pw)
+	print('rdir:%s' % rdir)
 	cmd=[redisserver]
-	print 'redisserver:%s' % cmd
+	print('redisserver:%s' % cmd)
 	args = ['--requirepass %s' % pw,
 	'--bind %s' % myhost,
 	'--port %d' % (port+rank),
@@ -230,11 +231,11 @@ def startserver(options):
 	'--daemonize no',
 	'--cluster-node-timeout %d' %  timeout]
 	cmd = cmd + args
-	print 'server cmd:%s' % cmd
+	print('server cmd:%s' % cmd)
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
 	if stderr:
-		print 'redis server error:%s' % stderr
+		print('redis server error:%s' % stderr)
 		exit(-1)
 #
 def start(options):
@@ -270,11 +271,11 @@ def start(options):
 		jobid = jobid.replace('>','')
 		jobid = int(jobid)
 	else:
-		print 'startservers stderr: %s' % stderr
+		print('startservers stderr: %s' % stderr)
 		exit(-1)
 #
 	# once job is started we can proceed to cluster creation
-	print jobid
+	print(jobid)
 	cmd = ['bjobs']
 	args = ['-o','-noheader','stat','%d' % jobid]
 	cmd = cmd + args
@@ -282,9 +283,9 @@ def start(options):
 		p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 		stdout,stderr = p.communicate()
 		stdout = stdout.strip('\n')
-		print 'Waiting for job to run'
+		print('Waiting for job to run')
 		if stdout == 'RUN':
-			print 'Running job'
+			print('Running job')
 			break
 #
 	hosts = gethosts(jobid)
@@ -301,7 +302,7 @@ def gettaskspernode(jobid):
 	p = Popen(cmd, stdout=PIPE,stderr=PIPE,stdin=PIPE)
 	stdout,stderr = p.communicate()
 	if stderr:
-		print stderr
+		print(stderr)
 		exit(-1)
 #
 	index = stdout.find('-r')
@@ -346,14 +347,14 @@ def saverdb(options):
 		cmd = cmd + args
 		p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 		stdout, stderr = p.communicate()
-		print stdout.replace('\n','')
+		print(stdout.replace('\n',''))
 		returns.append(stdout.replace('\n',''))
 		lastsave.append(returns[i])
 		cmd = [redisclient]
 		args = '-h %s -p %d -a %s BGSAVE' % (myhost, port+i, pw)
 		args = args.split()
 		cmd = cmd + args
-		print cmd
+		print(cmd)
 		p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 		stdout, stderr = p.communicate()
 #
@@ -390,11 +391,11 @@ def save(options):
 			'-r %d' % rs_per,
 			'-m "%s"' % hosts]
 	cmd = cmd + args
-	print cmd
+	print(cmd)
 	p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
-	print 'stdout:%s' % stdout
-	print 'stderr:%s' % stderr
+	print('stdout:%s' % stdout)
+	print('stderr:%s' % stderr)
 #
 def shutdown(options):
 	global port
@@ -414,7 +415,7 @@ def shutdown(options):
 		cmd = cmd + args
 		p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 		stdout, stderr = p.communicate()
-		print stdout.replace('\n','')
+		print(stdout.replace('\n',''))
 #
 def stop(options):
 	jobid = options.jobid
@@ -438,11 +439,11 @@ def stop(options):
 			'-m "%s"' % hosts,
 			'-r %d' % rs_per]
 	cmd = cmd + args
-	print cmd
+	print(cmd)
 	p = Popen(cmd, stdin=PIPE, stderr=PIPE, stdout=PIPE)
 	stdout, stderr = p.communicate()
-	print 'stdout:%s' % stdout
-	print 'stderr:%s' % stderr
+	print('stdout:%s' % stdout)
+	print('stderr:%s' % stderr)
 #
 #
 def getrdb(options):
@@ -463,8 +464,8 @@ def getrdb(options):
 		args = args.split()
 		cmd = cmd + args
 		p0 = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
-		print 'p0 output:%s' % p0.stdout
-		print 'p0 stderr:%s' % p0.stderr
+		print('p0 output:%s' % p0.stdout)
+		print('p0 stderr:%s' % p0.stderr)
 		if p0.stdout:
 			cmd = [redisclient]
 			args = '-h %s -p %d -a %s --pipe' % (myhost, port+i, pw)
@@ -472,10 +473,10 @@ def getrdb(options):
 			cmd = cmd + args
 			p1 = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=p0.stdout)
 			stdout, stderr = p1.communicate()
-			print 'p1 output:%s' % p1.stdout
-			print 'p1 stderr:%s' % p1.stderr
+			print('p1 output:%s' % p1.stdout)
+			print('p1 stderr:%s' % p1.stderr)
 		else:
-			print 'no additional data to restore'
+			print('no additional data to restore')
 #
 def restore(options):
 	print('restore  Redis rdb files')
@@ -505,16 +506,16 @@ def restore(options):
 			'-r %d' % rs_per,
 			'-d %s' % rdir]
 	cmd = cmd + args
-	print cmd
+	print(cmd)
 	p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
-	print 'stdout:%s' % stdout
-	print 'stderr:%s' % stderr
+	print('stdout:%s' % stdout)
+	print('stderr:%s' % stderr)
 
 
 # argument processing
-print 'Script for starting, stoping, saving, and restoring a Redis cluster'
-print 'Users should modify script to customize launch node, current working directory and path to redis binaries'
+print('Script for starting, stoping, saving, and restoring a Redis cluster')
+print('Users should modify script to customize launch node, current working directory and path to redis binaries')
 parser = argparse.ArgumentParser(description='start/stop/save/restore Redis clusters')
 subparsers = parser.add_subparsers(metavar='{start,stop,save,restore,}',help='sub-command help')
 start_parser = subparsers.add_parser('start', help='start -n <nodecnt> -r <servers per node>')
@@ -560,7 +561,7 @@ if len(sys.argv) <= 1:
     sys.argv.append('--help')
 #
 options = parser.parse_args()
-print options
+print(options)
 #
 # Run the appropriate function (in this case showtop20 or listapps)
 options.func(options)

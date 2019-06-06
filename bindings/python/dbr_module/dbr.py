@@ -111,7 +111,7 @@ def removeUnits(dbr_handle, units):
 
 def put(dbr_hdl, tuple_val, tuple_name, group):
     dumpedtuple = None
-    if type(tuple_val) is str:
+    if isinstance(tuple_val, str):
         dumpedtuple = tuple_val.encode()
     else:
         dumpedtuple = pickle.dumps(tuple_val)
@@ -167,7 +167,7 @@ def readA(dbr_hdl, tuple_name, match_template, group, buffer_size=None):
 def putA(dbr_hdl, tuple_val, tuple_name, group):
     #dumpedtuple = pickle.dumps(tuple_val)
     dumpedtuple = None
-    if type(tuple_val) is str:
+    if isinstance(tuple_val, str):
         dumpedtuple = tuple_val.encode()
     else:
         dumpedtuple = pickle.dumps(tuple_val)
