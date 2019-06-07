@@ -59,7 +59,6 @@ dbBE_Redis_address_t* dbBE_Redis_address_create( const char *host,
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    printf("Getting AddrInfo for host=%s port=%s\n", host, port );
     int rc = getaddrinfo( host, port,
                           &hints,
                           &addrs);
