@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,10 @@
 #include "util/lock_tools.h"
 #include "common/dbbe_api.h"
 
+#ifdef DBR_DATA_ADAPTERS
+#include "dbrda_api.h"
+#endif
+
 #define dbrMAX_TAGS ( 1024 )
 #define dbrNUM_DB_MAX ( 1024 )
 #define dbrERROR_INDEX ( (uint32_t)-1)
@@ -33,6 +37,19 @@
 #include "lib/sge.h"
 
 #include <pthread.h>
+#include <inttypes.h>
+
+
+/**
+ * distinguish between number and address by assuming the last 2 bits of a ptr to a request are always 0 (request memory alignment)
+ * Therefore creating the reference counter by shifting the actual counter by 2 bits
+ */
+#define DBR_REQUEST_REFERENCE_ZERO ( 0x3ULL ) // make sure the last 2 bits are set to distinguish from a ptr to a request
+#define DBR_REQUEST_REFERENCE_PTR( r ) (r)._reference
+#define DBR_REQUEST_REFERENCE_CNT( r ) ((r)._count >> 2)
+#define DBR_REQUEST_IS_REFERENCE( r ) (( ((r)._count & DBR_REQUEST_REFERENCE_ZERO ) == 0 ) && ( (r)._reference != NULL ))
+#define DBR_REQUEST_REFERENCE_INC( r )  if( ! DBR_REQUEST_IS_REFERENCE(r) ) (r)._count += (1 << 2 )
+#define DBR_REQUEST_REFERENCE_DEC( r )  if(( ! DBR_REQUEST_IS_REFERENCE(r) ) && ( (r)._count > DBR_REQUEST_REFERENCE_ZERO )) (r)._count -= (1 << 2 )
 
 struct dbrMain_context;
 
@@ -88,6 +105,14 @@ typedef enum dbrRequest_status
   dbrSTATUS_CLOSED
 } dbrRequest_status_t;
 
+struct dbrRequestContext;
+
+typedef union dbrRequest_reference {
+  uintptr_t _count;  ///< actual reference counter in special format
+  struct dbrRequestContext *_reference;  ///< pointer to another request
+} dbrRequest_reference_t;
+
+
 // request context to hold all data around a request
 typedef struct dbrRequestContext
 {
@@ -97,6 +122,7 @@ typedef struct dbrRequestContext
   dbrRequest_status_t _status;
   DBR_Tag_t _tag;
   int64_t *_rc;
+  dbrRequest_reference_t _ref;
   struct dbrRequestContext *_next;
   dbBE_Request_t _req;     ///< dynamic length
 } dbrRequestContext_t;
@@ -121,6 +147,9 @@ typedef struct dbrMain_context
   uint64_t _tag_tail;                     ///< tag of the next expected completion
   pthread_mutex_t _biglock;               ///< initial step to thread-safe lib; starting with big lock in main context
   void* _tmp_testkey_buf;                 ///< a tmp buffer that holds return values for testkey command
+#ifdef DBR_DATA_ADAPTERS
+  dbrDA_api_t *_data_adapter;               ///< if there's a data adapter library loaded, it's referenced here
+#endif
 } dbrMain_context_t;
 
 dbrMain_context_t* dbrCheckCreateMainCTX();
@@ -170,6 +199,11 @@ DBR_Errorcode_t dbrTest_request( dbrName_space_t *cs, DBR_Request_handle_t hdl )
 DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
                                  DBR_Request_handle_t hdl,
                                  int enable_timeout );
+
+
+uintptr_t dbrRequest_reference_to( dbrRequestContext_t *src,
+                                   dbrRequestContext_t *dst );
+
 
 
 #endif /* SRC_LIBDATABROKER_INT_H_ */

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,6 +97,28 @@ libdbrTest( DBR_Tag_t req_tag)
     default:
       break;
   }
+
+#ifdef DBR_DATA_ADAPTERS
+  // data post-processing plugins
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    dbrDA_Request_chain_t *chain = NULL;
+    // todo: rebuild key/value chain from chained requests
+    switch( rctx->_req._opcode )
+    {
+      case DBBE_OPCODE_PUT:
+        rc = cs->_reverse->_data_adapter->post_write( chain );
+        break;
+      case DBBE_OPCODE_READ:
+      case DBBE_OPCODE_GET:
+        rc = cs->_reverse->_data_adapter->post_read( chain, rctx->_req._sge, rctx->_req._sge_count );
+        break;
+      default:
+        break;
+    }
+  }
+#endif
+
   dbrRemove_request( rctx->_ctx, rctx );
 
   BIGLOCK_UNLOCKRETURN( main_ctx, rc );

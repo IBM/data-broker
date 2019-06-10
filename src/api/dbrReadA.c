@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,15 +33,26 @@ DBR_Tag_t libdbrReadA(DBR_Handle_t cs_handle,
   if(( cs == NULL ) || ( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DB_TAG_ERROR;
 
+  dbBE_sge_t dest_sge;
+  dest_sge.iov_base = va_ptr;
+  dest_sge.iov_len = size;
+
+#ifdef DBR_DATA_ADAPTERS
+  // read-path request pre-processing plugin
+  dbrDA_Request_chain_t *chain = NULL;
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    chain = cs->_reverse->_data_adapter->pre_read( tuple_name, &dest_sge, 1 );
+    if( chain == NULL )
+      return DB_TAG_ERROR;
+  }
+#endif
+
   BIGLOCK_LOCK( cs->_reverse );
 
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
-
-  dbBE_sge_t dest_sge;
-  dest_sge.iov_base = va_ptr;
-  dest_sge.iov_len = size;
 
   dbrRequestContext_t *rctx = dbrCreate_request_ctx( DBBE_OPCODE_READ,
                                                      cs_handle,

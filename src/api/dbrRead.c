@@ -70,6 +70,17 @@ libdbrRead(DBR_Handle_t cs_handle,
   if(( cs->_be_ctx == NULL ) || ( cs->_reverse == NULL ))
     return DBR_ERR_NSINVAL;
 
+#ifdef DBR_DATA_ADAPTERS
+  // read-path request pre-processing plugin
+  dbrDA_Request_chain_t *chain = NULL;
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    chain = cs->_reverse->_data_adapter->pre_read( tuple_name, sge, sge_len );
+    if( chain == NULL )
+      return DBR_ERR_PLUGIN;
+  }
+#endif
+
   BIGLOCK_LOCK( cs->_reverse );
 
   int enable_timeout = (flags & DBBE_OPCODE_FLAGS_IMMEDIATE ) != 0 ? 0 : 1;
@@ -116,6 +127,11 @@ libdbrRead(DBR_Handle_t cs_handle,
   switch( rc ) {
   case DBR_SUCCESS:
     rc = dbrCheck_response( ctx );
+#ifdef DBR_DATA_ADAPTERS
+    // read-path data post-processing plugin
+    if( cs->_reverse->_data_adapter != NULL )
+      rc = cs->_reverse->_data_adapter->post_read( chain, sge, sge_len );
+#endif
     break;
   case DBR_ERR_UNAVAIL:
     if( enable_timeout == 0 )

@@ -45,6 +45,10 @@ else( DEFINED VOIDTAG )
   add_definitions( -DDBR_INTTAG )
 endif( DEFINED VOIDTAG )
 
+if( DEFINED WITH_DATA_ADAPTERS )
+  add_definitions( -DDBR_DATA_ADAPTERS )
+endif( DEFINED WITH_DATA_ADAPTERS )
+
 if( NOT DEFINED DEFAULT_BE )
   set(DEFAULT_BE redis )
 endif( NOT DEFINED DEFAULT_BE )

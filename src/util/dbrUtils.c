@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,9 @@
 
 static dbrMain_context_t *gMain_context = NULL;
 static pthread_mutex_t gMain_creation_lock = PTHREAD_MUTEX_INITIALIZER;
+#ifdef DBR_DATA_ADAPTERS
+static void *gBase_data_apapter = NULL;
+#endif
 
 dbrMain_context_t* dbrCheckCreateMainCTX(void)
 {
@@ -83,6 +86,11 @@ dbrMain_context_t* dbrCheckCreateMainCTX(void)
       pthread_mutex_unlock( &gMain_creation_lock );
       return NULL;
     }
+
+#ifdef DBR_DATA_ADAPTERS
+    // todo
+    gMain_context->_data_adapter = gBase_data_apapter;
+#endif
     pthread_mutex_init( &gMain_context->_biglock, NULL );
   }
 

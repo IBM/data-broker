@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,21 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
     return DB_TAG_ERROR;
   }
 
+  dbBE_sge_t sge;
+  sge.iov_base = va_ptr;
+  sge.iov_len = size;
+
+#ifdef DBR_DATA_ADAPTERS
+  // write-path data pre-processing plugin
+  dbrDA_Request_chain_t *chain = NULL;
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    chain = cs->_reverse->_data_adapter->pre_write( tuple_name, &sge, 1 );
+    if( chain == NULL )
+      return DB_TAG_ERROR;
+  }
+#endif
+
   BIGLOCK_LOCK( cs->_reverse );
 
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
@@ -42,10 +57,6 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
     LOG( DBG_ERR, stderr, "Invalid input name space handle\n" );
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
   }
-  dbBE_sge_t sge;
-  sge.iov_base = va_ptr;
-  sge.iov_len = size;
-
   dbrRequestContext_t *pctx = dbrCreate_request_ctx( DBBE_OPCODE_PUT,
                                                      cs_handle,
                                                      group,

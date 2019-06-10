@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,17 @@ libdbrPut (DBR_Handle_t cs_handle,
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
   if(( cs->_be_ctx == NULL ) || (cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DBR_ERR_NSINVAL;
+
+#ifdef DBR_DATA_ADAPTERS
+  // write-path data pre-processing plugin
+  dbrDA_Request_chain_t *chain = NULL;
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    chain = cs->_reverse->_data_adapter->pre_write( tuple_name, sge, sge_len );
+    if( chain == NULL )
+      return DBR_ERR_PLUGIN;
+  }
+#endif
 
   BIGLOCK_LOCK( cs->_reverse );
 
@@ -76,6 +87,13 @@ libdbrPut (DBR_Handle_t cs_handle,
   switch( rc ) {
   case DBR_SUCCESS:
     rc = dbrCheck_response( ctx );
+
+#ifdef DBR_DATA_ADAPTERS
+    // write-path data pre-processing plugin
+    if( cs->_reverse->_data_adapter != NULL )
+      rc = cs->_reverse->_data_adapter->post_write( chain );
+#endif
+
     break;
   case DBR_ERR_INPROGRESS:
     rc = DBR_ERR_TIMEOUT;
@@ -89,4 +107,3 @@ error:
 
   BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
 }
-
