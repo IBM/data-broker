@@ -985,7 +985,7 @@ dbBE_Redis_cluster_info_t* dbBE_Redis_connection_mgr_get_cluster_info( dbBE_Redi
     return NULL;
 
   dbBE_Redis_sr_buffer_t *iobuf = dbBE_Transport_sr_buffer_allocate(
-      dbBE_Redis_connection_mgr_get_connections( conn_mgr ) * DBBE_REDIS_INFO_PER_SERVER );
+      DBBE_REDIS_MAX_CONNECTIONS * DBBE_REDIS_INFO_PER_SERVER );
   if( iobuf == NULL )
     return NULL;
 
