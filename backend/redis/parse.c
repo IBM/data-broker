@@ -158,7 +158,7 @@ char* dbBE_Redis_find_terminator( char *haystack, const int64_t limit )
     }
     if( ( *p == '\r') && ( p[1] == '\n'))
     {
-      LOG( DBG_ALL, stdout, "Found Terminator @%"PRId64"\n", pos );
+      LOG( DBG_VERBOSE, stdout, "Found Terminator @%"PRId64"\n", pos );
       return p;
     }
     ++pos;
@@ -215,7 +215,7 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
   // check the terminator
   if(( string[exp_len] != '\r' ) || ( string[exp_len+1] != '\n' ))
   {
-    LOG( DBG_ALL, stderr, "Terminator not in expected place: exp=%"PRId64"; lim=%"PRId64"; prcssd=%zd; %x %x|%x %x %x\n",
+    LOG( DBG_ERR, stderr, "Terminator not in expected place: exp=%"PRId64"; lim=%"PRId64"; prcssd=%zd; %x %x|%x %x %x\n",
          exp_len, limit, processed, string[exp_len-2], string[exp_len-1], string[exp_len], string[exp_len+1], string[exp_len+2] );
     // if the terminator is not in the expected place, try to parse for the terminator and adjust or fail if terminator is not found
     char *terminator = dbBE_Redis_find_terminator( string, limit - processed );
