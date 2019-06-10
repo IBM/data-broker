@@ -301,7 +301,7 @@ static int dbBE_Redis_connection_mgr_fail_over_new_master( dbBE_Redis_connection
 
   // update locator
   dbBE_Redis_locator_associate_range_conn_index( locator, first_slot, last_slot, conn->_index );
-  LOG( DBG_ALL, stderr, "Recovered connection by switching to %s\n", dbBE_Redis_server_info_get_master( si ) );
+  LOG( DBG_VERBOSE, stderr, "Recovered connection by switching to %s\n", dbBE_Redis_server_info_get_master( si ) );
 
   return DBBE_REDIS_CONNECTION_RECOVERED;
 }
@@ -316,16 +316,16 @@ dbBE_Redis_connection_mgr_connect_check_replica( dbBE_Redis_connection_mgr_t *co
                                                  dbBE_Redis_locator_index_t first_slot,
                                                  dbBE_Redis_locator_index_t last_slot )
 {
-  LOG( DBG_ALL, stderr, "Got replica: %s\n", url );
+  LOG( DBG_VERBOSE, stderr, "Got replica: %s\n", url );
 
   dbBE_Redis_connection_t *repl_conn = dbBE_Redis_connection_mgr_newlink( conn_mgr, url );
   if( repl_conn == NULL )
   {
-    LOG( DBG_ALL, stderr, "Replica: %s not yet ready to connect\n", url );
+    LOG( DBG_INFO, stderr, "Replica: %s not yet ready to connect\n", url );
     return DBBE_REDIS_CONNECTION_RECOVERABLE;
   }
 
-  LOG( DBG_ALL, stderr, "Replica: %s connected\n", url );
+  LOG( DBG_VERBOSE, stderr, "Replica: %s connected\n", url );
 
   // assign the connection slot range
   dbBE_Redis_connection_assign_slot_range( repl_conn,
@@ -340,10 +340,10 @@ dbBE_Redis_connection_mgr_connect_check_replica( dbBE_Redis_connection_mgr_t *co
   switch( dbBE_Redis_connection_mgr_is_master( conn_mgr, repl_conn ) )
   {
     case 0:
-      LOG( DBG_ALL, stderr, "Cluster fail-over hasn't happen yet. Retrying later.\n");
+      LOG( DBG_INFO, stderr, "Cluster fail-over hasn't happen yet. Retrying later.\n");
       return DBBE_REDIS_CONNECTION_RECOVERABLE;
     case 1:
-      LOG( DBG_ALL, stderr, "Replica: %s is voted master by Redis now\n", url );
+      LOG( DBG_VERBOSE, stderr, "Replica: %s is voted master by Redis now\n", url );
 
       // update locator
       dbBE_Redis_locator_associate_range_conn_index( locator,
@@ -578,7 +578,7 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
       broke->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
       if( dbBE_Redis_connection_reconnect( broke ) == 0 ) // try reconnect and if successful:
       {
-        LOG( DBG_ALL, stderr, "Recovered connection idx: %d\n", broke->_index );
+        LOG( DBG_INFO, stderr, "Recovered connection idx: %d\n", broke->_index );
         switch( dbBE_Redis_connection_mgr_is_master( conn_mgr, broke ) )
         {
           case 1: // recovered connection is a master, we're back to normal
@@ -589,7 +589,7 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
           }
           case 0: // recovered connection is now a replica, need to update clusterinfo and connect to master
           {
-            LOG( DBG_ALL, stderr, "Connection switching because it's a replica\n" );
+            LOG( DBG_VERBOSE, stderr, "Connection switching required because it's a replica\n" );
             recoverable = dbBE_Redis_connection_mgr_fail_over_new_master( conn_mgr, locator, broke, cluster);
             if( recoverable == DBBE_REDIS_CONNECTION_RECOVERED )
               ++recovered;
@@ -612,7 +612,7 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
         }
 
         char *url = dbBE_Redis_connection_get_url( broke );
-        LOG( DBG_ALL, stderr, "Master connection to %s unrecoverable. Switching to replica\n", url );
+        LOG( DBG_INFO, stderr, "Master connection to %s unrecoverable. Switching to replica\n", url );
         dbBE_Redis_server_info_t *server = dbBE_Redis_cluster_info_get_server_by_addr( *cluster,
                                                                                        url );
         if( server != NULL )
@@ -661,7 +661,7 @@ dbBE_Redis_connection_recoverable_t dbBE_Redis_connection_mgr_conn_recover(
 
   if( unbroken == conn_mgr->_connection_count ) // need recovery and have no broken connections? Lets check clusterinfo...
   {
-    LOG( DBG_ALL, stderr, "All connections fine, but maybe new cluster info?\n" );
+    LOG( DBG_INFO, stderr, "Recovery requested while all known connections alive. Need new cluster info?\n" );
     // todo retrieve cluster info and make sure we're only connected to master instances
     dbBE_Redis_cluster_info_t *new_cluster = dbBE_Redis_connection_mgr_get_cluster_info( conn_mgr );
     if( new_cluster == NULL )
