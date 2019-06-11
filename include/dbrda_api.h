@@ -89,7 +89,7 @@ typedef struct dbrDA_api
    *  created in pre-read and/or (re-)combine the results of multiple requests into one
    *  it also receives the error code of the data broker processing
    */
-  DBR_Errorcode_t (*post_read)( dbrDA_Request_chain_t*, struct iovec*, const int );
+  DBR_Errorcode_t (*post_read)( dbrDA_Request_chain_t*, struct iovec*, const int, DBR_Errorcode_t );
 
 } dbrDA_api_t;
 

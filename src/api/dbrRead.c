@@ -130,7 +130,7 @@ libdbrRead(DBR_Handle_t cs_handle,
 #ifdef DBR_DATA_ADAPTERS
     // read-path data post-processing plugin
     if( cs->_reverse->_data_adapter != NULL )
-      rc = cs->_reverse->_data_adapter->post_read( chain, sge, sge_len );
+      rc = cs->_reverse->_data_adapter->post_read( chain, sge, sge_len, rc );
 #endif
     break;
   case DBR_ERR_UNAVAIL:

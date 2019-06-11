@@ -111,7 +111,7 @@ libdbrTest( DBR_Tag_t req_tag)
         break;
       case DBBE_OPCODE_READ:
       case DBBE_OPCODE_GET:
-        rc = cs->_reverse->_data_adapter->post_read( chain, rctx->_req._sge, rctx->_req._sge_count );
+        rc = cs->_reverse->_data_adapter->post_read( chain, rctx->_req._sge, rctx->_req._sge_count, rc );
         break;
       default:
         break;
