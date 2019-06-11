@@ -79,13 +79,15 @@ typedef struct dbrDA_api
    * post-write:
    *  Allows to manipulate the key/value or results of the request chain processing
    *  e.g. combine the error codes in case the initial request was split
+   *  it also receives the error code of the data broker processing
    */
-  DBR_Errorcode_t (*post_write)( dbrDA_Request_chain_t* );
+  DBR_Errorcode_t (*post_write)( dbrDA_Request_chain_t*, DBR_Errorcode_t );
 
   /**
    * post-read:
    *  Allows to convert/modify the returned data in-place or based on temporary buffers
    *  created in pre-read and/or (re-)combine the results of multiple requests into one
+   *  it also receives the error code of the data broker processing
    */
   DBR_Errorcode_t (*post_read)( dbrDA_Request_chain_t*, struct iovec*, const int );
 
