@@ -227,6 +227,8 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
   start_time.tv_sec = 0;
   elapsed.tv_sec = 0;
 
+  DBR_Request_handle_t chain = hdl;
+
   /*
    * This loop should allow to drive the backend while waiting for completions
    * Reduces the requirement for a backend to make independent progress in a separate thread
@@ -239,43 +241,49 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
 #define DBR_TIMEOUT_CHECKLOOPS ( 0x1 )
 #endif
 
-  /*
-   * have a loop count to reduce the amount of gettimeofday calls
-   * start with negative offset to prevent the syscall for the first N iterations
-   */
-  uint64_t timeloops = (uint64_t)-100;
-  uint64_t timecalls = 0;
-  do
+  // check the full chain of requests before returning
+  while( chain != NULL )
   {
-    rc = dbrTest_request( cs, hdl );
-    if((rc == DBR_ERR_INPROGRESS)
-       && enable_timeout)
+    /*
+     * have a loop count to reduce the amount of gettimeofday calls
+     * start with negative offset to prevent the syscall for the first N iterations
+     */
+    uint64_t timeloops = (uint64_t)-100;
+    uint64_t timecalls = 0;
+    do
     {
-      if( ((++timeloops) & DBR_TIMEOUT_CHECKLOOPS ) == 0 )
+      rc = dbrTest_request( cs, chain );
+      if((rc == DBR_ERR_INPROGRESS)
+         && enable_timeout)
       {
-        gettimeofday( &now, NULL );
-        ++timecalls;
-        if( start_time.tv_sec == 0 )
+        if( ((++timeloops) & DBR_TIMEOUT_CHECKLOOPS ) == 0 )
         {
-          start_time.tv_sec = now.tv_sec;
-          start_time.tv_usec = now.tv_usec;
+          gettimeofday( &now, NULL );
+          ++timecalls;
+          if( start_time.tv_sec == 0 )
+          {
+            start_time.tv_sec = now.tv_sec;
+            start_time.tv_usec = now.tv_usec;
+          }
+          elapsed.tv_sec = (now.tv_sec * 1e6 + now.tv_usec) - (start_time.tv_sec * 1e6 + start_time.tv_usec);
+          elapsed.tv_sec /= 1e6;
         }
-        elapsed.tv_sec = (now.tv_sec * 1e6 + now.tv_usec) - (start_time.tv_sec * 1e6 + start_time.tv_usec);
-        elapsed.tv_sec /= 1e6;
       }
+    } while( rc == DBR_ERR_INPROGRESS
+             && ( elapsed.tv_sec < cs->_reverse->_config._timeout_sec ));
+
+    // ToDo: if Timeout -> send first a cancel and wait for acknowledge.
+    //       otherwise internal structures could be in danger.
+    if(( rc == DBR_ERR_INPROGRESS )&& (elapsed.tv_sec >= cs->_reverse->_config._timeout_sec))
+    {
+      dbrCancel_request( cs, chain );
+      rc = DBR_ERR_INPROGRESS;
+      while( rc == DBR_ERR_INPROGRESS )
+        rc = dbrTest_request( cs, chain );
     }
-  } while( rc == DBR_ERR_INPROGRESS
-           && ( elapsed.tv_sec < cs->_reverse->_config._timeout_sec ));
 
-  // ToDo: if Timeout -> send first a cancel and wait for acknowledge.
-  //       otherwise internal structures could be in danger.
-  if(( rc == DBR_ERR_INPROGRESS )&& (elapsed.tv_sec >= cs->_reverse->_config._timeout_sec))
-  {
-    dbrCancel_request( cs, hdl );
-    rc = DBR_ERR_INPROGRESS;
-    while( rc == DBR_ERR_INPROGRESS )
-      rc = dbrTest_request( cs, hdl );
+
+    chain = chain->_next;
   }
-
   return rc;
 }
