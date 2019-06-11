@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
  */
 #include "libdbrAPI.h"
 
+#include <stdlib.h>
+
 DBR_Errorcode_t
 dbrPut (DBR_Handle_t cs_handle,
         void *va_ptr,
@@ -23,14 +25,14 @@ dbrPut (DBR_Handle_t cs_handle,
         DBR_Tuple_name_t tuple_name,
         DBR_Group_t group)
 {
-  dbBE_sge_t sge;
-  sge.iov_base = va_ptr;
-  sge.iov_len = size;
+  dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + sizeof( dbBE_sge_t ) );;
+  req->_key = tuple_name;
+  req->_sge_count = 1;
+  req->_value_sge[0].iov_base = va_ptr;
+  req->_value_sge[0].iov_len = size;
 
   return libdbrPut( cs_handle,
-                    &sge,
-                    1,
-                    tuple_name,
+                    req,
                     group );
 }
 

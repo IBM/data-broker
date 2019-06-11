@@ -23,10 +23,7 @@
 
 #include "util/lock_tools.h"
 #include "common/dbbe_api.h"
-
-#ifdef DBR_DATA_ADAPTERS
 #include "dbrda_api.h"
-#endif
 
 #define dbrMAX_TAGS ( 1024 )
 #define dbrNUM_DB_MAX ( 1024 )

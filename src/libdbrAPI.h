@@ -19,6 +19,7 @@
 #define SRC_LIBDBRAPI_H_
 
 #include "libdatabroker.h"
+#include "dbrda_api.h"
 #include "../backend/common/dbbe_api.h"
 
 DBR_Handle_t
@@ -60,9 +61,7 @@ libdbrRemoveUnits( DBR_Handle_t cs_handle,
 
 DBR_Errorcode_t
 libdbrPut( DBR_Handle_t cs_handle,
-           dbBE_sge_t *sge,
-           int sge_len,
-           DBR_Tuple_name_t tuple_name,
+           dbrDA_Request_chain_t *request,
            DBR_Group_t group );
 
 DBR_Tag_t

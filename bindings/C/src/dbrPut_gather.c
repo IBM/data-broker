@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "libdatabroker_ext.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 DBR_Errorcode_t
 dbrPut_gather (DBR_Handle_t cs_handle,
@@ -32,25 +33,25 @@ dbrPut_gather (DBR_Handle_t cs_handle,
   if(( len <= 0 ) || (va_ptr == NULL) || (size==NULL))
     return DBR_ERR_INVALID;
 
-
-  dbBE_sge_t *sge = (dbBE_sge_t*)calloc( len, sizeof( dbBE_sge_t ) );
-  if( sge == NULL )
+  dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + len * sizeof( dbBE_sge_t ) );
+  if( req == NULL )
     return DBR_ERR_NOMEMORY;
 
+  req->_key = tuple_name;
+  req->_next = NULL;
+  req->_sge_count = len;
   int n;
   for( n=0; n<len; ++n )
   {
-    sge[ n ].iov_base = (void*)va_ptr[ n ];
-    sge[ n ].iov_len = size[ n ];
+    req->_value_sge[ n ].iov_base = (void*)va_ptr[ n ];
+    req->_value_sge[ n ].iov_len = size[ n ];
   }
 
   DBR_Errorcode_t rc = libdbrPut( cs_handle,
-                    sge,
-                    len,
-                    tuple_name,
-                    group );
+                                  req,
+                                  group );
 
-  free( sge );
+  free( req );
   return rc;
 }
 
@@ -64,9 +65,15 @@ dbrPut_v( DBR_Handle_t dbr_handle,
   if(( dbr_handle == NULL ) || ( sge == NULL ))
     return DBR_ERR_INVALID;
 
-  return libdbrPut( dbr_handle,
-                    sge,
-                    len,
-                    tuple_name,
-                    group );
+  dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + len * sizeof( struct iovec ));
+  req->_next = NULL;
+  req->_key = tuple_name;
+  req->_sge_count = len;
+  memcpy( req->_value_sge, sge, len * sizeof( struct iovec ) );
+
+  DBR_Errorcode_t rc = libdbrPut( dbr_handle,
+                                  req,
+                                  group );
+  free( req );
+  return rc;
 }

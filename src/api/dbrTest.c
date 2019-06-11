@@ -107,7 +107,7 @@ libdbrTest( DBR_Tag_t req_tag)
     switch( rctx->_req._opcode )
     {
       case DBBE_OPCODE_PUT:
-        rc = cs->_reverse->_data_adapter->post_write( chain );
+        rc = cs->_reverse->_data_adapter->post_write( chain, rc );
         break;
       case DBBE_OPCODE_READ:
       case DBBE_OPCODE_GET:
