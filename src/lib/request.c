@@ -202,28 +202,34 @@ DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
   if( rctx == NULL || rctx->_ctx == NULL || rctx->_ctx->_reverse == NULL )
     return NULL;
 
-  if( dbrValidateTag( rctx, rctx->_tag ) != DBR_SUCCESS )
-    return NULL;
-
-  if( rctx->_ctx->_reverse->_cs_wq[ rctx->_tag ] == NULL )
+  dbrRequestContext_t *chain = rctx;
+  while( chain != NULL )
   {
-    LOG( DBG_ERR, stderr, "Request not inserted in namespace request list.\n" );
-    return NULL;
+    if( dbrValidateTag( chain, chain->_tag ) != DBR_SUCCESS )
+      return NULL;
+
+    if( chain->_ctx->_reverse->_cs_wq[ chain->_tag ] == NULL )
+    {
+      LOG( DBG_ERR, stderr, "Request not inserted in namespace request list.\n" );
+      return NULL;
+    }
+
+    if( chain->_cpl._status == DBR_ERR_INPROGRESS )
+    {
+      LOG( DBG_ERR, stderr, "Request already in progress\n");
+      return NULL;
+    }
+    chain->_cpl._status = DBR_ERR_INPROGRESS;
+    chain->_status = dbrSTATUS_PENDING;
+
+    dbBE_Request_handle_t be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req );
+    if( be_handle == NULL )
+      goto error;
+    chain->_be_request_hdl = be_handle;
+
+    chain = chain->_next;
   }
 
-  if( rctx->_cpl._status == DBR_ERR_INPROGRESS )
-  {
-    LOG( DBG_ERR, stderr, "Request already in progress\n");
-    return NULL;
-  }
-  rctx->_cpl._status = DBR_ERR_INPROGRESS;
-  rctx->_status = dbrSTATUS_PENDING;
-
-  dbBE_Request_handle_t be_handle = g_dbBE.post( rctx->_ctx->_be_ctx, &rctx->_req );
-  if( be_handle == NULL )
-    goto error;
-
-  rctx->_be_request_hdl = be_handle;
   return (DBR_Request_handle_t)rctx;
 
 error:

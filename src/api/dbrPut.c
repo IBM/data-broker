@@ -14,6 +14,7 @@
  * limitations under the License.
  *
  */
+#include "logutil.h"
 #include "util/lock_tools.h"
 #include "libdatabroker.h"
 #include "libdatabroker_int.h"
@@ -81,9 +82,23 @@ libdbrPut( DBR_Handle_t cs_handle,
       head = ctx; // remember the first one
 
     prev = ctx;
+    // some basic sanity check because we're processing a data structure from the plugin
+    if( ch_req == ch_req->_next )
+    {
+      LOG( DBG_ERR, stderr, "Request chain error detected. Self-referencing\n");
+      while( head != NULL )
+      {
+        dbrRequestContext_t *tmp = head;
+        if( head->_next != head )
+          head = head->_next;
+        else
+          head = NULL;
+        dbrDestroy_request( tmp );
+      }
+      return DBR_ERR_INVALIDOP;
+    }
     ch_req = ch_req->_next;
   }
-
 
   if( dbrInsert_request( cs, head ) == DB_TAG_ERROR )
   {
