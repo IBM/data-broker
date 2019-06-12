@@ -38,7 +38,7 @@ libdbrPut( DBR_Handle_t cs_handle,
   // write-path data pre-processing plugin
   if( cs->_reverse->_data_adapter != NULL )
   {
-    chain = cs->_reverse->_data_adapter->pre_write( request->_key, request->_value_sge, request->_sge_count );
+    chain = cs->_reverse->_data_adapter->pre_write( request );
     if( chain == NULL )
       return DBR_ERR_PLUGIN;
   }

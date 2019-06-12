@@ -20,6 +20,7 @@
 #include "libdatabroker_int.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
                       void *va_ptr,
@@ -40,13 +41,15 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
 
 #ifdef DBR_DATA_ADAPTERS
   // write-path data pre-processing plugin
+  dbrDA_Request_chain_t *ichain = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t) + sizeof( dbBE_sge_t ));
   dbrDA_Request_chain_t *chain = NULL;
   if( cs->_reverse->_data_adapter != NULL )
   {
-    chain = cs->_reverse->_data_adapter->pre_write( tuple_name, &sge, 1 );
+    chain = cs->_reverse->_data_adapter->pre_write( ichain );
     if( chain == NULL )
       return DB_TAG_ERROR;
   }
+  free( ichain );
 #endif
 
   BIGLOCK_LOCK( cs->_reverse );

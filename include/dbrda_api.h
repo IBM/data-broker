@@ -62,7 +62,7 @@ typedef struct dbrDA_api
    *  Allows to convert/modify the input tuple name (key) and SGE and
    *  returns one key/value request or a chain for the backend to process
    */
-  dbrDA_Request_chain_t* (*pre_write)( const DBR_Tuple_name_t, struct iovec*, const int );
+  dbrDA_Request_chain_t* (*pre_write)( dbrDA_Request_chain_t* );
 
   /**
    * pre-read:
