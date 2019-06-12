@@ -182,6 +182,7 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
                                            DBR_Tuple_name_t tuple_name,
                                            DBR_Tuple_template_t match_template,
                                            DBR_Tag_t tag );
+DBR_Errorcode_t dbrDestroy_request( dbrRequestContext_t *rctx );
 
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );
 DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );

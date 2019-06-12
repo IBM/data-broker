@@ -96,6 +96,14 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
   return req;
 }
 
+DBR_Errorcode_t dbrDestroy_request( dbrRequestContext_t *rctx )
+{
+  if( rctx == NULL )
+    return DBR_ERR_INVALID;
+  memset( rctx, 0, sizeof( dbrRequestContext_t ) + rctx->_req._sge_count * sizeof(dbBE_sge_t) );
+  free( rctx );
+  return DBR_SUCCESS;
+}
 
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx )
 {
@@ -181,8 +189,7 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
     }
 
     // todo: to prevent request deletion caused by an invalid rctx, move the requests to tmp deletion queue instead until we're sure the correct stuff is deleted
-    memset( cs_wq[ tag_idx ], 0, sizeof( dbrRequestContext_t ) + cs_wq[ tag_idx ]->_req._sge_count * sizeof(dbBE_sge_t) );
-    free( cs_wq[ tag_idx ] );
+    dbrDestroy_request( cs_wq[ tag_idx ] );
     cs_wq[ tag_idx ] = chain;
   }
 
