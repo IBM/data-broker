@@ -47,6 +47,7 @@ endif( DEFINED VOIDTAG )
 
 if( DEFINED WITH_DATA_ADAPTERS )
   add_definitions( -DDBR_DATA_ADAPTERS )
+  set( DL_LIB -ldl )
 endif( DEFINED WITH_DATA_ADAPTERS )
 
 if( NOT DEFINED DEFAULT_BE )

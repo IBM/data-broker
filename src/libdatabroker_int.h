@@ -145,6 +145,7 @@ typedef struct dbrMain_context
   pthread_mutex_t _biglock;               ///< initial step to thread-safe lib; starting with big lock in main context
   void* _tmp_testkey_buf;                 ///< a tmp buffer that holds return values for testkey command
 #ifdef DBR_DATA_ADAPTERS
+  void *_da_library;                        ///< library handle to the data adapter library
   dbrDA_api_t *_data_adapter;               ///< if there's a data adapter library loaded, it's referenced here
 #endif
 } dbrMain_context_t;

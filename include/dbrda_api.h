@@ -23,6 +23,9 @@
 
 #include <sys/uio.h>
 
+#define DBR_PLUGIN_ENV ("DBR_PLUGIN")
+
+
 /**
  * @typedef dbrDA_Handle_t
  * @brief   Handle to the data adapter-specific structure
@@ -93,5 +96,6 @@ typedef struct dbrDA_api
 
 } dbrDA_api_t;
 
+extern dbrDA_api_t dbrDA;
 
 #endif /* BINDINGS_DATA_ADAPTERS_DBRDA_API_H_ */

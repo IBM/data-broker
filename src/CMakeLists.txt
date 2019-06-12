@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ include_directories(./)
 link_directories(/usr/local/lib)
 add_library(databroker_int SHARED ${LIBDBINT_FILES})
 add_dependencies(databroker_int ${BACKEND_LIST} ${TRANSPORT_LIBS} )
-target_link_libraries(databroker_int ${BACKEND_LIST} ${TRANSPORT_LIBS} )
+target_link_libraries(databroker_int ${BACKEND_LIST} ${TRANSPORT_LIBS} ${DL_LIB} )
 
 install( TARGETS databroker_int
 	LIBRARY
