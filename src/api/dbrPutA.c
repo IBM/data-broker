@@ -42,12 +42,22 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
 #ifdef DBR_DATA_ADAPTERS
   // write-path data pre-processing plugin
   dbrDA_Request_chain_t *ichain = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t) + sizeof( dbBE_sge_t ));
+  ichain->_key = tuple_name;
+  ichain->_next = NULL;
+  ichain->_size = size;
+  ichain->_sge_count = 1;
+  ichain->_value_sge[0].iov_base = va_ptr;
+  ichain->_value_sge[0].iov_len = size;
+
   dbrDA_Request_chain_t *chain = NULL;
   if( cs->_reverse->_data_adapter != NULL )
   {
     chain = cs->_reverse->_data_adapter->pre_write( ichain );
     if( chain == NULL )
+    {
+      free( ichain );
       return DB_TAG_ERROR;
+    }
   }
   free( ichain );
 #endif

@@ -41,11 +41,14 @@ dbrPut_gather (DBR_Handle_t cs_handle,
   req->_next = NULL;
   req->_sge_count = len;
   int n;
+  int64_t total_len = 0;
   for( n=0; n<len; ++n )
   {
     req->_value_sge[ n ].iov_base = (void*)va_ptr[ n ];
     req->_value_sge[ n ].iov_len = size[ n ];
+    total_len += size[ n ];
   }
+  req->_size = total_len;
 
   DBR_Errorcode_t rc = libdbrPut( cs_handle,
                                   req,
@@ -70,6 +73,11 @@ dbrPut_v( DBR_Handle_t dbr_handle,
   req->_key = tuple_name;
   req->_sge_count = len;
   memcpy( req->_value_sge, sge, len * sizeof( struct iovec ) );
+
+  int n;
+  req->_size = 0;
+  for( n=0; n<len; ++n )
+    req->_size += sge[n].iov_len;
 
   DBR_Errorcode_t rc = libdbrPut( dbr_handle,
                                   req,

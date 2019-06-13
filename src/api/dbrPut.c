@@ -52,12 +52,12 @@ libdbrPut( DBR_Handle_t cs_handle,
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
   dbrDA_Request_chain_t *ch_req = chain;
-  dbrRequestContext_t *ctx = NULL;
   dbrRequestContext_t *prev = NULL;
   dbrRequestContext_t *head = NULL;
   DBR_Errorcode_t rc = DBR_SUCCESS;
   while( ch_req != NULL )
   {
+    dbrRequestContext_t *ctx;
     ctx = dbrCreate_request_ctx( DBBE_OPCODE_PUT,
                                  cs_handle,
                                  group,

@@ -38,10 +38,11 @@ typedef void* dbrDA_Handle_t;
 
 typedef struct dbrDA_Request_chain
 {
-  struct dbrDA_Request_chain *_next;
-  DBR_Tuple_name_t _key;
-  int _sge_count;
-  struct iovec _value_sge[];   ///< variable size, needs to be last entry !!!
+  struct dbrDA_Request_chain *_next;  ///< allows chaining of requests
+  DBR_Tuple_name_t _key;              ///< tuple_name/key
+  int64_t _size;                      ///< total number of bytes for this request (used for read/get)
+  int _sge_count;                     ///< number of SGEs in this request (if any)
+  struct iovec _value_sge[];          ///< variable size, needs to be last entry !!!
 } dbrDA_Request_chain_t;
 
 
