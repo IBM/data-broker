@@ -14,12 +14,14 @@
  * limitations under the License.
  *
  */
+#include "logutil.h"
 #include "util/lock_tools.h"
 #include "libdatabroker.h"
 #include "libdatabroker_int.h"
 #include "libdbrAPI.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 DBR_Errorcode_t
 libdbrTestKey( DBR_Handle_t cs_handle,
@@ -36,18 +38,21 @@ libdbrTestKey( DBR_Handle_t cs_handle,
 
   int64_t retsize;
 
-  dbBE_sge_t sge;
-  sge.iov_base = cs->_reverse->_tmp_testkey_buf;
-  sge.iov_len = DBR_TMP_BUFFER_LEN;
+  dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + sizeof( dbBE_sge_t ) );;
+  req->_key = tuple_name;
+  req->_sge_count = 1;
+  req->_value_sge[0].iov_base = cs->_reverse->_tmp_testkey_buf;
+  req->_value_sge[0].iov_len = DBR_TMP_BUFFER_LEN;
 
-  return libdbrRead( cs_handle,
-                     &sge,
-                     1,
-                     &retsize,
-                     tuple_name,
-                     match_template,
-                     group,
-                     DBBE_OPCODE_FLAGS_IMMEDIATE );
+  DBR_Errorcode_t rc;
+  rc = libdbrRead( cs_handle,
+                   req,
+                   &retsize,
+                   match_template,
+                   group,
+                   DBBE_OPCODE_FLAGS_IMMEDIATE );
+  free( req );
+  return rc;
 }
 
 
@@ -55,15 +60,13 @@ libdbrTestKey( DBR_Handle_t cs_handle,
 
 DBR_Errorcode_t
 libdbrRead(DBR_Handle_t cs_handle,
-           dbBE_sge_t *sge,
-           int sge_len,
+           dbrDA_Request_chain_t *request,
            int64_t *ret_size,
-           DBR_Tuple_name_t tuple_name,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
            int flags)
 {
-  if(( cs_handle == NULL ) || ( sge == NULL ))
+  if(( cs_handle == NULL ) || ( request == NULL ))
     return DBR_ERR_INVALID;
 
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
@@ -75,7 +78,7 @@ libdbrRead(DBR_Handle_t cs_handle,
   dbrDA_Request_chain_t *chain = NULL;
   if( cs->_reverse->_data_adapter != NULL )
   {
-    chain = cs->_reverse->_data_adapter->pre_read( tuple_name, sge, sge_len );
+    chain = cs->_reverse->_data_adapter->pre_read( request );
     if( chain == NULL )
       return DBR_ERR_PLUGIN;
   }
@@ -85,38 +88,69 @@ libdbrRead(DBR_Handle_t cs_handle,
 
   int enable_timeout = (flags & DBBE_OPCODE_FLAGS_IMMEDIATE ) != 0 ? 0 : 1;
 
-
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
+  dbrDA_Request_chain_t *ch_req = chain;
+  dbrRequestContext_t *prev = NULL;
+  dbrRequestContext_t *head = NULL;
   DBR_Errorcode_t rc = DBR_SUCCESS;
-  dbrRequestContext_t *ctx = dbrCreate_request_ctx( DBBE_OPCODE_READ,
-                                                    cs_handle,
-                                                    group,
-                                                    NULL,
-                                                    DBR_GROUP_EMPTY,
-                                                    sge_len,
-                                                    sge,
-                                                    ret_size,
-                                                    tuple_name,
-                                                    match_template,
-                                                    tag );
-  if( ctx == NULL )
+  while( ch_req != NULL )
   {
-    rc = DBR_ERR_NOMEMORY;
-    goto error;
+    dbrRequestContext_t *ctx;
+    ctx = dbrCreate_request_ctx( DBBE_OPCODE_READ,
+                                 cs_handle,
+                                 group,
+                                 NULL,
+                                 DBR_GROUP_EMPTY,
+                                 ch_req->_sge_count,
+                                 ch_req->_value_sge,
+                                 &ch_req->_size,
+                                 ch_req->_key,
+                                 NULL,
+                                 tag );
+    if( ctx == NULL )
+    {
+      rc = DBR_ERR_NOMEMORY;
+      goto error;
+    }
+
+
+    ctx->_req._flags = flags;
+
+    // chain the request contexts
+    if( prev != NULL )
+      prev->_next = ctx;
+    else
+      head = ctx; // remember the first one
+
+    prev = ctx;
+    // some basic sanity check because we're processing a data structure from the plugin
+    if( ch_req == ch_req->_next )
+    {
+      LOG( DBG_ERR, stderr, "Request chain error detected. Self-referencing\n");
+      while( head != NULL )
+      {
+        dbrRequestContext_t *tmp = head;
+        if( head->_next != head )
+          head = head->_next;
+        else
+          head = NULL;
+        dbrDestroy_request( tmp );
+      }
+      return DBR_ERR_INVALIDOP;
+    }
+    ch_req = ch_req->_next;
   }
 
-  ctx->_req._flags = flags;
-
-  if( dbrInsert_request( cs, ctx ) == DB_TAG_ERROR )
+  if( dbrInsert_request( cs, head ) == DB_TAG_ERROR )
   {
     rc = DBR_ERR_TAGERROR;
     goto error;
   }
 
-  DBR_Request_handle_t req_handle = dbrPost_request( ctx );
+  DBR_Request_handle_t req_handle = dbrPost_request( head );
   if( req_handle == NULL )
   {
     rc = DBR_ERR_BE_POST;
@@ -126,11 +160,12 @@ libdbrRead(DBR_Handle_t cs_handle,
   rc = dbrWait_request( cs, req_handle, enable_timeout );
   switch( rc ) {
   case DBR_SUCCESS:
-    rc = dbrCheck_response( ctx );
+    rc = dbrCheck_response( head );
 #ifdef DBR_DATA_ADAPTERS
     // read-path data post-processing plugin
     if( cs->_reverse->_data_adapter != NULL )
-      rc = cs->_reverse->_data_adapter->post_read( chain, sge, sge_len, rc );
+      rc = cs->_reverse->_data_adapter->post_read( chain, request, rc );
+    *ret_size = request->_size;
 #endif
     break;
   case DBR_ERR_UNAVAIL:
@@ -155,7 +190,7 @@ libdbrRead(DBR_Handle_t cs_handle,
   }
 
 error:
-  dbrRemove_request( cs, ctx );
+  dbrRemove_request( cs, head );
 
   BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
 }

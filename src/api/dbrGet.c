@@ -14,6 +14,7 @@
  * limitations under the License.
  *
  */
+#include "logutil.h"
 #include "util/lock_tools.h"
 #include "libdatabroker.h"
 #include "libdatabroker_int.h"
@@ -23,17 +24,15 @@
 
 DBR_Errorcode_t
 libdbrGet (DBR_Handle_t cs_handle,
-           dbBE_sge_t *sge,
-           int sge_len,
+           dbrDA_Request_chain_t *request,
            int64_t *ret_size,
-           DBR_Tuple_name_t tuple_name,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
            int enable_timeout)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
 
-  if(( cs == NULL ) || ( cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
+  if(( cs == NULL ) || ( cs->_reverse == NULL ) || ( cs->_status != dbrNS_STATUS_REFERENCED ) || ( request == NULL ))
     return DBR_ERR_INVALID;
 
   if( cs->_be_ctx == NULL )
@@ -44,7 +43,7 @@ libdbrGet (DBR_Handle_t cs_handle,
   dbrDA_Request_chain_t *chain = NULL;
   if( cs->_reverse->_data_adapter != NULL )
   {
-    chain = cs->_reverse->_data_adapter->pre_read( tuple_name, sge, sge_len );
+    chain = cs->_reverse->_data_adapter->pre_read( request );
     if( chain == NULL )
       return DBR_ERR_PLUGIN;
   }
@@ -57,33 +56,64 @@ libdbrGet (DBR_Handle_t cs_handle,
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
+  dbrDA_Request_chain_t *ch_req = chain;
+  dbrRequestContext_t *prev = NULL;
+  dbrRequestContext_t *head = NULL;
   DBR_Errorcode_t rc = DBR_SUCCESS;
-  dbrRequestContext_t *ctx = dbrCreate_request_ctx( DBBE_OPCODE_GET,
-                                                    cs_handle,
-                                                    group,
-                                                    NULL,
-                                                    DBR_GROUP_EMPTY,
-                                                    sge_len,
-                                                    sge,
-                                                    ret_size,
-                                                    tuple_name,
-                                                    match_template,
-                                                    tag );
-  if( ctx == NULL )
+  while( ch_req != NULL )
   {
-    rc = DBR_ERR_NOMEMORY;
-    goto error;
+    dbrRequestContext_t *ctx;
+    ctx = dbrCreate_request_ctx( DBBE_OPCODE_GET,
+                                 cs_handle,
+                                 group,
+                                 NULL,
+                                 DBR_GROUP_EMPTY,
+                                 ch_req->_sge_count,
+                                 ch_req->_value_sge,
+                                 &ch_req->_size,
+                                 ch_req->_key,
+                                 NULL,
+                                 tag );
+    if( ctx == NULL )
+    {
+      rc = DBR_ERR_NOMEMORY;
+      goto error;
+    }
+
+    ctx->_req._flags = (enable_timeout == 0 ? DBBE_OPCODE_FLAGS_IMMEDIATE : DBBE_OPCODE_FLAGS_NONE );
+
+    // chain the request contexts
+    if( prev != NULL )
+      prev->_next = ctx;
+    else
+      head = ctx; // remember the first one
+
+    prev = ctx;
+    // some basic sanity check because we're processing a data structure from the plugin
+    if( ch_req == ch_req->_next )
+    {
+      LOG( DBG_ERR, stderr, "Request chain error detected. Self-referencing\n");
+      while( head != NULL )
+      {
+        dbrRequestContext_t *tmp = head;
+        if( head->_next != head )
+          head = head->_next;
+        else
+          head = NULL;
+        dbrDestroy_request( tmp );
+      }
+      return DBR_ERR_INVALIDOP;
+    }
+    ch_req = ch_req->_next;
   }
 
-  ctx->_req._flags = (enable_timeout == 0 ? DBBE_OPCODE_FLAGS_IMMEDIATE : DBBE_OPCODE_FLAGS_NONE );
-
-  if( dbrInsert_request( cs, ctx ) == DB_TAG_ERROR )
+  if( dbrInsert_request( cs, head ) == DB_TAG_ERROR )
   {
     rc = DBR_ERR_TAGERROR;
     goto error;
   }
 
-  DBR_Request_handle_t req_handle = dbrPost_request( ctx );
+  DBR_Request_handle_t req_handle = dbrPost_request( head );
   if( req_handle == NULL )
   {
     rc = DBR_ERR_BE_POST;
@@ -94,12 +124,13 @@ libdbrGet (DBR_Handle_t cs_handle,
   switch( rc )
   {
     case DBR_SUCCESS:
-      rc = dbrCheck_response( ctx );
+      rc = dbrCheck_response( head );
 
 #ifdef DBR_DATA_ADAPTERS
       // read-path data post-processing plugin
       if( cs->_reverse->_data_adapter != NULL )
-        rc = cs->_reverse->_data_adapter->post_read( chain, sge, sge_len, rc );
+        rc = cs->_reverse->_data_adapter->post_read( chain, request, rc );
+      *ret_size = request->_size;
 #endif
       break;
     case DBR_ERR_UNAVAIL:
@@ -124,6 +155,6 @@ libdbrGet (DBR_Handle_t cs_handle,
   }
 
 error:
-  dbrRemove_request( cs, ctx );
+  dbrRemove_request( cs, head );
   BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
 }

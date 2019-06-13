@@ -73,10 +73,8 @@ libdbrPutA( DBR_Handle_t cs_handle,
 
 DBR_Errorcode_t
 libdbrGet( DBR_Handle_t cs_handle,
-           dbBE_sge_t *sge,
-           int sge_len,
+           dbrDA_Request_chain_t *request,
            int64_t *ret_size,
-           DBR_Tuple_name_t tuple_name,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
            int enable_timeout );
@@ -92,10 +90,8 @@ libdbrGetA( DBR_Handle_t cs_handle,
 
 DBR_Errorcode_t
 libdbrRead( DBR_Handle_t cs_handle,
-            dbBE_sge_t *sge,
-            int sge_len,
+            dbrDA_Request_chain_t *request,
             int64_t *ret_size,
-            DBR_Tuple_name_t tuple_name,
             DBR_Tuple_template_t match_template,
             DBR_Group_t group,
             int flags );

@@ -19,6 +19,8 @@
 #include "libdatabroker_int.h"
 
 #include <stddef.h>
+#include <string.h>
+#include <stdlib.h>
 
 DBR_Errorcode_t csPostProcessRequest( dbrRequestContext_t *rctx )
 {
@@ -111,8 +113,20 @@ libdbrTest( DBR_Tag_t req_tag)
         break;
       case DBBE_OPCODE_READ:
       case DBBE_OPCODE_GET:
-        rc = cs->_reverse->_data_adapter->post_read( chain, rctx->_req._sge, rctx->_req._sge_count, rc );
+      {
+        // todo: this is somewhat unclear... reconstruct the orig request from the chain ?)
+        dbrDA_Request_chain_t *orig_req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t) + rctx->_req._sge_count * sizeof( dbBE_sge_t ));
+        orig_req->_key = rctx->_req._key;
+        orig_req->_next = NULL;
+        orig_req->_size = *rctx->_rc;
+        orig_req->_sge_count = rctx->_req._sge_count;
+        memcpy( orig_req->_value_sge, rctx->_req._sge, rctx->_req._sge_count * sizeof( dbBE_sge_t ) );
+
+        rc = cs->_reverse->_data_adapter->post_read( chain, orig_req, rc );
+        *rctx->_rc = orig_req->_size;
+        free( orig_req );
         break;
+      }
       default:
         break;
     }

@@ -70,7 +70,7 @@ typedef struct dbrDA_api
    *  Allows to manipulate the input key or initial data destination and
    *  returns a key/value request or a chain for the backend to process
    */
-  dbrDA_Request_chain_t* (*pre_read)( const DBR_Tuple_name_t, struct iovec*, const int );
+  dbrDA_Request_chain_t* (*pre_read)( dbrDA_Request_chain_t* );
 
   /**
    * post-processing functions for read and write path
@@ -91,9 +91,11 @@ typedef struct dbrDA_api
    * post-read:
    *  Allows to convert/modify the returned data in-place or based on temporary buffers
    *  created in pre-read and/or (re-)combine the results of multiple requests into one
-   *  it also receives the error code of the data broker processing
+   *  it also receives the error code of the data broker processing,
+   *  the implementation needs to set the correct total data size for the user application
+   *  in the original request chain
    */
-  DBR_Errorcode_t (*post_read)( dbrDA_Request_chain_t*, struct iovec*, const int, DBR_Errorcode_t );
+  DBR_Errorcode_t (*post_read)( dbrDA_Request_chain_t*,  dbrDA_Request_chain_t*, DBR_Errorcode_t );
 
 } dbrDA_api_t;
 
