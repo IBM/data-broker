@@ -38,9 +38,10 @@ libdbrGet (DBR_Handle_t cs_handle,
   if( cs->_be_ctx == NULL )
     return DBR_ERR_NSINVAL;
 
+  dbrDA_Request_chain_t *chain = request;
+
 #ifdef DBR_DATA_ADAPTERS
   // read-path request pre-processing plugin
-  dbrDA_Request_chain_t *chain = NULL;
   if( cs->_reverse->_data_adapter != NULL )
   {
     chain = cs->_reverse->_data_adapter->pre_read( request );
@@ -130,8 +131,8 @@ libdbrGet (DBR_Handle_t cs_handle,
       // read-path data post-processing plugin
       if( cs->_reverse->_data_adapter != NULL )
         rc = cs->_reverse->_data_adapter->post_read( chain, request, rc );
-      *ret_size = request->_size;
 #endif
+      *ret_size = request->_size;
       break;
     case DBR_ERR_UNAVAIL:
       if( enable_timeout == 0 )
