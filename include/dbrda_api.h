@@ -74,7 +74,7 @@ typedef struct dbrDA_api
 
   /**
    * post-processing functions for read and write path
-   * thex expect the request handle and will potentially modify the request directly
+   * they expect the request handle and will potentially modify the request directly
    * if the alternative buffer is provided as non-NULL, then any modified data will
    * be stored in that buffer
    * post-processing happens after successful completion of the request by the back-end
