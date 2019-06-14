@@ -30,91 +30,96 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
   if( rctx == NULL )
     return DBR_ERR_INVALID;
 
-  dbBE_Request_t *req = &rctx->_req;
-  dbBE_Completion_t *cpl = &rctx->_cpl;
-
-  int64_t rsize = dbrSGE_extract_size( req );
   DBR_Errorcode_t rc = DBR_SUCCESS;
-
-  if(( req->_opcode != DBBE_OPCODE_READ )&&( cpl->_rc < 0 ))
-    return cpl->_status;
-
-  switch( req->_opcode )
+  dbrRequestContext_t *chain = rctx;
+  while( chain != NULL )
   {
-    case DBBE_OPCODE_PUT:
-      // good if completion rc bytes match 1 or more (number of inserted items)
-      if( cpl->_rc < 1 )
-        rc = DBR_ERR_UBUFFER;
-      break;
-    case DBBE_OPCODE_READ:
-      if( cpl->_rc < 0 )
-      {
-        rc = DBR_ERR_UNAVAIL;
-        cpl->_rc = 0;
-      }
-      // no break on purpose
-    case DBBE_OPCODE_GET:
-      // good if the completion rc bytes is less or equal the size in SGEs
-      if( rsize < cpl->_rc )
-        rc = DBR_ERR_UBUFFER;
-      // operation in progress if the returned data size is NULL buy completion says: success
-      if( cpl->_status == DBR_SUCCESS )
-      {
+    dbBE_Request_t *req = &chain->_req;
+    dbBE_Completion_t *cpl = &chain->_cpl;
+
+    int64_t rsize = dbrSGE_extract_size( req );
+
+    if(( req->_opcode != DBBE_OPCODE_READ )&&( cpl->_rc < 0 ))
+      return cpl->_status;
+
+    switch( req->_opcode )
+    {
+      case DBBE_OPCODE_PUT:
+        // good if completion rc bytes match 1 or more (number of inserted items)
+        if( cpl->_rc < 1 )
+          rc = DBR_ERR_UBUFFER;
+        break;
+      case DBBE_OPCODE_READ:
         if( cpl->_rc < 0 )
-          rc = DBR_ERR_INVALID;
-        else if( rctx->_rc ) // check if not NULL!
-          *rctx->_rc = cpl->_rc; // set the return value
-      }
-      else
-        rc = cpl->_status;
-      break;
+        {
+          rc = DBR_ERR_UNAVAIL;
+          cpl->_rc = 0;
+        }
+        // no break on purpose
+      case DBBE_OPCODE_GET:
+        // good if the completion rc bytes is less or equal the size in SGEs
+        if( rsize < cpl->_rc )
+          rc = DBR_ERR_UBUFFER;
+        // operation in progress if the returned data size is NULL buy completion says: success
+        if( cpl->_status == DBR_SUCCESS )
+        {
+          if( cpl->_rc < 0 )
+            rc = DBR_ERR_INVALID;
+          else if( chain->_rc ) // check if not NULL!
+            *chain->_rc = cpl->_rc; // set the return value
+        }
+        else
+          rc = cpl->_status;
+        break;
 
-    case DBBE_OPCODE_DIRECTORY:
-      // good if the completion rc bytes is less or equal the size in SGEs
-      if( rsize < cpl->_rc )
-        rc = DBR_ERR_UBUFFER;
-      if( cpl->_status == DBR_SUCCESS )
-      {
-        if( cpl->_rc < 0 )
-          rc = DBR_ERR_INVALID;
-        else if( rctx->_rc )
-          *rctx->_rc = cpl->_rc;
-      }
-      else
-        rc = cpl->_status;
-      break;
+      case DBBE_OPCODE_DIRECTORY:
+        // good if the completion rc bytes is less or equal the size in SGEs
+        if( rsize < cpl->_rc )
+          rc = DBR_ERR_UBUFFER;
+        if( cpl->_status == DBR_SUCCESS )
+        {
+          if( cpl->_rc < 0 )
+            rc = DBR_ERR_INVALID;
+          else if( chain->_rc )
+            *chain->_rc = cpl->_rc;
+        }
+        else
+          rc = cpl->_status;
+        break;
 
-    case DBBE_OPCODE_MOVE:
-      rc = cpl->_status;
-      break;
-
-    case DBBE_OPCODE_REMOVE:
-      rc = cpl->_status;
-      break;
-
-    case DBBE_OPCODE_NSCREATE:
-    case DBBE_OPCODE_NSADDUNITS:
-    case DBBE_OPCODE_NSREMOVEUNITS:
-      // good if the completion rc is 0
-      if( cpl->_rc != 0 )
+      case DBBE_OPCODE_MOVE:
         rc = cpl->_status;
-      break;
-    case DBBE_OPCODE_NSATTACH:
-    case DBBE_OPCODE_NSDETACH:
-      // good if the completion rc is > 0
-      if( cpl->_rc <= 0 )
+        break;
+
+      case DBBE_OPCODE_REMOVE:
         rc = cpl->_status;
-      break;
-    case DBBE_OPCODE_NSDELETE:
-      // nothing
-      break;
-    case DBBE_OPCODE_NSQUERY:
-      // good if the completion rc is > 0 with the sge locations containing the name space meta data
-      if(( rsize < cpl->_rc ) || ( cpl->_rc == 0 ))
-        rc = DBR_ERR_UBUFFER;
-      break;
-    default:
-      return DBR_ERR_INVALIDOP;
+        break;
+
+      case DBBE_OPCODE_NSCREATE:
+      case DBBE_OPCODE_NSADDUNITS:
+      case DBBE_OPCODE_NSREMOVEUNITS:
+        // good if the completion rc is 0
+        if( cpl->_rc != 0 )
+          rc = cpl->_status;
+        break;
+      case DBBE_OPCODE_NSATTACH:
+      case DBBE_OPCODE_NSDETACH:
+        // good if the completion rc is > 0
+        if( cpl->_rc <= 0 )
+          rc = cpl->_status;
+        break;
+      case DBBE_OPCODE_NSDELETE:
+        // nothing
+        break;
+      case DBBE_OPCODE_NSQUERY:
+        // good if the completion rc is > 0 with the sge locations containing the name space meta data
+        if(( rsize < cpl->_rc ) || ( cpl->_rc == 0 ))
+          rc = DBR_ERR_UBUFFER;
+        break;
+      default:
+        return DBR_ERR_INVALIDOP;
+    }
+    chain = chain->_next;
   }
 
   return rc;
@@ -227,6 +232,8 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
   start_time.tv_sec = 0;
   elapsed.tv_sec = 0;
 
+  DBR_Request_handle_t chain = hdl;
+
   /*
    * This loop should allow to drive the backend while waiting for completions
    * Reduces the requirement for a backend to make independent progress in a separate thread
@@ -239,43 +246,49 @@ DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
 #define DBR_TIMEOUT_CHECKLOOPS ( 0x1 )
 #endif
 
-  /*
-   * have a loop count to reduce the amount of gettimeofday calls
-   * start with negative offset to prevent the syscall for the first N iterations
-   */
-  uint64_t timeloops = (uint64_t)-100;
-  uint64_t timecalls = 0;
-  do
+  // check the full chain of requests before returning
+  while( chain != NULL )
   {
-    rc = dbrTest_request( cs, hdl );
-    if((rc == DBR_ERR_INPROGRESS)
-       && enable_timeout)
+    /*
+     * have a loop count to reduce the amount of gettimeofday calls
+     * start with negative offset to prevent the syscall for the first N iterations
+     */
+    uint64_t timeloops = (uint64_t)-100;
+    uint64_t timecalls = 0;
+    do
     {
-      if( ((++timeloops) & DBR_TIMEOUT_CHECKLOOPS ) == 0 )
+      rc = dbrTest_request( cs, chain );
+      if((rc == DBR_ERR_INPROGRESS)
+         && enable_timeout)
       {
-        gettimeofday( &now, NULL );
-        ++timecalls;
-        if( start_time.tv_sec == 0 )
+        if( ((++timeloops) & DBR_TIMEOUT_CHECKLOOPS ) == 0 )
         {
-          start_time.tv_sec = now.tv_sec;
-          start_time.tv_usec = now.tv_usec;
+          gettimeofday( &now, NULL );
+          ++timecalls;
+          if( start_time.tv_sec == 0 )
+          {
+            start_time.tv_sec = now.tv_sec;
+            start_time.tv_usec = now.tv_usec;
+          }
+          elapsed.tv_sec = (now.tv_sec * 1e6 + now.tv_usec) - (start_time.tv_sec * 1e6 + start_time.tv_usec);
+          elapsed.tv_sec /= 1e6;
         }
-        elapsed.tv_sec = (now.tv_sec * 1e6 + now.tv_usec) - (start_time.tv_sec * 1e6 + start_time.tv_usec);
-        elapsed.tv_sec /= 1e6;
       }
+    } while( rc == DBR_ERR_INPROGRESS
+             && ( elapsed.tv_sec < cs->_reverse->_config._timeout_sec ));
+
+    // ToDo: if Timeout -> send first a cancel and wait for acknowledge.
+    //       otherwise internal structures could be in danger.
+    if(( rc == DBR_ERR_INPROGRESS )&& (elapsed.tv_sec >= cs->_reverse->_config._timeout_sec))
+    {
+      dbrCancel_request( cs, chain );
+      rc = DBR_ERR_INPROGRESS;
+      while( rc == DBR_ERR_INPROGRESS )
+        rc = dbrTest_request( cs, chain );
     }
-  } while( rc == DBR_ERR_INPROGRESS
-           && ( elapsed.tv_sec < cs->_reverse->_config._timeout_sec ));
 
-  // ToDo: if Timeout -> send first a cancel and wait for acknowledge.
-  //       otherwise internal structures could be in danger.
-  if(( rc == DBR_ERR_INPROGRESS )&& (elapsed.tv_sec >= cs->_reverse->_config._timeout_sec))
-  {
-    dbrCancel_request( cs, hdl );
-    rc = DBR_ERR_INPROGRESS;
-    while( rc == DBR_ERR_INPROGRESS )
-      rc = dbrTest_request( cs, hdl );
+
+    chain = chain->_next;
   }
-
   return rc;
 }

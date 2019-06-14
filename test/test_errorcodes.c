@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ int main( int argc, char ** argv )
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_NOCONNECT ), "Connection to a storage backend failed"), 0 );
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_CANCELLED ), "Operation was cancelled"), 0 );
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_NOTIMPL ), "Operation not implemented"), 0 );
+  rc += TEST( strcmp( dbrGet_error( DBR_ERR_BE_GENERAL ), "Unspecified back-end error"), 0 );
+  rc += TEST( strcmp( dbrGet_error( DBR_ERR_PLUGIN ), "Error while processing request/data in data adapter"), 0 );
 
   rc += TEST( strcmp( dbrGet_error( -1 ), "Unknown Error" ), 0 );
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_MAXERROR ), "Unknown Error" ), 0 );

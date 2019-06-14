@@ -16,6 +16,8 @@
  */
 #include "libdbrAPI.h"
 
+#include <stdlib.h>
+
 DBR_Errorcode_t
 dbrRead(DBR_Handle_t cs_handle,
         void *va_ptr,
@@ -25,18 +27,22 @@ dbrRead(DBR_Handle_t cs_handle,
         DBR_Group_t group,
         int flags )
 {
-  dbBE_sge_t sge;
-  sge.iov_base = va_ptr;
-  sge.iov_len = *size;
+  dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + sizeof( dbBE_sge_t ) );;
+  req->_key = tuple_name;
+  req->_size = *size;
+  req->_sge_count = 1;
+  req->_value_sge[0].iov_base = va_ptr;
+  req->_value_sge[0].iov_len = *size;
 
-  return (DBR_Errorcode_t)libdbrRead( cs_handle,
-                     &sge,
-                     1,
-                     size,
-                     tuple_name,
-                     match_template,
-                     group,
-                     flags );
+  DBR_Errorcode_t rc;
+  rc = libdbrRead( cs_handle,
+                   req,
+                   size,
+                   match_template,
+                   group,
+                   flags );
+  free( req );
+  return rc;
 }
 
 

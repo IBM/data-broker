@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 #include "util/lock_tools.h"
 #include "common/dbbe_api.h"
+#include "dbrda_api.h"
 
 #define dbrMAX_TAGS ( 1024 )
 #define dbrNUM_DB_MAX ( 1024 )
@@ -33,6 +34,19 @@
 #include "lib/sge.h"
 
 #include <pthread.h>
+#include <inttypes.h>
+
+
+/**
+ * distinguish between number and address by assuming the last 2 bits of a ptr to a request are always 0 (request memory alignment)
+ * Therefore creating the reference counter by shifting the actual counter by 2 bits
+ */
+#define DBR_REQUEST_REFERENCE_ZERO ( 0x3ULL ) // make sure the last 2 bits are set to distinguish from a ptr to a request
+#define DBR_REQUEST_REFERENCE_PTR( r ) (r)._reference
+#define DBR_REQUEST_REFERENCE_CNT( r ) ((r)._count >> 2)
+#define DBR_REQUEST_IS_REFERENCE( r ) (( ((r)._count & DBR_REQUEST_REFERENCE_ZERO ) == 0 ) && ( (r)._reference != NULL ))
+#define DBR_REQUEST_REFERENCE_INC( r )  if( ! DBR_REQUEST_IS_REFERENCE(r) ) (r)._count += (1 << 2 )
+#define DBR_REQUEST_REFERENCE_DEC( r )  if(( ! DBR_REQUEST_IS_REFERENCE(r) ) && ( (r)._count > DBR_REQUEST_REFERENCE_ZERO )) (r)._count -= (1 << 2 )
 
 struct dbrMain_context;
 
@@ -88,6 +102,8 @@ typedef enum dbrRequest_status
   dbrSTATUS_CLOSED
 } dbrRequest_status_t;
 
+struct dbrRequestContext;
+
 // request context to hold all data around a request
 typedef struct dbrRequestContext
 {
@@ -121,6 +137,10 @@ typedef struct dbrMain_context
   uint64_t _tag_tail;                     ///< tag of the next expected completion
   pthread_mutex_t _biglock;               ///< initial step to thread-safe lib; starting with big lock in main context
   void* _tmp_testkey_buf;                 ///< a tmp buffer that holds return values for testkey command
+#ifdef DBR_DATA_ADAPTERS
+  void *_da_library;                        ///< library handle to the data adapter library
+  dbrDA_api_t *_data_adapter;               ///< if there's a data adapter library loaded, it's referenced here
+#endif
 } dbrMain_context_t;
 
 dbrMain_context_t* dbrCheckCreateMainCTX();
@@ -155,6 +175,7 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
                                            DBR_Tuple_name_t tuple_name,
                                            DBR_Tuple_template_t match_template,
                                            DBR_Tag_t tag );
+DBR_Errorcode_t dbrDestroy_request( dbrRequestContext_t *rctx );
 
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );
 DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );

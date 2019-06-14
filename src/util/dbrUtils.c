@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <dlfcn.h>
 
 static dbrMain_context_t *gMain_context = NULL;
 static pthread_mutex_t gMain_creation_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -59,7 +60,6 @@ dbrMain_context_t* dbrCheckCreateMainCTX(void)
       gMain_context->_config._timeout_sec = strtol( to_str, NULL, 10 );
       if(( gMain_context->_config._timeout_sec == LONG_MIN ) || ( gMain_context->_config._timeout_sec == LONG_MAX ))
         gMain_context->_config._timeout_sec = DBR_TIMEOUT_DEFAULT;
-
     }
     if( gMain_context->_config._timeout_sec == 0 )
       gMain_context->_config._timeout_sec = INT_MAX;
@@ -83,6 +83,32 @@ dbrMain_context_t* dbrCheckCreateMainCTX(void)
       pthread_mutex_unlock( &gMain_creation_lock );
       return NULL;
     }
+
+#ifdef DBR_DATA_ADAPTERS
+    // get plugin location from env variable
+    to_str = getenv(DBR_PLUGIN_ENV);
+    if( to_str == NULL )
+      gMain_context->_data_adapter = NULL;
+    else
+    {
+      // dlopen and load adapter symbol
+      if( (gMain_context->_da_library = dlopen( to_str, RTLD_LAZY )) == NULL )
+      {
+        LOG( DBG_ERR, stderr, "libdatabroker: failed to load Data Adapter library %s. Looked for in %s\n", to_str, getenv("LD_LIBRARY_PATH") );
+        pthread_mutex_unlock( &gMain_creation_lock );
+        dbrMain_exit();
+        return NULL;
+      }
+      dlerror();
+      if( (gMain_context->_data_adapter = dlsym( gMain_context->_da_library, "dbrDA" )) == NULL )
+      {
+        LOG( DBG_ERR, stderr, "libdatabroker: symbol 'dbrDA' not defined in %s\n", to_str );
+        pthread_mutex_unlock( &gMain_creation_lock );
+        dbrMain_exit();
+        return NULL;
+      }
+    }
+#endif
     pthread_mutex_init( &gMain_context->_biglock, NULL );
   }
 
@@ -108,6 +134,14 @@ int dbrMain_exit(void)
     free( gMain_context->_tmp_testkey_buf );
     gMain_context->_tmp_testkey_buf = NULL;
   }
+
+#ifdef DBR_DATA_ADAPTERS
+  if( gMain_context->_da_library != NULL )
+  {
+    dlclose( gMain_context->_da_library );
+    gMain_context->_data_adapter = NULL;
+  }
+#endif
 
   pthread_mutex_destroy( &gMain_context->_biglock );
   memset( gMain_context, 0, sizeof( dbrMain_context_t ) );

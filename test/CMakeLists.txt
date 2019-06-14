@@ -38,7 +38,7 @@ foreach(_test ${DBR_TEST_SOURCES})
   get_filename_component(TEST_NAME ${_test} NAME_WE)
   add_executable(${TEST_NAME} ${_test})
   add_dependencies(${TEST_NAME} ${DATABROKER_LIB} ${TEST_BACKEND} ${TRANSPORT_LIBS})
-  target_link_libraries(${TEST_NAME} ${DATABROKER_LIB} ${TEST_BACKEND} ${TRANSPORT_LIBS} -lm ${BACKEND_DEPS} )
+  target_link_libraries(${TEST_NAME} ${DATABROKER_LIB} ${TEST_BACKEND} ${TRANSPORT_LIBS} -lm ${BACKEND_DEPS} ${DL_LIB} )
   target_include_directories(${TEST_NAME} PRIVATE ${LIBEVENT_INCLUDE_DIR})
   add_test(DBR_${TEST_NAME} ${TEST_NAME} )
   install(TARGETS ${TEST_NAME} RUNTIME

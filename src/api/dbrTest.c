@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 #include "libdatabroker_int.h"
 
 #include <stddef.h>
+#include <string.h>
+#include <stdlib.h>
 
 DBR_Errorcode_t csPostProcessRequest( dbrRequestContext_t *rctx )
 {
@@ -97,6 +99,40 @@ libdbrTest( DBR_Tag_t req_tag)
     default:
       break;
   }
+
+#ifdef DBR_DATA_ADAPTERS
+  // data post-processing plugins
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    dbrDA_Request_chain_t *chain = NULL;
+    // todo: rebuild key/value chain from chained requests
+    switch( rctx->_req._opcode )
+    {
+      case DBBE_OPCODE_PUT:
+        rc = cs->_reverse->_data_adapter->post_write( chain, rc );
+        break;
+      case DBBE_OPCODE_READ:
+      case DBBE_OPCODE_GET:
+      {
+        // todo: this is somewhat unclear... reconstruct the orig request from the chain ?)
+        dbrDA_Request_chain_t *orig_req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t) + rctx->_req._sge_count * sizeof( dbBE_sge_t ));
+        orig_req->_key = rctx->_req._key;
+        orig_req->_next = NULL;
+        orig_req->_size = *rctx->_rc;
+        orig_req->_sge_count = rctx->_req._sge_count;
+        memcpy( orig_req->_value_sge, rctx->_req._sge, rctx->_req._sge_count * sizeof( dbBE_sge_t ) );
+
+        rc = cs->_reverse->_data_adapter->post_read( chain, orig_req, rc );
+        *rctx->_rc = orig_req->_size;
+        free( orig_req );
+        break;
+      }
+      default:
+        break;
+    }
+  }
+#endif
+
   dbrRemove_request( rctx->_ctx, rctx );
 
   BIGLOCK_UNLOCKRETURN( main_ctx, rc );

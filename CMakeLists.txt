@@ -45,6 +45,11 @@ else( DEFINED VOIDTAG )
   add_definitions( -DDBR_INTTAG )
 endif( DEFINED VOIDTAG )
 
+if( DEFINED WITH_DATA_ADAPTERS )
+  add_definitions( -DDBR_DATA_ADAPTERS )
+  set( DL_LIB -ldl )
+endif( DEFINED WITH_DATA_ADAPTERS )
+
 if( NOT DEFINED DEFAULT_BE )
   set(DEFAULT_BE redis )
 endif( NOT DEFINED DEFAULT_BE )
@@ -100,5 +105,6 @@ add_subdirectory(test)
 install(FILES include/libdatabroker.h
     include/errorcodes.h
     include/libdatabroker_ext.h
+    include/dbrda_api.h
     DESTINATION include
 )

@@ -96,6 +96,14 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
   return req;
 }
 
+DBR_Errorcode_t dbrDestroy_request( dbrRequestContext_t *rctx )
+{
+  if( rctx == NULL )
+    return DBR_ERR_INVALID;
+  memset( rctx, 0, sizeof( dbrRequestContext_t ) + rctx->_req._sge_count * sizeof(dbBE_sge_t) );
+  free( rctx );
+  return DBR_SUCCESS;
+}
 
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx )
 {
@@ -181,8 +189,7 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
     }
 
     // todo: to prevent request deletion caused by an invalid rctx, move the requests to tmp deletion queue instead until we're sure the correct stuff is deleted
-    memset( cs_wq[ tag_idx ], 0, sizeof( dbrRequestContext_t ) + cs_wq[ tag_idx ]->_req._sge_count * sizeof(dbBE_sge_t) );
-    free( cs_wq[ tag_idx ] );
+    dbrDestroy_request( cs_wq[ tag_idx ] );
     cs_wq[ tag_idx ] = chain;
   }
 
@@ -195,28 +202,34 @@ DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
   if( rctx == NULL || rctx->_ctx == NULL || rctx->_ctx->_reverse == NULL )
     return NULL;
 
-  if( dbrValidateTag( rctx, rctx->_tag ) != DBR_SUCCESS )
-    return NULL;
-
-  if( rctx->_ctx->_reverse->_cs_wq[ rctx->_tag ] == NULL )
+  dbrRequestContext_t *chain = rctx;
+  while( chain != NULL )
   {
-    LOG( DBG_ERR, stderr, "Request not inserted in namespace request list.\n" );
-    return NULL;
+    if( dbrValidateTag( chain, chain->_tag ) != DBR_SUCCESS )
+      return NULL;
+
+    if( chain->_ctx->_reverse->_cs_wq[ chain->_tag ] == NULL )
+    {
+      LOG( DBG_ERR, stderr, "Request not inserted in namespace request list.\n" );
+      return NULL;
+    }
+
+    if( chain->_cpl._status == DBR_ERR_INPROGRESS )
+    {
+      LOG( DBG_ERR, stderr, "Request already in progress\n");
+      return NULL;
+    }
+    chain->_cpl._status = DBR_ERR_INPROGRESS;
+    chain->_status = dbrSTATUS_PENDING;
+
+    dbBE_Request_handle_t be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req );
+    if( be_handle == NULL )
+      goto error;
+    chain->_be_request_hdl = be_handle;
+
+    chain = chain->_next;
   }
 
-  if( rctx->_cpl._status == DBR_ERR_INPROGRESS )
-  {
-    LOG( DBG_ERR, stderr, "Request already in progress\n");
-    return NULL;
-  }
-  rctx->_cpl._status = DBR_ERR_INPROGRESS;
-  rctx->_status = dbrSTATUS_PENDING;
-
-  dbBE_Request_handle_t be_handle = g_dbBE.post( rctx->_ctx->_be_ctx, &rctx->_req );
-  if( be_handle == NULL )
-    goto error;
-
-  rctx->_be_request_hdl = be_handle;
   return (DBR_Request_handle_t)rctx;
 
 error:
