@@ -104,12 +104,6 @@ typedef enum dbrRequest_status
 
 struct dbrRequestContext;
 
-typedef union dbrRequest_reference {
-  uintptr_t _count;  ///< actual reference counter in special format
-  struct dbrRequestContext *_reference;  ///< pointer to another request
-} dbrRequest_reference_t;
-
-
 // request context to hold all data around a request
 typedef struct dbrRequestContext
 {
@@ -119,7 +113,6 @@ typedef struct dbrRequestContext
   dbrRequest_status_t _status;
   DBR_Tag_t _tag;
   int64_t *_rc;
-  dbrRequest_reference_t _ref;
   struct dbrRequestContext *_next;
   dbBE_Request_t _req;     ///< dynamic length
 } dbrRequestContext_t;
@@ -198,11 +191,6 @@ DBR_Errorcode_t dbrTest_request( dbrName_space_t *cs, DBR_Request_handle_t hdl )
 DBR_Errorcode_t dbrWait_request( dbrName_space_t *cs,
                                  DBR_Request_handle_t hdl,
                                  int enable_timeout );
-
-
-uintptr_t dbrRequest_reference_to( dbrRequestContext_t *src,
-                                   dbrRequestContext_t *dst );
-
 
 
 #endif /* SRC_LIBDATABROKER_INT_H_ */
