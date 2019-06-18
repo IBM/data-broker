@@ -113,6 +113,8 @@ typedef struct dbrRequestContext
   dbrRequest_status_t _status;
   DBR_Tag_t _tag;
   int64_t *_rc;
+  dbrDA_Request_chain_t *_rchain;
+  dbrDA_Request_chain_t *_ochain;
   struct dbrRequestContext *_next;
   dbBE_Request_t _req;     ///< dynamic length
 } dbrRequestContext_t;
