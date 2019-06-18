@@ -163,7 +163,8 @@ libdbrGet (DBR_Handle_t cs_handle,
 error:
   dbrRemove_request( cs, head );
 #ifdef DBR_DATA_ADAPTERS
-  rc = cs->_reverse->_data_adapter->error_handler( chain, rc );
+  if( cs->_reverse->_data_adapter != NULL )
+    rc = cs->_reverse->_data_adapter->error_handler( chain, rc );
 #endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
 }

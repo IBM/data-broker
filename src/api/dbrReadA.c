@@ -117,7 +117,8 @@ error:
     *ret_size = 0;
 
 #ifdef DBR_DATA_ADAPTERS
-  cs->_reverse->_data_adapter->error_handler( chain, DBR_ERR_TAGERROR );
+  if( cs->_reverse->_data_adapter != NULL )
+    cs->_reverse->_data_adapter->error_handler( chain, DBR_ERR_TAGERROR );
 #endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
 }

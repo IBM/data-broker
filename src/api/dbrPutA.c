@@ -114,7 +114,8 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
 error:
   dbrRemove_request( cs, head );
 #ifdef DBR_DATA_ADAPTERS
-  cs->_reverse->_data_adapter->error_handler( chain, DBR_ERR_TAGERROR );
+  if( cs->_reverse->_data_adapter != NULL )
+    cs->_reverse->_data_adapter->error_handler( chain, DBR_ERR_TAGERROR );
 #endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
 }
