@@ -30,6 +30,7 @@ dbrGet (DBR_Handle_t cs_handle,
 {
   dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + sizeof( dbBE_sge_t ) );;
   req->_key = tuple_name;
+  req->_ret_size = size;
   req->_size = *size;
   req->_sge_count = 1;
   req->_value_sge[0].iov_base = va_ptr;
@@ -41,7 +42,7 @@ dbrGet (DBR_Handle_t cs_handle,
                   size,
                   match_template,
                   group,
-                  (flags & DBR_FLAGS_NOWAIT) ? 0 : 1 );
+                  flags );
   free( req );
   return rc;
 }

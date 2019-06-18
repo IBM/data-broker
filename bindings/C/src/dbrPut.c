@@ -28,13 +28,17 @@ dbrPut (DBR_Handle_t cs_handle,
   dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + sizeof( dbBE_sge_t ) );
   req->_key = tuple_name;
   req->_size = size;
+  req->_ret_size = &req->_size;
   req->_sge_count = 1;
   req->_value_sge[0].iov_base = va_ptr;
   req->_value_sge[0].iov_len = size;
 
-  return libdbrPut( cs_handle,
-                    req,
-                    group );
+  DBR_Errorcode_t rc;
+  rc = libdbrPut( cs_handle,
+                  req,
+                  group );
+  free( req );
+  return rc;
 }
 
 
