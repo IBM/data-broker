@@ -75,7 +75,7 @@ libdbrGet( DBR_Handle_t cs_handle,
            int64_t *ret_size,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
-           int enable_timeout );
+           int flags );
 
 DBR_Tag_t
 libdbrGetA(DBR_Handle_t cs_handle,

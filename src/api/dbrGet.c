@@ -28,7 +28,7 @@ libdbrGet (DBR_Handle_t cs_handle,
            int64_t *ret_size,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
-           int enable_timeout)
+           int flags)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
 
@@ -39,6 +39,7 @@ libdbrGet (DBR_Handle_t cs_handle,
     return DBR_ERR_NSINVAL;
 
   dbrDA_Request_chain_t *chain = request;
+  int enable_timeout = ((flags & DBR_FLAGS_NOWAIT ) == 0 );
 
   BIGLOCK_LOCK( cs->_reverse );
 
@@ -81,7 +82,7 @@ libdbrGet (DBR_Handle_t cs_handle,
       goto error;
     }
 
-    ctx->_req._flags = (enable_timeout == 0 ? DBBE_OPCODE_FLAGS_IMMEDIATE : DBBE_OPCODE_FLAGS_NONE );
+    ctx->_req._flags = flags;
 
     // chain the request contexts
     if( prev != NULL )

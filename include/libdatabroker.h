@@ -79,7 +79,7 @@ typedef enum {
  * @brief Defines the return behavior of Read and Get.
  *
  * Flag defining whether a Read or a Get should return immediately if the tuple is not yet present in the namespace
- * or wait until a timeout is reached.
+ * or wait until a timeout is reached, enables partial reads returning the actual size, ...
  *
  */
 typedef enum {
