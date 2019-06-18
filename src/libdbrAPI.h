@@ -66,9 +66,7 @@ libdbrPut( DBR_Handle_t cs_handle,
 
 DBR_Tag_t
 libdbrPutA( DBR_Handle_t cs_handle,
-            void *va_ptr,
-            int64_t size,
-            DBR_Tuple_name_t tuple_name,
+            dbrDA_Request_chain_t *request,
             DBR_Group_t group );
 
 DBR_Errorcode_t
@@ -80,13 +78,12 @@ libdbrGet( DBR_Handle_t cs_handle,
            int enable_timeout );
 
 DBR_Tag_t
-libdbrGetA( DBR_Handle_t cs_handle,
-            void *va_ptr,
-            int64_t size,
-            int64_t *ret_size,
-            DBR_Tuple_name_t tuple_name,
-            DBR_Tuple_template_t match_template,
-            DBR_Group_t group );
+libdbrGetA(DBR_Handle_t cs_handle,
+           dbrDA_Request_chain_t *request,
+           DBR_Tuple_template_t match_template,
+           DBR_Group_t group,
+           int flags,
+           int64_t *ret_size );
 
 DBR_Errorcode_t
 libdbrRead( DBR_Handle_t cs_handle,
@@ -97,13 +94,12 @@ libdbrRead( DBR_Handle_t cs_handle,
             int flags );
 
 DBR_Tag_t
-libdbrReadA( DBR_Handle_t cs_handle,
-             void *va_ptr,
-             int64_t size,
-             int64_t *ret_size,
-             DBR_Tuple_name_t tuple_name,
-             DBR_Tuple_template_t match_template,
-             DBR_Group_t group );
+libdbrReadA(DBR_Handle_t cs_handle,
+            dbrDA_Request_chain_t *request,
+            DBR_Tuple_template_t match_template,
+            DBR_Group_t group,
+            int flags,
+            int64_t *ret_size );
 
 DBR_Errorcode_t
 libdbrTestKey( DBR_Handle_t cs_handle,

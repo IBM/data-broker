@@ -55,11 +55,19 @@ dbrGetA (DBR_Handle_t cs_handle,
          DBR_Tuple_template_t match_template,
          DBR_Group_t group)
 {
+  dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + sizeof( dbBE_sge_t ) );;
+  req->_key = tuple_name;
+  req->_ret_size = size;
+  req->_size = *size;
+  req->_sge_count = 1;
+  req->_value_sge[0].iov_base = va_ptr;
+  req->_value_sge[0].iov_len = *size;
+
   return libdbrGetA( cs_handle,
-                     va_ptr,
-                     *size,
-                     size,
-                     tuple_name,
+                     req,
                      match_template,
-                     group );
+                     group,
+                     DBR_FLAGS_NONE,
+                     size );
+  // no free of req here, since it's needed for dbrTest()
 }

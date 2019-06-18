@@ -45,9 +45,17 @@ dbrPutA (DBR_Handle_t cs_handle,
          DBR_Tuple_name_t tuple_name,
          DBR_Group_t group)
 {
+  dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t) + sizeof( dbBE_sge_t ));
+  req->_key = tuple_name;
+  req->_next = NULL;
+  req->_size = size;
+  req->_ret_size = &req->_size;
+  req->_sge_count = 1;
+  req->_value_sge[0].iov_base = va_ptr;
+  req->_value_sge[0].iov_len = size;
+
   return libdbrPutA( cs_handle,
-                     va_ptr,
-                     size,
-                     tuple_name,
+                     req,
                      group );
+  // no free of req here, since it's needed for dbrTest()
 }
