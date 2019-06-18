@@ -40,6 +40,7 @@ typedef struct dbrDA_Request_chain
 {
   struct dbrDA_Request_chain *_next;  ///< allows chaining of requests
   DBR_Tuple_name_t _key;              ///< tuple_name/key
+  int64_t *_ret_size;                 ///< (optional) pointer to reference the location of the return size
   int64_t _size;                      ///< total number of bytes for this request (used for read/get)
   int _sge_count;                     ///< number of SGEs in this request (if any)
   struct iovec _value_sge[];          ///< variable size, needs to be last entry !!!
@@ -96,6 +97,11 @@ typedef struct dbrDA_api
    *  in the original request chain
    */
   DBR_Errorcode_t (*post_read)( dbrDA_Request_chain_t*,  dbrDA_Request_chain_t*, DBR_Errorcode_t );
+
+  /**
+   *  error handling callback (e.g. for cleanup)
+   */
+  DBR_Errorcode_t (*error_handler)( dbrDA_Request_chain_t*, DBR_Errorcode_t );
 
 } dbrDA_api_t;
 
