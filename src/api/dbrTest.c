@@ -42,6 +42,7 @@ DBR_Errorcode_t csPostProcessRequest( dbrRequestContext_t *rctx )
       break;
   }
 
+  rctx->_status = dbrSTATUS_CLOSED;
   return rc_out;
 }
 
@@ -89,7 +90,7 @@ libdbrTest( DBR_Tag_t req_tag)
   // check the full chain of requests before returning
   while( chain != NULL )
   {
-    if( chain->_status == dbrSTATUS_READY )
+    if( chain->_status == dbrSTATUS_CLOSED )
     {
       chain = chain->_next;
       continue;
