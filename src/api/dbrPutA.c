@@ -23,9 +23,7 @@
 #include <stdlib.h>
 
 DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
-                      void *va_ptr,
-                      int64_t size,
-                      DBR_Tuple_name_t tuple_name,
+                      dbrDA_Request_chain_t *request,
                       DBR_Group_t group)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
@@ -35,71 +33,90 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
     return DB_TAG_ERROR;
   }
 
-  dbBE_sge_t sge;
-  sge.iov_base = va_ptr;
-  sge.iov_len = size;
-
-#ifdef DBR_DATA_ADAPTERS
-  // write-path data pre-processing plugin
-  dbrDA_Request_chain_t *ichain = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t) + sizeof( dbBE_sge_t ));
-  ichain->_key = tuple_name;
-  ichain->_next = NULL;
-  ichain->_size = size;
-  ichain->_sge_count = 1;
-  ichain->_value_sge[0].iov_base = va_ptr;
-  ichain->_value_sge[0].iov_len = size;
-
-  dbrDA_Request_chain_t *chain = NULL;
-  if( cs->_reverse->_data_adapter != NULL )
-  {
-    chain = cs->_reverse->_data_adapter->pre_write( ichain );
-    if( chain == NULL )
-    {
-      free( ichain );
-      return DB_TAG_ERROR;
-    }
-  }
-  free( ichain );
-#endif
+  dbrDA_Request_chain_t *chain = request;
 
   BIGLOCK_LOCK( cs->_reverse );
 
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
   if( tag == DB_TAG_ERROR )
-  {
-    LOG( DBG_ERR, stderr, "Invalid input name space handle\n" );
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
-  }
-  dbrRequestContext_t *pctx = dbrCreate_request_ctx( DBBE_OPCODE_PUT,
-                                                     cs_handle,
-                                                     group,
-                                                     NULL,
-                                                     DBR_GROUP_EMPTY,
-                                                     1,
-                                                     &sge,
-                                                     &size,
-                                                     tuple_name,
-                                                     NULL,
-                                                     tag );
-  if( pctx == NULL )
-    goto error;
 
-  DBR_Tag_t ptag = dbrInsert_request( cs, pctx );
+#ifdef DBR_DATA_ADAPTERS
+  // write-path data pre-processing plugin
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    chain = cs->_reverse->_data_adapter->pre_write( request );
+    if( chain == NULL )
+      BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
+  }
+#endif
+
+  dbrDA_Request_chain_t *ch_req = chain;
+  dbrRequestContext_t *prev = NULL;
+  dbrRequestContext_t *head = NULL;
+  while( ch_req != NULL )
+  {
+    dbrRequestContext_t *ctx;
+    ctx = dbrCreate_request_ctx( DBBE_OPCODE_PUT,
+                                 cs_handle,
+                                 group,
+                                 NULL,
+                                 DBR_GROUP_EMPTY,
+                                 ch_req->_sge_count,
+                                 ch_req->_value_sge,
+                                 NULL,
+                                 ch_req->_key,
+                                 NULL,
+                                 tag );
+    if( ctx == NULL )
+      goto error;
+
+    // chain the request contexts
+    if( prev != NULL )
+      prev->_next = ctx;
+    else
+      head = ctx; // remember the first one
+
+    prev = ctx;
+    // some basic sanity check because we're processing a data structure from the plugin
+    if( ch_req == ch_req->_next )
+    {
+      LOG( DBG_ERR, stderr, "Request chain error detected. Self-referencing\n");
+      while( head != NULL )
+      {
+        dbrRequestContext_t *tmp = head;
+        if( head->_next != head )
+          head = head->_next;
+        else
+          head = NULL;
+        dbrDestroy_request( tmp );
+      }
+      goto error;
+    }
+    ch_req = ch_req->_next;
+  }
+
+  head->_rchain = chain;
+  head->_ochain = request;
+  DBR_Tag_t ptag = dbrInsert_request( cs, head );
   if( ptag == DB_TAG_ERROR )
   {
     LOG( DBG_ERR, stderr, "Unable to inject request to queue\n" );
     goto error;
   }
 
-  DBR_Request_handle_t put_handle = dbrPost_request( pctx );
+  DBR_Request_handle_t put_handle = dbrPost_request( head );
   if( put_handle == NULL )
     goto error;
 
-  BIGLOCK_UNLOCKRETURN( cs->_reverse, pctx->_tag );
+  BIGLOCK_UNLOCKRETURN( cs->_reverse, head->_tag );
 
 error:
-  dbrRemove_request( cs, pctx );
-  LOG( DBG_ERR, stderr, "request error \n" );
+  dbrRemove_request( cs, head );
+#ifdef DBR_DATA_ADAPTERS
+  if( cs->_reverse->_data_adapter != NULL )
+    cs->_reverse->_data_adapter->error_handler( chain, DBR_ERR_TAGERROR );
+#endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
 }
 

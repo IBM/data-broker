@@ -28,7 +28,7 @@ libdbrGet (DBR_Handle_t cs_handle,
            int64_t *ret_size,
            DBR_Tuple_template_t match_template,
            DBR_Group_t group,
-           int enable_timeout)
+           int flags)
 {
   dbrName_space_t *cs = (dbrName_space_t*)cs_handle;
 
@@ -39,16 +39,7 @@ libdbrGet (DBR_Handle_t cs_handle,
     return DBR_ERR_NSINVAL;
 
   dbrDA_Request_chain_t *chain = request;
-
-#ifdef DBR_DATA_ADAPTERS
-  // read-path request pre-processing plugin
-  if( cs->_reverse->_data_adapter != NULL )
-  {
-    chain = cs->_reverse->_data_adapter->pre_read( request );
-    if( chain == NULL )
-      return DBR_ERR_PLUGIN;
-  }
-#endif
+  int enable_timeout = ((flags & DBR_FLAGS_NOWAIT ) == 0 );
 
   BIGLOCK_LOCK( cs->_reverse );
 
@@ -56,6 +47,16 @@ libdbrGet (DBR_Handle_t cs_handle,
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
+
+#ifdef DBR_DATA_ADAPTERS
+  // read-path request pre-processing plugin
+  if( cs->_reverse->_data_adapter != NULL )
+  {
+    chain = cs->_reverse->_data_adapter->pre_read( request );
+    if( chain == NULL )
+      BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_PLUGIN );
+  }
+#endif
 
   dbrDA_Request_chain_t *ch_req = chain;
   dbrRequestContext_t *prev = NULL;
@@ -81,7 +82,7 @@ libdbrGet (DBR_Handle_t cs_handle,
       goto error;
     }
 
-    ctx->_req._flags = (enable_timeout == 0 ? DBBE_OPCODE_FLAGS_IMMEDIATE : DBBE_OPCODE_FLAGS_NONE );
+    ctx->_req._flags = flags;
 
     // chain the request contexts
     if( prev != NULL )
@@ -103,7 +104,8 @@ libdbrGet (DBR_Handle_t cs_handle,
           head = NULL;
         dbrDestroy_request( tmp );
       }
-      return DBR_ERR_INVALIDOP;
+      rc = DBR_ERR_INVALIDOP;
+      goto error;
     }
     ch_req = ch_req->_next;
   }
@@ -155,7 +157,14 @@ libdbrGet (DBR_Handle_t cs_handle,
       goto error;
   }
 
+  dbrRemove_request( cs, head );
+  BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
+
 error:
   dbrRemove_request( cs, head );
+#ifdef DBR_DATA_ADAPTERS
+  if( cs->_reverse->_data_adapter != NULL )
+    rc = cs->_reverse->_data_adapter->error_handler( chain, rc );
+#endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
 }

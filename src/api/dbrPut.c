@@ -33,6 +33,12 @@ libdbrPut( DBR_Handle_t cs_handle,
   if(( cs->_be_ctx == NULL ) || (cs->_reverse == NULL ) || (cs->_status != dbrNS_STATUS_REFERENCED ))
     return DBR_ERR_NSINVAL;
 
+  BIGLOCK_LOCK( cs->_reverse );
+
+  DBR_Tag_t tag = dbrTag_get( cs->_reverse );
+  if( tag == DB_TAG_ERROR )
+    BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
+
   dbrDA_Request_chain_t *chain = request;
 
 #ifdef DBR_DATA_ADAPTERS
@@ -41,15 +47,9 @@ libdbrPut( DBR_Handle_t cs_handle,
   {
     chain = cs->_reverse->_data_adapter->pre_write( request );
     if( chain == NULL )
-      return DBR_ERR_PLUGIN;
+      BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_PLUGIN );
   }
 #endif
-
-  BIGLOCK_LOCK( cs->_reverse );
-
-  DBR_Tag_t tag = dbrTag_get( cs->_reverse );
-  if( tag == DB_TAG_ERROR )
-    BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
   dbrDA_Request_chain_t *ch_req = chain;
   dbrRequestContext_t *prev = NULL;
@@ -95,7 +95,8 @@ libdbrPut( DBR_Handle_t cs_handle,
           head = NULL;
         dbrDestroy_request( tmp );
       }
-      return DBR_ERR_INVALIDOP;
+      rc = DBR_ERR_INVALIDOP;
+      goto error;
     }
     ch_req = ch_req->_next;
   }
@@ -133,8 +134,14 @@ libdbrPut( DBR_Handle_t cs_handle,
     goto error;
   }
 
+  dbrRemove_request( cs, head );
+  BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
+
 error:
   dbrRemove_request( cs, head );
-
+#ifdef DBR_DATA_ADAPTERS
+  if( cs->_reverse->_data_adapter != NULL )
+    rc = cs->_reverse->_data_adapter->error_handler( chain, rc );
+#endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
 }

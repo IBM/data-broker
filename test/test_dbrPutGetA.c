@@ -28,6 +28,7 @@
 #include <libdatabroker.h>
 #include "test_utils.h"
 
+#define TEST_REQUEST_TIMEOUT ( 2 )
 
 int main( int argc, char ** argv )
 {
@@ -40,6 +41,7 @@ int main( int argc, char ** argv )
   DBR_Handle_t cs_hdl = NULL;
   DBR_Errorcode_t ret = DBR_SUCCESS;
   DBR_Tag_t tag = 0;
+  DBR_Tag_t ptag = 0;
   DBR_State_t cs_state;
 
   // create a test name space and check
@@ -56,11 +58,11 @@ int main( int argc, char ** argv )
   char *in = (char*)"Hello World!";
   int in_size = strlen( in );
 
-  tag = dbrPutA( cs_hdl, in, in_size, "testTup", 0 );
-  rc += TEST_NOT( DB_TAG_ERROR, tag  );
+  ptag = dbrPutA( cs_hdl, in, in_size, "testTup", 0 );
+  rc += TEST_NOT( DB_TAG_ERROR, ptag  );
 
-  if( tag != DB_TAG_ERROR )
-    rc += TEST_NOT( DBR_ERR_GENERIC, dbrTest( tag ) );
+  if( ptag != DB_TAG_ERROR )
+    rc += TEST_NOT( DBR_ERR_GENERIC, dbrTest( ptag ) );
 
   // read success test and data compare to see if data is there...
   char *out = (char*)malloc( 1024 );
@@ -85,7 +87,7 @@ int main( int argc, char ** argv )
         gettimeofday( &now, NULL );
       }
 
-    } while(( state == DBR_ERR_INPROGRESS ) && ( ( now.tv_sec - start_time.tv_sec ) <= 2 ));
+    } while(( state == DBR_ERR_INPROGRESS ) && ( ( now.tv_sec - start_time.tv_sec ) <= TEST_REQUEST_TIMEOUT ));
   }
 
   rc += TEST( in_size, out_size );
@@ -122,7 +124,7 @@ int main( int argc, char ** argv )
         gettimeofday( &now, NULL );
       }
 
-    } while(( state == DBR_ERR_INPROGRESS ) && ( ( now.tv_sec - start_time.tv_sec ) <= 2 ));
+    } while(( state == DBR_ERR_INPROGRESS ) && ( ( now.tv_sec - start_time.tv_sec ) <= TEST_REQUEST_TIMEOUT ));
   }
 
   rc += TEST( in_size, out_size );
@@ -154,12 +156,32 @@ int main( int argc, char ** argv )
         usleep( 100000 );
         gettimeofday( &now, NULL );
       }
-    } while( (state == DBR_ERR_INPROGRESS ) && ( (now.tv_sec - start_time.tv_sec ) <= 2 ));
+    } while( (state == DBR_ERR_INPROGRESS ) && ( (now.tv_sec - start_time.tv_sec ) <= TEST_REQUEST_TIMEOUT ));
   }
 
   rc += TEST( DBR_SUCCESS, state );
   rc += TEST( in_size, out_size );
   rc += TEST( strncmp( in, out, 1024 ), 0 );
+
+
+// check the tag of the first put (it probably never got completed/checked)
+  state = 0;
+  if( ptag != DB_TAG_ERROR )
+  {
+    do
+    {
+      state = dbrTest( ptag );
+      rc += TEST_NOT( DBR_ERR_GENERIC, state );
+      rc += TEST_NOT( DBR_ERR_TAGERROR, state );
+
+      if( state == DBR_ERR_INPROGRESS )
+      {
+        usleep( 100000 );
+        gettimeofday( &now, NULL );
+      }
+
+    } while(( state == DBR_ERR_INPROGRESS ) && ( ( now.tv_sec - start_time.tv_sec ) <= TEST_REQUEST_TIMEOUT ));
+  }
 
   // delete the name space
   ret = dbrDelete( name );
