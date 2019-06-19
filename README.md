@@ -34,6 +34,9 @@ c) run cmake:
      - `-DCMAKE_INSTALL_PREFIX=<path>` set the install path (default: `/usr/local`)
      - `-DAPPLE=1` when building for MAC OS
      - `-DDEFAULT_BE=<backend-path-name>` what backend to link by default (default: redis)
+     - `-DWITH_DATA_ADAPTERS=1` to enable data adapter libraries to be loaded
+     - `-DDEVMODE=1` add extra compiler flags for more strict checking and some DEVMODE
+        macros to make some debugging easier
 
    - example:
      when run from the created 'build' dir and to prepare installation in `/opt/databroker`:
@@ -116,7 +119,12 @@ variables:
       Specifies the timeout in seconds for blocking get and read API
       calls. If not set, it defaults to 5 seconds.
 
-
+- `DBR_PLUGIN`
+      Point to a shared library file that implements a data adapter.
+      It will be attempted to load as soon as your application
+      initializes the Data Broker library. The file needs to be in the
+      system library path or in a path listed in the `LD_LIBRARY_PATH`
+      environment variable.
 
 
 ## 4 Limitations:
@@ -127,12 +135,12 @@ time. Here's a brief list of current limits. For a more complete list,
 see the issue tracking.
 
 - Each Redis connection uses a fixed limited size data buffer for
-  sending and receiving. It is currently limited to 128 MB. This means,
+  receiving. It is currently limited to 128 MB. This means,
   a tuple plus associated data, cannot exceed the size of 128 MB.  (it's
   a little less than that because there's a small protocol overhead) A
-  non-buffering protocol is in the plan, but not yet implemented.
+  non-buffering receive protocol is in the plan, but not yet implemented.
 
-- The persistence levels and group settings have no effect yet.
+- The persistence levels and group (location) settings have no effect yet.
   Subject to future work.
 
 - There are many cases with a lack of robustness.

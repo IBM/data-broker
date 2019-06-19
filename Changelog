@@ -1,4 +1,5 @@
 version 0.6.1
+ * data adapters implementation allows dyn loaded lib to manipulate data or requests on the way in/out
  * cluster/server info to enable replica handling
  * improved sender side handling of commands (using sge+sendmsg to avoid copying user data buffers)
 
