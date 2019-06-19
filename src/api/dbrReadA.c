@@ -118,7 +118,7 @@ error:
 
 #ifdef DBR_DATA_ADAPTERS
   if( cs->_reverse->_data_adapter != NULL )
-    cs->_reverse->_data_adapter->error_handler( chain, DBR_ERR_TAGERROR );
+    cs->_reverse->_data_adapter->error_handler( chain, DBRDA_READ, DBR_ERR_TAGERROR );
 #endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, DB_TAG_ERROR );
 }

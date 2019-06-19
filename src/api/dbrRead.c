@@ -198,7 +198,7 @@ error:
   dbrRemove_request( cs, head );
 #ifdef DBR_DATA_ADAPTERS
   if( cs->_reverse->_data_adapter != NULL )
-    rc = cs->_reverse->_data_adapter->error_handler( chain, rc );
+    rc = cs->_reverse->_data_adapter->error_handler( chain, DBRDA_READ, rc );
 #endif
   BIGLOCK_UNLOCKRETURN( cs->_reverse, rc );
 }
