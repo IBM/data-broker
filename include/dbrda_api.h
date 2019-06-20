@@ -35,6 +35,11 @@
  */
 typedef void* dbrDA_Handle_t;
 
+typedef enum
+{
+  DBRDA_WRITE,
+  DBRDA_READ
+} dbrDA_Operation_t;
 
 typedef struct dbrDA_Request_chain
 {
@@ -101,7 +106,7 @@ typedef struct dbrDA_api
   /**
    *  error handling callback (e.g. for cleanup)
    */
-  DBR_Errorcode_t (*error_handler)( dbrDA_Request_chain_t*, DBR_Errorcode_t );
+  DBR_Errorcode_t (*error_handler)( dbrDA_Request_chain_t*, dbrDA_Operation_t, DBR_Errorcode_t );
 
 } dbrDA_api_t;
 
