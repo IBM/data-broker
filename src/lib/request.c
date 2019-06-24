@@ -105,6 +105,75 @@ DBR_Errorcode_t dbrDestroy_request( dbrRequestContext_t *rctx )
   return DBR_SUCCESS;
 }
 
+dbrRequestContext_t* dbrCreate_request_chain( dbBE_Opcode op,
+                                              dbrName_space_t *ns,
+                                              DBR_Group_t group,
+                                              dbrName_space_t *dst_ns,
+                                              DBR_Group_t dst_group,
+                                              dbrDA_Request_chain_t *requests,
+                                              DBR_Tuple_template_t match_template,
+                                              int flags,
+                                              DBR_Tag_t tag )
+{
+  dbrRequestContext_t *prev = NULL;
+  dbrRequestContext_t *head = NULL;
+
+  dbrDA_Request_chain_t *item = requests;
+  while( item != NULL )
+  {
+    dbrRequestContext_t *ctx;
+    ctx = dbrCreate_request_ctx( op,
+                                 ns,
+                                 group,
+                                 dst_ns,
+                                 dst_group,
+                                 item->_sge_count,
+                                 item->_value_sge,
+                                 item->_ret_size,
+                                 item->_key,
+                                 match_template,
+                                 tag );
+    if( ctx == NULL )
+      goto error;
+
+    ctx->_req._flags = flags;
+
+    // chain the request contexts
+    if( prev != NULL )
+      prev->_next = ctx;
+    else
+      head = ctx; // remember the first one
+
+    prev = ctx;
+    // some basic sanity check because we're processing a data structure from the plugin
+    if( item == item->_next )
+    {
+      LOG( DBG_ERR, stderr, "Request chain error detected. Self-referencing\n");
+      goto error;
+    }
+    item = item->_next;
+  }
+
+  return head;
+error:
+  dbrDestroy_request_chain( head );
+  return NULL;
+}
+
+DBR_Errorcode_t dbrDestroy_request_chain( dbrRequestContext_t *chain )
+{
+  while( chain != NULL )
+  {
+    dbrRequestContext_t *tmp = chain;
+    if( chain->_next != chain )
+      chain = chain->_next;
+    else
+      chain = NULL;
+    dbrDestroy_request( tmp );
+  }
+  return DBR_SUCCESS;
+}
+
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx )
 {
   if( cs == NULL

@@ -51,55 +51,19 @@ libdbrPut( DBR_Handle_t cs_handle,
   }
 #endif
 
-  dbrDA_Request_chain_t *ch_req = chain;
-  dbrRequestContext_t *prev = NULL;
-  dbrRequestContext_t *head = NULL;
   DBR_Errorcode_t rc = DBR_SUCCESS;
-  while( ch_req != NULL )
-  {
-    dbrRequestContext_t *ctx;
-    ctx = dbrCreate_request_ctx( DBBE_OPCODE_PUT,
-                                 cs_handle,
-                                 group,
-                                 NULL,
-                                 DBR_GROUP_EMPTY,
-                                 ch_req->_sge_count,
-                                 ch_req->_value_sge,
-                                 NULL,
-                                 ch_req->_key,
-                                 NULL,
-                                 tag );
-    if( ctx == NULL )
-    {
-      rc = DBR_ERR_NOMEMORY;
-      goto error;
-    }
-
-    // chain the request contexts
-    if( prev != NULL )
-      prev->_next = ctx;
-    else
-      head = ctx; // remember the first one
-
-    prev = ctx;
-    // some basic sanity check because we're processing a data structure from the plugin
-    if( ch_req == ch_req->_next )
-    {
-      LOG( DBG_ERR, stderr, "Request chain error detected. Self-referencing\n");
-      while( head != NULL )
-      {
-        dbrRequestContext_t *tmp = head;
-        if( head->_next != head )
-          head = head->_next;
-        else
-          head = NULL;
-        dbrDestroy_request( tmp );
-      }
-      rc = DBR_ERR_INVALIDOP;
-      goto error;
-    }
-    ch_req = ch_req->_next;
-  }
+  dbrRequestContext_t *head =
+      dbrCreate_request_chain( DBBE_OPCODE_PUT,
+                               cs_handle,
+                               group,
+                               NULL,
+                               DBR_GROUP_EMPTY,
+                               chain,
+                               NULL,
+                               0,
+                               tag );
+  if( head == NULL )
+    goto error;
 
   if( dbrInsert_request( cs, head ) == DB_TAG_ERROR )
   {

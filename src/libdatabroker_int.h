@@ -179,6 +179,17 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
                                            DBR_Tag_t tag );
 DBR_Errorcode_t dbrDestroy_request( dbrRequestContext_t *rctx );
 
+dbrRequestContext_t* dbrCreate_request_chain( dbBE_Opcode op,
+                                              dbrName_space_t *ns,
+                                              DBR_Group_t group,
+                                              dbrName_space_t *dst_ns,
+                                              DBR_Group_t dst_group,
+                                              dbrDA_Request_chain_t *requests,
+                                              DBR_Tuple_template_t match_template,
+                                              int flags,
+                                              DBR_Tag_t tag );
+DBR_Errorcode_t dbrDestroy_request_chain( dbrRequestContext_t *chain );
+
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );
 DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );
 DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx );

@@ -77,7 +77,7 @@ libdbrRead(DBR_Handle_t cs_handle,
 
   BIGLOCK_LOCK( cs->_reverse );
 
-  int enable_timeout = (flags & DBBE_OPCODE_FLAGS_IMMEDIATE ) != 0 ? 0 : 1;
+  int enable_timeout = ((flags & DBR_FLAGS_NOWAIT ) == 0 );
 
   DBR_Tag_t tag = dbrTag_get( cs->_reverse );
   if( tag == DB_TAG_ERROR )
@@ -93,57 +93,21 @@ libdbrRead(DBR_Handle_t cs_handle,
   }
 #endif
 
-  dbrDA_Request_chain_t *ch_req = chain;
-  dbrRequestContext_t *prev = NULL;
-  dbrRequestContext_t *head = NULL;
   DBR_Errorcode_t rc = DBR_SUCCESS;
-  while( ch_req != NULL )
+  dbrRequestContext_t *head =
+      dbrCreate_request_chain( DBBE_OPCODE_READ,
+                               cs_handle,
+                               group,
+                               NULL,
+                               DBR_GROUP_EMPTY,
+                               chain,
+                               match_template,
+                               flags,
+                               tag );
+  if( head == NULL )
   {
-    dbrRequestContext_t *ctx;
-    ctx = dbrCreate_request_ctx( DBBE_OPCODE_READ,
-                                 cs_handle,
-                                 group,
-                                 NULL,
-                                 DBR_GROUP_EMPTY,
-                                 ch_req->_sge_count,
-                                 ch_req->_value_sge,
-                                 &ch_req->_size,
-                                 ch_req->_key,
-                                 NULL,
-                                 tag );
-    if( ctx == NULL )
-    {
-      rc = DBR_ERR_NOMEMORY;
-      goto error;
-    }
-
-
-    ctx->_req._flags = flags;
-
-    // chain the request contexts
-    if( prev != NULL )
-      prev->_next = ctx;
-    else
-      head = ctx; // remember the first one
-
-    prev = ctx;
-    // some basic sanity check because we're processing a data structure from the plugin
-    if( ch_req == ch_req->_next )
-    {
-      LOG( DBG_ERR, stderr, "Request chain error detected. Self-referencing\n");
-      while( head != NULL )
-      {
-        dbrRequestContext_t *tmp = head;
-        if( head->_next != head )
-          head = head->_next;
-        else
-          head = NULL;
-        dbrDestroy_request( tmp );
-      }
-      rc = DBR_ERR_INVALIDOP;
-      goto error;
-    }
-    ch_req = ch_req->_next;
+    rc = DBR_ERR_NOMEMORY;
+    goto error;
   }
 
   if( dbrInsert_request( cs, head ) == DB_TAG_ERROR )
@@ -166,9 +130,11 @@ libdbrRead(DBR_Handle_t cs_handle,
 #ifdef DBR_DATA_ADAPTERS
     // read-path data post-processing plugin
     if( cs->_reverse->_data_adapter != NULL )
+    {
       rc = cs->_reverse->_data_adapter->post_read( chain, request, rc );
+      *ret_size = request->_size;
+    }
 #endif
-    *ret_size = request->_size;
     break;
   case DBR_ERR_UNAVAIL:
     if( enable_timeout == 0 )
