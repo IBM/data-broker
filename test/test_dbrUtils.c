@@ -44,6 +44,7 @@ int dbrTag_get_test( dbrMain_context_t *mc )
     ++n;
     dbrRequestContext_t *r = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) + 5 * sizeof(dbBE_sge_t)  );
     memset( r, 0, sizeof( dbrRequestContext_t ) + 5 * sizeof(dbBE_sge_t) );
+    r->_req._sge_count = 5;
     mc->_cs_wq[ tag ] = r;
 
     rc += TEST_NOT( mc->_cs_wq[ tag ], NULL );
@@ -69,6 +70,7 @@ int dbrTag_get_test( dbrMain_context_t *mc )
 
     dbrRequestContext_t *r = (dbrRequestContext_t *)malloc( sizeof (dbrRequestContext_t) + 5 * sizeof(dbBE_sge_t)  );
     memset( r, 0, sizeof( dbrRequestContext_t ) + 5 * sizeof(dbBE_sge_t) );
+    r->_req._sge_count = 5;
     mc->_cs_wq[ tag ] = r;
     rc += TEST_NOT( mc->_cs_wq[ tag ], NULL );
     TEST_BREAK( rc, "Allocation failure" );
@@ -83,6 +85,7 @@ int dbrTag_get_test( dbrMain_context_t *mc )
       mc->_cs_wq[ n ]->_status = dbrSTATUS_CLOSED;
   }
 
+  // note because of status closed, this does cleanup of request entries
   rc += TEST_NOT( dbrTag_get( mc ), DB_TAG_ERROR );
 
   dbrRequestContext_t rctx;
@@ -97,6 +100,15 @@ int dbrTag_get_test( dbrMain_context_t *mc )
   rc += TEST( dbrValidateTag( &rctx, NULL ), DBR_ERR_TAGERROR );
   rc += TEST( dbrValidateTag( &rctx, DB_TAG_ERROR ), DBR_ERR_TAGERROR );
 #endif
+
+  // test cleanup any remaining
+  for( n=0; n<dbrMAX_TAGS; ++n )
+  {
+    if( mc->_cs_wq[ n ] != NULL )
+      rc += TEST( dbrDestroy_request( mc->_cs_wq[ n ] ), DBR_SUCCESS );
+    mc->_cs_wq[ n ] = NULL;
+  }
+
   return rc;
 }
 
