@@ -60,8 +60,8 @@ int main( int argc, char ** argv )
   rc += TEST( DBR_ERR_NSINVAL, ret );
 
   // query the non-existent name space should fail
-  ret = dbrQuery( cs_hdl, &cs_state, DBR_STATE_MASK_ALL );
-  rc += TEST_NOT( DBR_SUCCESS, ret );
+  // note: this causes read-after-free problem, since we misuse cs_hdl and cs_state after dbrDelete()
+  rc += TEST( dbrQuery( cs_hdl, &cs_state, DBR_STATE_MASK_ALL ), DBR_ERR_NSINVAL );
 
   free( name );
   printf( "Test exiting with rc=%d\n", rc );
