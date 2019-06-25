@@ -51,24 +51,21 @@ dbBE_Redis_address_t* dbBE_Redis_address_allocate()
 dbBE_Redis_address_t* dbBE_Redis_address_create( const char *host,
                                                  const char *port )
 {
-  dbBE_Redis_address_t *addr = dbBE_Redis_address_allocate();
-  if( addr != NULL )
-  {
-    struct addrinfo hints, *addrs;
-    memset( &hints, 0, sizeof( struct addrinfo ) );
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
+  struct addrinfo hints, *addrs;
+  memset( &hints, 0, sizeof( struct addrinfo ) );
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
 
-    int rc = getaddrinfo( host, port,
-                          &hints,
-                          &addrs);
-    if( rc != 0 )
-      return NULL;
+  int rc = getaddrinfo( host, port,
+                        &hints,
+                        &addrs);
+  if( rc != 0 )
+    return NULL;
 
-    addr = dbBE_Redis_address_copy( addrs->ai_addr, addrs->ai_addrlen );
+  dbBE_Redis_address_t *addr = dbBE_Redis_address_copy( addrs->ai_addr, addrs->ai_addrlen );
 
-    freeaddrinfo( addrs );
-  }
+  freeaddrinfo( addrs );
+
   return addr;
 }
 
