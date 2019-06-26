@@ -216,7 +216,7 @@ int dbBE_Redis_command_create_sr_buffer_field( dbBE_Redis_sr_buffer_t *buf,
   if( field == NULL )
     fldlen = snprintf( fld, dbBE_Transport_sr_buffer_remaining( buf ), "$0\r\n\r\n" ); // insert empty-string
   else
-    fldlen = snprintf( fld, dbBE_Transport_sr_buffer_remaining( buf ), "$%"PRId64"\r\n%s\r\n", len, field );
+    fldlen = snprintf( fld, dbBE_Transport_sr_buffer_remaining( buf ), "$%ld\r\n%s\r\n", len, field );
   if( fldlen <= 0 )
     return -E2BIG;
   if( dbBE_Transport_sr_buffer_add_data( buf, fldlen, 1 ) != (size_t)fldlen )
@@ -586,7 +586,7 @@ int dbBE_Redis_command_restore_create( dbBE_Redis_request_t *req,
   // create dump-value prefix
   char *prefix = dbBE_Transport_sr_buffer_get_available_position( buf );
   int prefix_len = snprintf( prefix, dbBE_Transport_sr_buffer_remaining( buf ),
-                             "$%"PRId64"\r\n", req->_status.move.len );
+                             "$%ld\r\n", req->_status.move.len );
   if(( prefix_len < 0 ) || ( ( dbBE_Transport_sr_buffer_add_data( buf, prefix_len, 1 ) != (size_t)prefix_len ) ))
     goto error;
 
@@ -916,7 +916,7 @@ int dbBE_Redis_command_rpush_create( dbBE_Redis_request_t *request,
   if( dbBE_Transport_sr_buffer_remaining( buf ) <= (log10( vallen + 1 ) + 3 ) )  // pre-check if there's enough space for the prefix
     return -E2BIG;
 
-  int valprelen = snprintf( valpre, dbBE_Transport_sr_buffer_remaining( buf ), "$%"PRId64"\r\n", vallen );
+  int valprelen = snprintf( valpre, dbBE_Transport_sr_buffer_remaining( buf ), "$%ld\r\n", vallen );
   if( valprelen < 4 )
   {
     dbBE_Transport_sr_buffer_rewind_available_to( buf, key );
