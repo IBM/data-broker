@@ -14,6 +14,10 @@
  * limitations under the License.
  *
  */
+#ifndef DEBUG_LEVEL
+#define DEBUG_LEVEL DBG_VERBOSE
+#endif
+
 #include <stddef.h>
 #include <stdio.h>
 #ifdef __APPLE__
@@ -62,7 +66,19 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( DB_TAG_ERROR, ptag  );
 
   if( ptag != DB_TAG_ERROR )
-    rc += TEST_NOT( DBR_ERR_GENERIC, dbrTest( ptag ) );
+  {
+    switch( dbrTest( ptag ) )
+    {
+      case DBR_SUCCESS:
+        ptag = DB_TAG_ERROR; // mark complet so we don't attempt to test again later
+        break;
+      case DBR_ERR_INPROGRESS:
+        break;
+      default:
+        ++rc;
+        break;
+    }
+  }
 
   // read success test and data compare to see if data is there...
   char *out = (char*)malloc( 1024 );
@@ -92,6 +108,8 @@ int main( int argc, char ** argv )
 
   rc += TEST( in_size, out_size );
   rc += TEST( strncmp( in, out, 1024 ), 0 );
+
+  fprintf( stderr, "TEST: Completed check of readA() rc=%d\n", rc );
 
 #if USE_BLOCKING
   // blocking get successful.
@@ -131,9 +149,12 @@ int main( int argc, char ** argv )
   rc += TEST( strncmp( in, out, 1024 ), 0 );
 #endif
 
+  fprintf( stderr, "TEST: Completed check of getA() rc=%d\n", rc );
+
+  // do a read with immediate flag to make sure that getA worked (i.e. deleted the entry)
   memset( out, 0, out_size );
   out_size = 1024;
-  rc += TEST_NOT( DBR_SUCCESS, dbrRead( cs_hdl, out, &out_size, "testTup", "", 0, DBR_FLAGS_NONE ) );
+  rc += TEST_NOT( DBR_SUCCESS, dbrRead( cs_hdl, out, &out_size, "testTup", "", 0, DBR_FLAGS_NOWAIT ) );
 
   // testing sequence where getA is posted before put
   memset( out, 0, out_size );
@@ -163,8 +184,10 @@ int main( int argc, char ** argv )
   rc += TEST( in_size, out_size );
   rc += TEST( strncmp( in, out, 1024 ), 0 );
 
+  fprintf( stderr, "TEST: Completed check of getA+put sequence rc=%d\n", rc );
 
-// check the tag of the first put (it probably never got completed/checked)
+  // check the tag of the first put (it probably never got completed/checked)
+  // if it's set tag error, then it's complete already
   state = 0;
   if( ptag != DB_TAG_ERROR )
   {
@@ -183,10 +206,13 @@ int main( int argc, char ** argv )
     } while(( state == DBR_ERR_INPROGRESS ) && ( ( now.tv_sec - start_time.tv_sec ) <= TEST_REQUEST_TIMEOUT ));
   }
 
+  fprintf( stderr, "TEST: Completed check of late test for putA completion rc=%d\n", rc );
+
   // delete the name space
   ret = dbrDelete( name );
   rc += TEST( DBR_SUCCESS, ret );
 
+  fprintf( stderr, "TEST: Completed check of dbrDelete rc=%d\n", rc );
   // try to attach to the name space to see if it got deleted
   cs_hdl = dbrAttach( name );
   rc += TEST( NULL, cs_hdl );
