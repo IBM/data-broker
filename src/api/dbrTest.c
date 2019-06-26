@@ -62,17 +62,20 @@ libdbrTest( DBR_Tag_t req_tag)
 
   dbrRequestContext_t *rctx = main_ctx->_cs_wq[ req_tag ];
   if( rctx == NULL )
-    return DBR_ERR_TAGERROR;
+  {
+    LOG( DBG_WARN, stderr, "Request entry for tag %"PRId64" is deleted\n", req_tag );
+    BIGLOCK_UNLOCKRETURN( main_ctx, DBR_ERR_TAGERROR );
+  }
 
 #else
 #error "Currently not supported because of lack of access to main context and locking"
   if( req_tag == NULL
       || req_tag == DB_TAG_ERROR )
-    return DBR_ERR_TAGERROR;
+    BIGLOCK_UNLOCKRETURN( main_ctx, DBR_ERR_TAGERROR );
 
   dbrRequestContext_t *rctx = *(dbrRequestContext_t**)req_tag;
   if( rctx == NULL )
-    return DBR_ERR_TAGERROR;
+    BIGLOCK_UNLOCKRETURN( main_ctx, DBR_ERR_TAGERROR );
 
 #endif
 
