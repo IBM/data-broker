@@ -97,6 +97,7 @@ int main( int argc, char ** argv )
 
   dbBE_Redis_connection_unlink( conn );
   rc += TEST( conn->_socket, -1 );
+  rc += TEST_NOT( conn->_address, NULL ); // address is preserved after unlink
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
   rc += TEST( dbBE_Redis_connection_RTS( conn ), 0 );
   rc += TEST( dbBE_Redis_connection_RTR( conn ), 0 );
@@ -116,10 +117,9 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_unlink( conn ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
 
-  // now we should be able to link
+  // now we should be able to link again
   fprintf(stderr,"8.conn->_status = %u\n", conn->_status);
-  addr = dbBE_Redis_connection_link( conn, url, auth );
-  rc += TEST_NOT( addr, NULL );
+  rc += TEST( dbBE_Redis_connection_reconnect( conn ), 0 );
   fprintf(stderr,"8a.rc=%d, url=%s, auth=%s\n", rc, url, auth);
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_AUTHORIZED );
   fprintf(stderr,"8b.rc=%d, url=%s, auth=%s\n", rc, url, auth);

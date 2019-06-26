@@ -129,6 +129,10 @@ int key_creation_test()
       }
     } while (( dbBE_Redis_request_stage_transition( req ) == 0 ) && ( rc == 0 ));
   }
+  dbBE_Redis_request_destroy( req );
+  dbBE_Transport_sr_buffer_free( buf );
+  free( reference );
+  free( ureq );
   return rc;
 }
 
@@ -343,7 +347,7 @@ int main( int argc, char ** argv )
               0 );
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
   dbBE_Redis_request_destroy( req );
-
+  free( meta );
 
   // create an nsattach
   ureq->_opcode = DBBE_OPCODE_NSATTACH;

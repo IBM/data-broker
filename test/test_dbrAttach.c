@@ -107,6 +107,7 @@ int main( int argc, char ** argv )
   ret = dbrDelete( name );
   rc += TEST( DBR_SUCCESS, ret );
 
+  // query again (this causes use-after free, because the hdl should be wiped now)
   ret = dbrQuery( cs_hdl, &cs_state, DBR_STATE_MASK_ALL );
   rc += TEST( DBR_ERR_NSINVAL, ret );
 

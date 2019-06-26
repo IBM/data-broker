@@ -137,7 +137,7 @@ int main( int argc, char ** argv )
     rc += TEST_NOT_RC( dbBE_Redis_cluster_info_create_single( host ), NULL, cluster );
 
 
-  rc += TEST( dbBE_Redis_result_cleanup( result, 0 ), 0 );
+  rc += TEST( dbBE_Redis_result_cleanup( result, 1 ), 0 );
 
   TEST_BREAK( rc, "Cluster Info creation failed" );
 
@@ -220,9 +220,11 @@ int main( int argc, char ** argv )
 
   // test the actual exit
   dbBE_Redis_connection_mgr_exit( mgr );
-
   // conn was added to conn_mgr and therefore it's destroyed by mgr_exit()
   // dbBE_Redis_connection_destroy( conn );
+
+  rc += TEST( dbBE_Redis_cluster_info_destroy( cluster ), 0 );
+  rc += TEST( dbBE_Redis_locator_destroy( locator ), 0 );
 
   free( auth );
   free( host );

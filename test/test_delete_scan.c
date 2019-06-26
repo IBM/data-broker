@@ -105,7 +105,7 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( strchr( (char*)tbuf, '5' ), NULL );
   rc += TEST_NOT( strchr( (char*)tbuf, '6' ), NULL );
   rc += TEST( rsize, 11 );
-
+  free( tbuf );
 
   // delete the name space
   ret = dbrDelete( name );
@@ -140,6 +140,7 @@ int main( int argc, char ** argv )
   rc += TEST( DBR_SUCCESS, ret );
 
 exit:
+  free( name );
   LOG( DBG_ALL, stderr, "Restoring env variable status\n" );
   if( env_overwrite == 0 )
     unsetenv( DBR_TIMEOUT_ENV );

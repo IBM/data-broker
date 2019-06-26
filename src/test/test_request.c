@@ -74,6 +74,7 @@ int Request_create_test()
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_SUCCESS );
 
   rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+  rc += TEST( dbrMain_detach( ns->_reverse, ns ), 0 );
 
   LOG( DBG_INFO, stdout, "Create request test: rc=%d\n", rc );
   return rc;
@@ -102,7 +103,9 @@ int Request_insert_test()
   rctx->_tag = tmptag;
   rc += TEST( dbrInsert_request( ns, rctx ), tmptag );
 
+  rc += TEST( dbrDestroy_request( rctx ), DBR_SUCCESS );
   rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+  rc += TEST( dbrMain_detach( ns->_reverse, ns ), 0 );
 
   LOG( DBG_INFO, stdout, "Insert request test: rc=%d\n", rc );
   return rc;
@@ -140,6 +143,7 @@ int Request_remove_test()
   rc += TEST( dbrRemove_request( ns, rctx ), DBR_SUCCESS );
 
   rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+  rc += TEST( dbrMain_detach( ns->_reverse, ns ), 0 );
 
   LOG( DBG_INFO, stdout, "Remove request test: rc=%d\n", rc );
   return rc;
@@ -177,7 +181,9 @@ int Request_post_test()
   rctx->_cpl._status = DBR_ERR_INPROGRESS;
   rc += TEST( dbrPost_request( rctx ), NULL );
 
+  rc += TEST( dbrDestroy_request( rctx ), DBR_SUCCESS );
   rc += TEST( dbrMain_delete( ns->_reverse, ns ), 0 );
+  rc += TEST( dbrMain_detach( ns->_reverse, ns ), 0 );
 
   LOG( DBG_INFO, stdout, "Remove request test: rc=%d\n", rc );
   return rc;

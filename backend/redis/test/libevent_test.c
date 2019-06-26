@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018, 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,8 @@ int main( int argc, char **argv )
 
   event_base_dispatch( evbase );
 
+  event_free( timeev2 );
+  event_free( timeev1 );
   event_base_free( evbase );
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

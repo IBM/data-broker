@@ -164,7 +164,17 @@ DBR_Tag_t dbrTag_get( dbrMain_context_t *ctx )
   while( ctx->_cs_wq[ t ] != NULL )
   {
     // while we're at it: clean up any closed request entries
-    if( ctx->_cs_wq[ t ]->_status == dbrSTATUS_CLOSED )
+    // !! make sure the whole chain is in closed state !!
+
+    dbrRequestContext_t *rctx = ctx->_cs_wq[ t ];
+    dbrRequest_status_t st = rctx->_status;
+    while(( st == dbrSTATUS_CLOSED ) && ( rctx->_next != NULL ))
+    {
+      rctx = rctx->_next;
+      st = rctx->_status;
+    }
+
+    if( st == dbrSTATUS_CLOSED )
     {
       dbrRequestContext_t *r = ctx->_cs_wq[ t ];
       memset( r, 0, sizeof( dbrRequestContext_t ) + r->_req._sge_count * sizeof(dbBE_sge_t) );

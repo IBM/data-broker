@@ -80,11 +80,14 @@ receive_more_responses:
   {
     switch( rc )
     {
-      case 0:
+      case -ENOTEMPTY:
+        rc = dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf );
+        LOG( DBG_ERR, stderr, "Redis connection %d recv buffer not empty. remaining=%d %s\n",
+             conn->_index, rc, dbBE_Transport_sr_buffer_get_processed_position( conn->_recvbuf ) );
         break;
       case -ENOTCONN:
         LOG( DBG_ERR, stderr, "Redis connection %d down\n", conn->_index );
-        // no break intentionally
+        // intentionally no break
       default:
         LOG( DBG_ERR, stderr, "Recv from conn %d returned %d\n", conn->_index, rc );
 
@@ -103,9 +106,12 @@ receive_more_responses:
         dbBE_Redis_connection_mgr_conn_fail( input->_backend->_conn_mgr, conn );
 
         // todo: cancel all remaining requests for cleanup
+
+        // intentionally no break
+      case 0:
+        goto skip_receiving;
         break;
     }
-    goto skip_receiving;
   }
 
   dbBE_Redis_request_t *request = NULL;
@@ -130,6 +136,8 @@ process_next_item:
     // alternative: cancell all requests
     goto skip_receiving;
   }
+
+  LOG( DBG_TRACE, stderr, "Processing request op=%d on conn %d\n", request->_user->_opcode, conn->_index );
 
   if( responses_remain <= 0 )
     responses_remain = request->_step->_resp_cnt - 1;
@@ -339,6 +347,7 @@ process_next_item:
           // don't push the completion until the final stage!!
           if( request->_step->_result != 0 )
           {
+            LOG( DBG_TRACE, stderr, "Completing request op=%d on conn %d\n", request->_user->_opcode, conn->_index );
             request->_completion = dbBE_Redis_complete_command(
                 request,
                 &result,
@@ -378,7 +387,17 @@ process_next_item:
           {
             dbBE_Redis_result_cleanup( &result, 0 );
             dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
-            goto skip_receiving;
+            LOG( DBG_TRACE, stderr, "EAGAIN in parsing op=%d conn %d; remaining data=%ld\n", request->_user->_opcode,
+                 conn->_index, dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf ) );
+
+            if( ! dbBE_Transport_sr_buffer_empty( conn->_recvbuf ) )
+            {
+              LOG( DBG_TRACE, stderr, "Multiple responses in buffer of conn %d; remaining data=%ld\n",
+                   conn->_index, dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf ) );
+              goto process_next_item;
+            }
+            else
+              goto skip_receiving;
           }
 
           // first pull any potentially existing completion from previous result stage(s) and clean it up
@@ -421,7 +440,11 @@ process_next_item:
 
   // repeat if the receive buffer contains more responses
   if( ! dbBE_Transport_sr_buffer_empty( conn->_recvbuf ) )
+  {
+    LOG( DBG_TRACE, stderr, "Multiple responses in buffer of conn %d; remaining data=%ld\n",
+         conn->_index, dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf ) );
     goto process_next_item;
+  }
   dbBE_Redis_result_cleanup( &result, 0 );
 
   if( receive_limit > 0 )

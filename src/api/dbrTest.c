@@ -62,17 +62,20 @@ libdbrTest( DBR_Tag_t req_tag)
 
   dbrRequestContext_t *rctx = main_ctx->_cs_wq[ req_tag ];
   if( rctx == NULL )
-    return DBR_ERR_TAGERROR;
+  {
+    LOG( DBG_WARN, stderr, "Request entry for tag %"PRId64" is deleted\n", req_tag );
+    BIGLOCK_UNLOCKRETURN( main_ctx, DBR_ERR_TAGERROR );
+  }
 
 #else
 #error "Currently not supported because of lack of access to main context and locking"
   if( req_tag == NULL
       || req_tag == DB_TAG_ERROR )
-    return DBR_ERR_TAGERROR;
+    BIGLOCK_UNLOCKRETURN( main_ctx, DBR_ERR_TAGERROR );
 
   dbrRequestContext_t *rctx = *(dbrRequestContext_t**)req_tag;
   if( rctx == NULL )
-    return DBR_ERR_TAGERROR;
+    BIGLOCK_UNLOCKRETURN( main_ctx, DBR_ERR_TAGERROR );
 
 #endif
 
@@ -127,39 +130,39 @@ libdbrTest( DBR_Tag_t req_tag)
     if( rctx->_ochain == NULL )
     {
       LOG( DBG_ERR, stderr, "BUG: User request in context is NULL. Chained request check issue?\n" );
-      goto error;
+      dbrRemove_request( rctx->_ctx, rctx );
+      BIGLOCK_UNLOCKRETURN( main_ctx, DBR_ERR_HANDLE );
     }
-    dbrDA_Request_chain_t *chain = rctx->_rchain;
+    dbrDA_Request_chain_t *rchain = rctx->_rchain;
     switch( rctx->_req._opcode )
     {
       case DBBE_OPCODE_PUT:
-        rc = cs->_reverse->_data_adapter->post_write( chain, rc );
+        rc = cs->_reverse->_data_adapter->post_write( rchain, rc );
         break;
       case DBBE_OPCODE_READ:
       case DBBE_OPCODE_GET:
       {
-        rc = cs->_reverse->_data_adapter->post_read( chain, rctx->_ochain, rc );
+        rc = cs->_reverse->_data_adapter->post_read( rchain, rctx->_ochain, rc );
         *rctx->_ochain->_ret_size = rctx->_ochain->_size;
         break;
       }
       default:
         LOG( DBG_ERR, stderr, "dbrTest() of an unsupported operation\n" );
         rc = DBR_ERR_INVALIDOP;
-        goto error;
         break;
     }
-    // chain cleanup
-    chain = rctx->_ochain;
-    while( chain != NULL )
-    {
-      dbrDA_Request_chain_t *next = chain->_next;
-      free( chain );
-      chain = next;
-    }
   }
-error:
 
 #endif
+  // clean up the user's request chain
+  dbrDA_Request_chain_t *ochain = rctx->_ochain;
+  while( ochain != NULL )
+  {
+    dbrDA_Request_chain_t *next = ochain->_next;
+    free( ochain );
+    ochain = next;
+  }
+
   dbrRemove_request( rctx->_ctx, rctx );
 
   BIGLOCK_UNLOCKRETURN( main_ctx, rc );

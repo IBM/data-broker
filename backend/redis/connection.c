@@ -249,6 +249,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   if( rc != 0 )
   {
     dbBE_Redis_connection_unlink( conn );
+    dbBE_Redis_address_destroy( conn->_address );
     return NULL;
   }
 
@@ -289,6 +290,10 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
 {
   int rc = 0;
   if(( conn == NULL ) || ( conn->_status != DBBE_CONNECTION_STATUS_DISCONNECTED ))
+    return -EINVAL;
+
+  // make sure there's an address before dereferencing it
+  if( conn->_address == NULL )
     return -EINVAL;
 
   int s = socket( conn->_address->_address.sin_family, SOCK_STREAM, 0 );
