@@ -15,6 +15,13 @@
  *
  */
 
+#include "logutil.h"
+#include "definitions.h"
+#include "utility.h"
+#include "conn_mgr.h"
+#include "parse.h"
+#include "libdatabroker.h"
+
 #include <errno.h>
 #ifdef __APPLE__
 #include <stdlib.h>
@@ -25,12 +32,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h> // usleep
-
-#include "logutil.h"
-#include "definitions.h"
-#include "utility.h"
-#include "conn_mgr.h"
-#include "parse.h"
+#include <sys/types.h> // getifaddr
+#include <ifaddrs.h> // getifaddr
 
 #define DBBE_REDIS_CONN_MGR_TRACKED_EVENTS ( EPOLLET | EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLPRI )
 
@@ -969,6 +972,54 @@ exit_is_master:
 }
 
 
+DBR_Errorcode_t dbBE_Redis_connection_mgr_set_local_address( dbBE_Redis_connection_mgr_t *conn_mgr,
+                                                             dbBE_Redis_cluster_info_t *cl_info )
+{
+  struct ifaddrs *ifs, *it;
+
+  if( getifaddrs( &ifs ) != 0 )
+    return DBR_ERR_BE_GENERAL;
+
+  int n, s;
+  for( n = 0; n < dbBE_Redis_cluster_info_getsize( cl_info ); ++n )
+  {
+    dbBE_Redis_server_info_t *si = dbBE_Redis_cluster_info_get_server( cl_info, n );
+    if( si == NULL )
+    {
+      freeifaddrs( ifs );
+      return DBR_ERR_NOFILE;
+    }
+
+    for( s = 0; s < dbBE_Redis_server_info_getsize( si ); ++s )
+    {
+      char *url = dbBE_Redis_server_info_get_replica( si, s );
+      if( url == NULL )
+      {
+        freeifaddrs( ifs );
+        return DBR_ERR_NOFILE;
+      }
+      dbBE_Redis_address_t *addr = dbBE_Redis_address_from_string( url );
+
+      it = ifs;
+      while( it != NULL )
+      {
+        if( dbBE_Redis_address_compare_ip( (struct sockaddr_in*)it->ifa_addr, &addr->_address ) == 0 )
+        {
+          conn_mgr->_local = addr;
+          freeifaddrs( ifs );
+          return DBR_SUCCESS;
+        }
+        it = it->ifa_next;
+      }
+      dbBE_Redis_address_destroy( addr );
+    }
+  }
+
+  freeifaddrs( ifs );
+  return DBR_ERR_UNAVAIL;
+}
+
+
 dbBE_Redis_cluster_info_t* dbBE_Redis_connection_mgr_get_cluster_info( dbBE_Redis_connection_mgr_t *conn_mgr )
 {
   if( conn_mgr == NULL )
@@ -1014,5 +1065,6 @@ dbBE_Redis_cluster_info_t* dbBE_Redis_connection_mgr_get_cluster_info( dbBE_Redi
     }
   }
 
+  dbBE_Redis_connection_mgr_set_local_address( conn_mgr, cl_info );
   return cl_info;
 }

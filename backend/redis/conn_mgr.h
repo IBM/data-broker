@@ -41,7 +41,8 @@ typedef struct
   // connection list
   dbBE_Redis_connection_t *_connections[ DBBE_REDIS_MAX_CONNECTIONS ];
   dbBE_Redis_connection_t *_broken[ DBBE_REDIS_MAX_CONNECTIONS ];
-//  pthread_mutex_lock_t _lock;
+  dbBE_Redis_address_t *_local; // used to determine local vs. remote connections
+  //  pthread_mutex_lock_t _lock;
 
   int _connection_count;
 
