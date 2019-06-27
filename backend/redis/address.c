@@ -135,12 +135,20 @@ dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str )
   return ret;
 }
 
+int dbBE_Redis_address_compare_ip( struct sockaddr_in *a,
+                                   struct sockaddr_in *b )
+{
+  if( (a == NULL) || (b == NULL) )
+    return 1;
+  int rc = (a->sin_family == b->sin_family );
+  rc &= (a->sin_addr.s_addr == b->sin_addr.s_addr );
+  return (rc == 0 );
+}
 
 int dbBE_Redis_address_compare( dbBE_Redis_address_t *a,
                                 dbBE_Redis_address_t *b )
 {
-  int rc = (a->_address.sin_family == b->_address.sin_family );
+  int rc = ( dbBE_Redis_address_compare_ip( &a->_address, &b->_address ) == 0 );
   rc &= (a->_address.sin_port == b->_address.sin_port );
-  rc &= (a->_address.sin_addr.s_addr == b->_address.sin_addr.s_addr );
   return (rc == 0 );
 }
