@@ -105,6 +105,9 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( strchr( (char*)tbuf, '5' ), NULL );
   rc += TEST_NOT( strchr( (char*)tbuf, '6' ), NULL );
   rc += TEST( rsize, 11 );
+
+  rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_LOCAL, 1000, tbuf, 1024, &rsize ), DBR_SUCCESS );
+
   free( tbuf );
 
   // delete the name space

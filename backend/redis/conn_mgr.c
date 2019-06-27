@@ -841,6 +841,11 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
     if(( conn_mgr->_connections[ i ] != NULL ) &&
         (dbBE_Redis_connection_RTR( conn_mgr->_connections[ i ] ) ))
     {
+      // if local-directory is requested, skip any non-local Redis servers
+      if(( template_request->_user->_group == DBR_GROUP_LOCAL ) &&
+          ( dbBE_Redis_address_compare_ip( &conn_mgr->_connections[ i ]->_address->_address, &conn_mgr->_local->_address ) != 0))
+          continue;
+
       dbBE_Redis_request_t *req = dbBE_Redis_request_allocate( template_request->_user );
       if( req == NULL )
         continue;
