@@ -79,7 +79,11 @@ char* dbBE_Redis_address_split( char *input )
 
 /*
  * compare 2 input addresses and return 0 if equal; 1 otherwise
+ * compare the IP address only
  */
+int dbBE_Redis_address_compare_ip( struct sockaddr_in *a,
+                                   struct sockaddr_in *b );
+/* include the port in the comparison too */
 int dbBE_Redis_address_compare( dbBE_Redis_address_t *a,
                                 dbBE_Redis_address_t *b );
 

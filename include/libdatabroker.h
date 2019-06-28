@@ -259,6 +259,11 @@ typedef DBR_Errorcode_t (*FunctPtr_t)(void*);
 #define DBR_GROUP_LIST_EMPTY (NULL)
 
 /**
+ * @brief Initializer for a group that only includes local storage
+ */
+#define DBR_GROUP_LOCAL ( (DBR_Group_t)0x70CA7600F )
+
+/**
  * @brief Initializer for empty unit lists
  */
 #define DBR_UNIT_LIST_EMPTY (NULL)
