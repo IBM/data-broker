@@ -228,74 +228,78 @@ void* dbBE_Redis_sender( void *args )
   }
 
   dbBE_Redis_request_t *request = NULL;
-  int send_limit = 128 * 1024 * 1024;
+  int request_limit = 25;
 
-acquire_another_request:
+  int pending_conn[10];
+  memset( pending_conn, 0, sizeof( int ) * 10 );
+  int pending_last = -1;
 
-  request = dbBE_Redis_sender_acquire_request( input->_backend );
-  if( request == NULL )
-    goto skip_sending;
-
-
-  // find out which connection to use
-  dbBE_Redis_connection_t *conn = dbBE_Redis_sender_find_connection( input->_backend, request );
-  if( conn == NULL )
+  while(( --request_limit > 0 ) && ( pending_last < 9 ))
   {
-    LOG( DBG_ERR, stderr, "Failed to get back-end connection.\n" );
+    request = dbBE_Redis_sender_acquire_request( input->_backend );
+    if( request == NULL )
+      break;
 
-    // todo: might have to create completion (unless there are more sub-tasks in flight)
-    rc = -ENOMSG;
-    goto skip_sending;
+    // find out which connection to use
+    dbBE_Redis_connection_t *conn = dbBE_Redis_sender_find_connection( input->_backend, request );
+    if( conn == NULL )
+    {
+      LOG( DBG_ERR, stderr, "Failed to get back-end connection.\n" );
+
+      // todo: might have to create completion (unless there are more sub-tasks in flight)
+      rc = -ENOMSG;
+      break;
+    }
+
+    if( ! dbBE_Redis_connection_RTS( conn ) )
+    {
+      LOG( DBG_ERR, stderr, "Associated connection not ready to send\n" );
+      rc = -ENOTCONN;
+      break;
+    }
+
+    // create_command assembles an SGE list
+    // entries either come directly from user or from send buffer
+    // when complete, connection.send() fires the assembled data
+    dbBE_sge_t *cmd = dbBE_Redis_cmd_buffer_get_current( conn->_cmd );
+    rc = dbBE_Redis_create_command_sge( request, input->_backend->_sender_buffer, cmd );
+    if( rc < 0 )
+    {
+      LOG( DBG_ERR, stderr, "Failed to create command. rc=%d\n", rc );
+      rc = -ENOMSG;
+      break;
+    }
+
+    // update cmd buffer status for this connection
+    dbBE_Redis_cmd_buffer_add( conn->_cmd, rc );
+
+    // instead of sending, add connection to a pending connections list
+    if(( pending_last < 0 ) || ( conn->_index != pending_conn[ pending_last ] ))
+      ++pending_last;
+    pending_conn[ pending_last ] = conn->_index;
+
+    // store request to posted requests queue
+    rc = dbBE_Redis_s2r_queue_push( conn->_posted_q, request );
+    if( rc != 0 )
+    {
+      rc = -ENOMSG;
+      break;
+    }
   }
-
-  if( ! dbBE_Redis_connection_RTS( conn ) )
-  {
-    LOG( DBG_ERR, stderr, "Associated connection not ready to send\n" );
-    rc = -ENOTCONN;
-    goto skip_sending;
-  }
-
-  // create_command assembles an SGE list
-  // entries either come directly from user or from send buffer
-  // when complete, connection.send() fires the assembled data
-  dbBE_sge_t *cmd = dbBE_Redis_cmd_buffer_get_current( conn->_cmd );
-  rc = dbBE_Redis_create_command_sge( request, input->_backend->_sender_buffer, cmd );
-  if( rc < 0 )
-  {
-    LOG( DBG_ERR, stderr, "Failed to create command. rc=%d\n", rc );
-    rc = -ENOMSG;
-    goto skip_sending;
-  }
-
-  // update cmd buffer status for this connection
-  dbBE_Redis_cmd_buffer_add( conn->_cmd, rc );
-
-  // instead of sending, add connection to a pending connections list
-  // before triggering the receiver, do the post on all pending connections
-  // this requires a cmd buffer entry for every connection
-  // which in turn requires cmd buffer with bookkeeping
-  rc = dbBE_Redis_connection_send_cmd( conn );
-  if( rc < 0 )
-  {
-    LOG( DBG_ERR, stderr, "Failed to send command. rc=%d\n", rc );
-    dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
-    goto skip_sending;
-  }
-  send_limit -= rc;
-  dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
-
-  // store request to posted requests queue
-  rc = dbBE_Redis_s2r_queue_push( conn->_posted_q, request );
-  if( rc != 0 )
-  {
-    rc = -ENOMSG;
-    goto skip_sending;
-  }
-
-  if( send_limit > 0 )
-    goto acquire_another_request;
 
 skip_sending:
+  // before triggering the receiver, do the post on all pending connections
+  while( pending_last >= 0 )
+  {
+    rc = dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_mgr_get_connection_at( input->_backend->_conn_mgr, pending_conn[ pending_last ] ) );
+    if( rc < 0 )
+    {
+      LOG( DBG_ERR, stderr, "Failed to send command. rc=%d\n", rc );
+      break;
+    }
+    --pending_last;
+  }
+  dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
   dbBE_Redis_receiver_trigger( input->_backend );
 
   // complete the request with an error

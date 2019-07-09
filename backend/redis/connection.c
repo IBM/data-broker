@@ -520,6 +520,8 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn )
 {
   if(( conn == NULL ) || ( conn->_cmd->_index > DBBE_SGE_MAX ))
     return -EINVAL;
+  if( conn->_cmd->_index == 0 )
+    return 0;  // nothing to send
   if( ! dbBE_Redis_connection_RTS( conn ) )
     return -ENOTCONN;
 
