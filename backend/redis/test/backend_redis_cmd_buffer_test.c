@@ -43,6 +43,7 @@ int main( int argc, char **arcv )
   rc += TEST( dbBE_Redis_cmd_buffer_remain( cmd ), DBBE_SGE_MAX-5 );
   rc += TEST( dbBE_Redis_cmd_buffer_get_current( cmd ), &cmd->_cmd[5] );
   rc += TEST( dbBE_Redis_cmd_buffer_add( cmd, 7 ), 12 );
+  rc += TEST( dbBE_Redis_cmd_buffer_remain( cmd ), DBBE_SGE_MAX-12 );
 
   rc += TEST( dbBE_Redis_cmd_buffer_reset( cmd ), DBR_SUCCESS );
   rc += TEST( dbBE_Redis_cmd_buffer_get_current( cmd ), cmd->_cmd );

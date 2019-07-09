@@ -23,6 +23,7 @@
 #include "common/data_transport.h"
 #include "s2r_queue.h"
 #include "slot_bitmap.h"
+#include "cmd_buffer.h"
 
 //#ifndef DEBUG_REDIS_PROTOCOL
 //#define DEBUG_REDIS_PROTOCOL
@@ -60,6 +61,7 @@ typedef struct dbBE_Redis_connection
   dbBE_Redis_slot_bitmap_t *_slots;
   volatile dbBE_Connection_status_t _status;
   struct timeval _last_alive;
+  dbBE_Redis_cmd_buffer_t *_cmd;
   char _url[ DBR_SERVER_URL_MAX_LENGTH ];
 } dbBE_Redis_connection_t;
 
@@ -180,9 +182,7 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn,
 /*
  * send the cmd vector to the connected Redis instance
  */
-int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
-                                    dbBE_sge_t *cmd,
-                                    const int cmdlen );
+int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn );
 
 /*
  * disconnect from a Redis instance

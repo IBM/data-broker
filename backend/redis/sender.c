@@ -196,8 +196,7 @@ void* dbBE_Redis_sender( void *args )
 
   /*
    * check server connections,
-   * fail any request if there's a connection missing
-   * because the cluster will not accept new requests anyway
+   * fail requests only if situation is not recoverable
    */
   if( dbBE_Redis_locator_hash_covered( input->_backend->_locator ) == 0 )
   {
@@ -240,10 +239,9 @@ acquire_another_request:
 
   // find out which connection to use
   dbBE_Redis_connection_t *conn = dbBE_Redis_sender_find_connection( input->_backend, request );
-
   if( conn == NULL )
   {
-    fprintf( stderr, "Failed to get back-end connection.\n" );
+    LOG( DBG_ERR, stderr, "Failed to get back-end connection.\n" );
 
     // todo: might have to create completion (unless there are more sub-tasks in flight)
     rc = -ENOMSG;
@@ -260,7 +258,7 @@ acquire_another_request:
   // create_command assembles an SGE list
   // entries either come directly from user or from send buffer
   // when complete, connection.send() fires the assembled data
-  dbBE_sge_t cmd[ DBBE_SGE_MAX ];
+  dbBE_sge_t *cmd = dbBE_Redis_cmd_buffer_get_current( conn->_cmd );
   rc = dbBE_Redis_create_command_sge( request, input->_backend->_sender_buffer, cmd );
   if( rc < 0 )
   {
@@ -269,7 +267,14 @@ acquire_another_request:
     goto skip_sending;
   }
 
-  rc = dbBE_Redis_connection_send_cmd( conn, cmd, rc );
+  // update cmd buffer status for this connection
+  dbBE_Redis_cmd_buffer_add( conn->_cmd, rc );
+
+  // instead of sending, add connection to a pending connections list
+  // before triggering the receiver, do the post on all pending connections
+  // this requires a cmd buffer entry for every connection
+  // which in turn requires cmd buffer with bookkeeping
+  rc = dbBE_Redis_connection_send_cmd( conn );
   if( rc < 0 )
   {
     LOG( DBG_ERR, stderr, "Failed to send command. rc=%d\n", rc );

@@ -32,7 +32,7 @@ typedef struct {
   unsigned _index;
 } dbBE_Redis_cmd_buffer_t;
 
-
+static inline
 dbBE_Redis_cmd_buffer_t* dbBE_Redis_cmd_buffer_create()
 {
   dbBE_Redis_cmd_buffer_t *buf = (dbBE_Redis_cmd_buffer_t*)calloc( 1, sizeof( dbBE_Redis_cmd_buffer_t ));
@@ -42,6 +42,7 @@ dbBE_Redis_cmd_buffer_t* dbBE_Redis_cmd_buffer_create()
   return buf;
 }
 
+static inline
 DBR_Errorcode_t dbBE_Redis_cmd_buffer_destroy( dbBE_Redis_cmd_buffer_t *cbuf )
 {
   if( cbuf == NULL )
@@ -52,6 +53,7 @@ DBR_Errorcode_t dbBE_Redis_cmd_buffer_destroy( dbBE_Redis_cmd_buffer_t *cbuf )
   return DBR_SUCCESS;
 }
 
+static inline
 dbBE_sge_t* dbBE_Redis_cmd_buffer_get_current( dbBE_Redis_cmd_buffer_t *cbuf )
 {
   if( cbuf == NULL )
@@ -59,6 +61,7 @@ dbBE_sge_t* dbBE_Redis_cmd_buffer_get_current( dbBE_Redis_cmd_buffer_t *cbuf )
   return &cbuf->_cmd[ cbuf->_index ];
 }
 
+static inline
 unsigned dbBE_Redis_cmd_buffer_remain( dbBE_Redis_cmd_buffer_t *cbuf )
 {
   if( cbuf == NULL )
@@ -66,6 +69,7 @@ unsigned dbBE_Redis_cmd_buffer_remain( dbBE_Redis_cmd_buffer_t *cbuf )
   return DBBE_SGE_MAX - cbuf->_index;
 }
 
+static inline
 unsigned dbBE_Redis_cmd_buffer_add( dbBE_Redis_cmd_buffer_t *cbuf, const unsigned addition )
 {
   if( cbuf == NULL )
@@ -76,6 +80,7 @@ unsigned dbBE_Redis_cmd_buffer_add( dbBE_Redis_cmd_buffer_t *cbuf, const unsigne
   return cbuf->_index;
 }
 
+static inline
 DBR_Errorcode_t dbBE_Redis_cmd_buffer_reset( dbBE_Redis_cmd_buffer_t *cbuf )
 {
   if( cbuf == NULL )
