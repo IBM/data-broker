@@ -367,8 +367,11 @@ dbBE_Redis_connection_mgr_create_connection_list( dbBE_Redis_connection_mgr_t *c
                                                   dbBE_Redis_connection_t ***connections )
 {
   // create a temporary list of connections where we remove valid master connections to see which links need to get fixed
-  *connections = (dbBE_Redis_connection_t**)calloc( conn_mgr->_connection_count, sizeof( dbBE_Redis_connection_t*) );
   if( connections == NULL )
+    return -1;
+
+  *connections = (dbBE_Redis_connection_t**)calloc( conn_mgr->_connection_count, sizeof( dbBE_Redis_connection_t*) );
+  if( *connections == NULL )
     return -1;
 
   int n,i;
@@ -381,7 +384,7 @@ dbBE_Redis_connection_mgr_create_connection_list( dbBE_Redis_connection_mgr_t *c
     if(( conn_mgr->_broken[ n ] != NULL ) || ( conn_mgr->_connections[ n ] == NULL ))
     {
       LOG( DBG_ERR, stderr, "Inconsistent connection mgmt. Broken connection found in unbroken state\n" );
-      free( connections );
+      free( *connections );
       return -1;
     }
     (*connections)[ i++ ] = conn_mgr->_connections[ n ];
@@ -394,7 +397,7 @@ dbBE_Redis_connection_mgr_create_connection_list( dbBE_Redis_connection_mgr_t *c
          "Inconsistent connection mgmt. Number of tracked connections %d differs from active connections %d.\n",
          conn_mgr->_connection_count,
          i );
-    free( connections );
+    free( *connections );
     return -1;
   }
 
