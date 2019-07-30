@@ -192,6 +192,7 @@ DBR_Errorcode_t dbrDestroy_request_chain( dbrRequestContext_t *chain );
 
 DBR_Tag_t dbrInsert_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );
 DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rctx );
+DBR_Request_handle_t dbrPost_request_ext( dbrRequestContext_t *rctx, const int with_trigger );
 DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx );
 
 

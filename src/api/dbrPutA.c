@@ -73,7 +73,7 @@ DBR_Tag_t libdbrPutA (DBR_Handle_t cs_handle,
     goto error;
   }
 
-  DBR_Request_handle_t put_handle = dbrPost_request( head );
+  DBR_Request_handle_t put_handle = dbrPost_request_ext( head, 0 );
   if( put_handle == NULL )
     goto error;
 

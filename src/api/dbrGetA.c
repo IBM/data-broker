@@ -69,7 +69,7 @@ DBR_Tag_t libdbrGetA(DBR_Handle_t cs_handle,
   if( rtag == DB_TAG_ERROR )
     goto error;
 
-  DBR_Request_handle_t get_handle = dbrPost_request( head );
+  DBR_Request_handle_t get_handle = dbrPost_request_ext( head, 0 );
   if( get_handle == NULL )
     goto error;
 

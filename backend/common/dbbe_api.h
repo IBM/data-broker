@@ -170,11 +170,13 @@ typedef struct dbBE_api
    *
    * @param [in] handle  initialized back-end handle
    * @param [in] request pointer to the request structure with the request definition
+   * @param [in] trigger integer to indicate whether the backend should start processing
+   *                     (user might request to hold processing for more work requests to follow)
    *
    * @return request handle that allows the user to check the status or cancel the request later
    *         or NULL in case of an error
    */
-  dbBE_Request_handle_t (*post)( dbBE_Handle_t, dbBE_Request_t* );
+  dbBE_Request_handle_t (*post)( dbBE_Handle_t, dbBE_Request_t*, int );
 
   /**
    * @brief cancel a request

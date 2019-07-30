@@ -61,6 +61,9 @@
  */
 #define DBBE_SGE_MAX ( 256 )
 
+
+#define DBBE_REDIS_COALESCED_MAX ( 16 )
+
 /*
  * result type returned when parsing a Redis recv buffer
  * indicates the various types of responses from Redis

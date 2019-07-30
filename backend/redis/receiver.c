@@ -451,7 +451,6 @@ process_next_item:
     goto receive_more_responses;
 
 skip_receiving:
-  free( args );
   return NULL;
 }
 
@@ -466,4 +465,5 @@ void dbBE_Redis_receiver_trigger( dbBE_Redis_context_t *backend )
   args->_backend = backend;
   args->_looping = 1;
   dbBE_Redis_receiver( (void*) args );
+  free( args );
 }

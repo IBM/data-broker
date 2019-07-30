@@ -56,6 +56,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   dbBE_Redis_slot_bitmap_t *slots = NULL;
   dbBE_Redis_s2r_queue_t *queue = NULL;
   dbBE_Redis_sr_buffer_t *recvb = NULL;
+  dbBE_Redis_cmd_buffer_t *cmd = NULL;
 
   dbBE_Data_transport_device_t *send_tr = dbBE_Memcopy_transport.create();
   if( send_tr == NULL )
@@ -99,6 +100,14 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   }
   conn->_slots = slots;
 
+  cmd = dbBE_Redis_cmd_buffer_create();
+  if( cmd == NULL )
+  {
+    rc = ENOMEM;
+    goto error;
+  }
+  conn->_cmd = cmd;
+
   // todo: currently not used. Will be required/extended once transports API is clarified
   if( conn->_senddev != NULL )
   {
@@ -114,6 +123,8 @@ error:
     dbBE_Transport_sr_buffer_free( recvb );
   if( slots != NULL )
     dbBE_Redis_slot_bitmap_destroy( slots );
+  if( cmd != NULL )
+    dbBE_Redis_cmd_buffer_destroy( cmd );
   if( conn )
     free( conn );
 
@@ -505,14 +516,17 @@ ssize_t dbBE_Redis_connection_flatten_cmd( dbBE_sge_t *cmd, int cmdlen, dbBE_Red
 /*
  * flush the send buffer by sending it to the connected Redis instance
  */
-int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
-                                    dbBE_sge_t *cmd,
-                                    const int cmdlen )
+int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn )
 {
-  if(( conn == NULL ) || ( cmd == NULL ) || ( cmdlen <= 0 ) || ( cmdlen > DBBE_SGE_MAX ))
+  if(( conn == NULL ) || ( conn->_cmd->_index > DBBE_SGE_MAX ))
     return -EINVAL;
+  if( conn->_cmd->_index == 0 )
+    return 0;  // nothing to send
   if( ! dbBE_Redis_connection_RTS( conn ) )
     return -ENOTCONN;
+
+  dbBE_sge_t *cmd = conn->_cmd->_cmd;
+  unsigned cmdlen = conn->_cmd->_index;
 
   struct msghdr msg;
   memset( &msg, 0, sizeof( struct msghdr ) );
@@ -533,6 +547,7 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn,
   dbBE_Transport_sr_buffer_free( tmpbuffer );
 #endif
 
+  dbBE_Redis_cmd_buffer_reset( conn->_cmd );
   // good case: early exit
   if( rc == datalen )
     return rc;
@@ -700,6 +715,7 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
   dbBE_Redis_s2r_queue_destroy( conn->_posted_q );
   dbBE_Transport_sr_buffer_free( conn->_recvbuf );
   dbBE_Redis_address_destroy( conn->_address );
+  dbBE_Redis_cmd_buffer_destroy( conn->_cmd );
 
   // wipe memory
   memset( conn, 0, sizeof( dbBE_Redis_connection_t ) );

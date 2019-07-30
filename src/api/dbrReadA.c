@@ -71,7 +71,7 @@ DBR_Tag_t libdbrReadA(DBR_Handle_t cs_handle,
   if( rtag == DB_TAG_ERROR )
     goto error;
 
-  DBR_Request_handle_t read_handle = dbrPost_request( head );
+  DBR_Request_handle_t read_handle = dbrPost_request_ext( head, 0 );
   if( read_handle == NULL )
     goto error;
 

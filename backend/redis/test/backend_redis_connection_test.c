@@ -108,11 +108,10 @@ int main( int argc, char ** argv )
 
   dbBE_sge_t sge[4];
   memset( sge, 0, 4 * sizeof( dbBE_sge_t ) );
-  rc += TEST( dbBE_Redis_connection_send_cmd( NULL, NULL, 0 ), -EINVAL );
-  rc += TEST( dbBE_Redis_connection_send_cmd( conn, NULL, 0 ), -EINVAL );
-  rc += TEST( dbBE_Redis_connection_send_cmd( conn, sge, 0 ), -EINVAL );
-  rc += TEST( dbBE_Redis_connection_send_cmd( conn, NULL, 8 ), -EINVAL );
-  rc += TEST( dbBE_Redis_connection_send_cmd( conn, sge, DBBE_SGE_MAX + 1), -EINVAL );
+  rc += TEST( dbBE_Redis_connection_send_cmd( NULL ), -EINVAL );
+  conn->_cmd->_index = DBBE_SGE_MAX+1;
+  rc += TEST( dbBE_Redis_connection_send_cmd( conn ), -EINVAL );
+  conn->_cmd->_index = 0;
 
   rc += TEST( dbBE_Redis_connection_unlink( conn ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );

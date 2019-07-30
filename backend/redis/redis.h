@@ -43,6 +43,7 @@ typedef struct
   dbBE_Request_set_t *_cancellations;
   dbBE_Data_transport_t *_transport;
   dbBE_Redis_sr_buffer_t *_sender_buffer;
+  int *_sender_connections;
   // sender/receiver threads
 
 } dbBE_Redis_context_t;
@@ -62,7 +63,8 @@ int Redis_exit( dbBE_Handle_t be );
  * post a new request to the backend
  */
 dbBE_Request_handle_t Redis_post( dbBE_Handle_t be,
-                                  dbBE_Request_t *request );
+                                  dbBE_Request_t *request,
+                                  int trigger );
 
 /*
  * cancel a request
@@ -94,6 +96,7 @@ dbBE_Completion_t* Redis_test_any( dbBE_Handle_t be );
 int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx );
 
 void dbBE_Redis_sender_trigger( dbBE_Redis_context_t *backend );
+void* dbBE_Redis_receiver( void *args );
 void dbBE_Redis_receiver_trigger( dbBE_Redis_context_t *backend );
 
 #endif /* BACKEND_REDIS_API_H_ */
