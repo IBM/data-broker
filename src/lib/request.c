@@ -266,7 +266,7 @@ DBR_Errorcode_t dbrRemove_request( dbrName_space_t *cs, dbrRequestContext_t *rct
   return rc;
 }
 
-DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
+DBR_Request_handle_t dbrPost_request_ext( dbrRequestContext_t *rctx, const int with_trigger )
 {
   if( rctx == NULL || rctx->_ctx == NULL || rctx->_ctx->_reverse == NULL )
     return NULL;
@@ -291,7 +291,7 @@ DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
     chain->_cpl._status = DBR_ERR_INPROGRESS;
     chain->_status = dbrSTATUS_PENDING;
 
-    int trigger = ( chain->_next == NULL );
+    int trigger = ( chain->_next == NULL ) && ( with_trigger );
     dbBE_Request_handle_t be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req, trigger );
     if( be_handle == NULL )
       goto error;
@@ -304,4 +304,9 @@ DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
 
 error:
   return NULL;
+}
+
+DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
+{
+  return dbrPost_request_ext( rctx, 1 );
 }
