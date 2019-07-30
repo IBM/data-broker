@@ -52,7 +52,7 @@ int main( int argc, char ** argv )
   sprintf( req->_sge[0].iov_base, "WORLD" );
 
   // put data in
-  dbBE_Request_handle_t *rhandle = g_dbBE.post( BE, req );
+  dbBE_Request_handle_t *rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -80,7 +80,7 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 128;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -112,7 +112,7 @@ int main( int argc, char ** argv )
   req->_sge[1].iov_base = DBR_GROUP_EMPTY;
   req->_sge[1].iov_len = sizeof( DBR_GROUP_EMPTY );
 
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -141,7 +141,7 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 128;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -172,7 +172,7 @@ int main( int argc, char ** argv )
   sprintf( req->_sge[0].iov_base, "WORLD" );
 
   // put data in
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -202,7 +202,7 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -233,7 +233,7 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 5;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -266,7 +266,7 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -294,7 +294,7 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -322,7 +322,7 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {
@@ -346,7 +346,7 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req );
+  rhandle = g_dbBE.post( BE, req, 1 );
   rc += TEST_NOT( rhandle, NULL );
   if( rhandle != NULL )
   {

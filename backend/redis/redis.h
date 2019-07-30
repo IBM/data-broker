@@ -62,7 +62,8 @@ int Redis_exit( dbBE_Handle_t be );
  * post a new request to the backend
  */
 dbBE_Request_handle_t Redis_post( dbBE_Handle_t be,
-                                  dbBE_Request_t *request );
+                                  dbBE_Request_t *request,
+                                  int trigger );
 
 /*
  * cancel a request

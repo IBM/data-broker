@@ -315,6 +315,5 @@ void dbBE_Redis_sender_trigger( dbBE_Redis_context_t *backend )
   args->_looping = 1;
   dbBE_Redis_sender( (void*) args );
   dbBE_Redis_receiver( (void*) args );
-  dbBE_Redis_sender( (void*) args );
   free( args );
 }

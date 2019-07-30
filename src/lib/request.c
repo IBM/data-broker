@@ -291,7 +291,8 @@ DBR_Request_handle_t dbrPost_request( dbrRequestContext_t *rctx )
     chain->_cpl._status = DBR_ERR_INPROGRESS;
     chain->_status = dbrSTATUS_PENDING;
 
-    dbBE_Request_handle_t be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req );
+    int trigger = ( chain->_next == NULL );
+    dbBE_Request_handle_t be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req, trigger );
     if( be_handle == NULL )
       goto error;
     chain->_be_request_hdl = be_handle;

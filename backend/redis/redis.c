@@ -235,7 +235,8 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
  * post a new request to the backend
  */
 dbBE_Request_handle_t Redis_post( dbBE_Handle_t be,
-                                  dbBE_Request_t *request )
+                                  dbBE_Request_t *request,
+                                  int trigger )
 {
   if(( be == NULL ) || ( request == NULL))
   {
@@ -267,7 +268,8 @@ dbBE_Request_handle_t Redis_post( dbBE_Handle_t be,
     return NULL;
   }
 
-  dbBE_Redis_sender_trigger( rbe );
+  if( trigger )
+    dbBE_Redis_sender_trigger( rbe );
 
   dbBE_Request_handle_t rh = (dbBE_Request_handle_t*)request;
   return rh;
