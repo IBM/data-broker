@@ -193,6 +193,8 @@ void* dbBE_Redis_sender( void *args )
     return NULL;
   }
 
+  int pending_last = -1;
+  int request_limit = DBBE_REDIS_COALESCED_MAX * dbBE_Redis_connection_mgr_get_connections( input->_backend->_conn_mgr );
 
   /*
    * check server connections,
@@ -215,6 +217,7 @@ void* dbBE_Redis_sender( void *args )
         break;
       case DBBE_REDIS_CONNECTION_UNRECOVERABLE: // not recoverable at the moment
         LOG(DBG_ERR, stderr, "Unrecoverable cluster connection. Completing all requests as failed.\n")
+        // intentionally no break
       default: // unrecognized
       {
         // flush queues
@@ -228,13 +231,9 @@ void* dbBE_Redis_sender( void *args )
   }
 
   dbBE_Redis_request_t *request = NULL;
-  int request_limit = 25;
+  int *pending_conn = input->_backend->_sender_connections;
 
-  int pending_conn[10];
-  memset( pending_conn, 0, sizeof( int ) * 10 );
-  int pending_last = -1;
-
-  while(( --request_limit > 0 ) && ( pending_last < 9 ))
+  while(( --request_limit > 0 ) && ( pending_last < DBBE_REDIS_COALESCED_MAX * dbBE_Redis_connection_mgr_get_connections( input->_backend->_conn_mgr ) ))
   {
     request = dbBE_Redis_sender_acquire_request( input->_backend );
     if( request == NULL )
@@ -271,12 +270,14 @@ void* dbBE_Redis_sender( void *args )
     }
 
     // update cmd buffer status for this connection
-    dbBE_Redis_cmd_buffer_add( conn->_cmd, rc );
+    if( dbBE_Redis_cmd_buffer_add( conn->_cmd, rc ) > ( (DBBE_SGE_MAX << 4) * 3 ))
+      request_limit = 1; // if we exceed 75% of the SGE space, we better stop to avoid blowing the limit with the next request
 
     // instead of sending, add connection to a pending connections list
     if(( pending_last < 0 ) || ( conn->_index != pending_conn[ pending_last ] ))
       ++pending_last;
     pending_conn[ pending_last ] = conn->_index;
+    pending_conn[ pending_last+1 ] = -1;
 
     // store request to posted requests queue
     rc = dbBE_Redis_s2r_queue_push( conn->_posted_q, request );

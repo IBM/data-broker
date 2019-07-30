@@ -43,6 +43,7 @@ typedef struct
   dbBE_Request_set_t *_cancellations;
   dbBE_Data_transport_t *_transport;
   dbBE_Redis_sr_buffer_t *_sender_buffer;
+  int *_sender_connections;
   // sender/receiver threads
 
 } dbBE_Redis_context_t;

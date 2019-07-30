@@ -135,6 +135,16 @@ dbBE_Handle_t Redis_initialize(void)
 
   context->_sender_buffer = sbuf;
 
+  int *sender_conns = (int*)calloc( DBBE_REDIS_COALESCED_MAX * DBBE_REDIS_MAX_CONNECTIONS + 1, sizeof( int ));
+  if( sender_conns == NULL )
+  {
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to allocate sender connection array.\n" );
+    Redis_exit( context );
+    return NULL;
+  }
+
+  context->_sender_connections = sender_conns;
+
   // create connection mgr
   dbBE_Redis_connection_mgr_t *conn_mgr = dbBE_Redis_connection_mgr_init();
   if( conn_mgr == NULL )
@@ -177,6 +187,8 @@ int Redis_exit( dbBE_Handle_t be )
     if( temp != 0 ) rc = temp;
     temp = dbBE_Redis_cluster_info_destroy( context->_cluster_info );
     if( temp != 0 ) rc = temp;
+    if( context->_sender_connections != NULL )
+      free( context->_sender_connections );
     dbBE_Transport_sr_buffer_free( context->_sender_buffer );
     temp = dbBE_Redis_s2r_queue_destroy( context->_retry_q );
     if( temp != 0 ) rc = temp;
