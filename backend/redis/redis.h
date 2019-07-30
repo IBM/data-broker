@@ -94,6 +94,7 @@ dbBE_Completion_t* Redis_test_any( dbBE_Handle_t be );
 int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx );
 
 void dbBE_Redis_sender_trigger( dbBE_Redis_context_t *backend );
+void* dbBE_Redis_receiver( void *args );
 void dbBE_Redis_receiver_trigger( dbBE_Redis_context_t *backend );
 
 #endif /* BACKEND_REDIS_API_H_ */
