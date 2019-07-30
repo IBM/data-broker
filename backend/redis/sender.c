@@ -300,13 +300,11 @@ skip_sending:
     --pending_last;
   }
   dbBE_Transport_sr_buffer_reset( input->_backend->_sender_buffer );
-  dbBE_Redis_receiver_trigger( input->_backend );
 
   // complete the request with an error
   //dbBE_Redis_create_error( request, input->_backend->_compl_q );
 
   // clean up
-  free( args );
   return NULL;
 }
 
@@ -316,4 +314,7 @@ void dbBE_Redis_sender_trigger( dbBE_Redis_context_t *backend )
   args->_backend = backend;
   args->_looping = 1;
   dbBE_Redis_sender( (void*) args );
+  dbBE_Redis_receiver( (void*) args );
+  dbBE_Redis_sender( (void*) args );
+  free( args );
 }
