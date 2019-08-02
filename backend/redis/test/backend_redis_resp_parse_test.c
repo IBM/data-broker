@@ -680,6 +680,7 @@ int main( int argc, char ** argv )
   ureq->_sge_count = 1;
   ureq->_sge[0].iov_base = strdup("users, admins");
   ureq->_sge[0].iov_len = strlen( ureq->_sge[0].iov_base );
+  ureq->_group = DBR_GROUP_EMPTY;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TestNSCreate( "TestNS", sr_buf, req );
