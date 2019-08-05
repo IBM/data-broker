@@ -92,6 +92,9 @@ void dbBE_Redis_connection_mgr_exit( dbBE_Redis_connection_mgr_t *conn_mgr )
 
   dbBE_Redis_event_mgr_exit( conn_mgr->_ev_mgr );
 
+  if( conn_mgr->_local )
+    dbBE_Redis_address_destroy( conn_mgr->_local );
+
   memset( conn_mgr, 0, sizeof( dbBE_Redis_connection_mgr_t) );
   free( conn_mgr );
 }

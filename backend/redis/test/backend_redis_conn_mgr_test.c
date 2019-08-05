@@ -42,6 +42,7 @@ int test_request_each( dbBE_Redis_connection_mgr_t *conn_mgr )
   user._sge_count = 0;
   user._user = NULL;
   user._next = NULL;
+  user._group = DBR_GROUP_EMPTY;
   user._opcode = DBBE_OPCODE_NSDELETE;
 
   dbBE_Redis_request_t *rbase = dbBE_Redis_request_allocate( &user );
