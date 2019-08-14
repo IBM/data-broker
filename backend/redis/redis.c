@@ -267,6 +267,7 @@ dbBE_Request_handle_t Redis_post( dbBE_Handle_t be,
   // check if there's space in the queue
   if( dbBE_Request_queue_len( rbe->_work_q ) >= DBBE_REDIS_WORK_QUEUE_DEPTH )
   {
+    dbBE_Redis_sender_trigger( rbe );
     errno = EAGAIN;
     return NULL;
   }

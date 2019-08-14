@@ -24,6 +24,7 @@
 #include <malloc.h>
 #endif
 #include <string.h>
+#include <errno.h>
 
 #include "logutil.h"
 #include "libdatabroker.h"
@@ -272,6 +273,7 @@ DBR_Request_handle_t dbrPost_request_ext( dbrRequestContext_t *rctx, const int w
     return NULL;
 
   dbrRequestContext_t *chain = rctx;
+  int rcount = 0;
   while( chain != NULL )
   {
     if( dbrValidateTag( chain, chain->_tag ) != DBR_SUCCESS )
@@ -291,9 +293,14 @@ DBR_Request_handle_t dbrPost_request_ext( dbrRequestContext_t *rctx, const int w
     chain->_cpl._status = DBR_ERR_INPROGRESS;
     chain->_status = dbrSTATUS_PENDING;
 
-    int trigger = ( chain->_next == NULL ) && ( with_trigger );
-    dbBE_Request_handle_t be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req, trigger );
-    if( be_handle == NULL )
+    rcount = ((rcount+1) % 128 );
+    int trigger = (( chain->_next == NULL ) && ( with_trigger )) || ( rcount == 0 );
+    dbBE_Request_handle_t be_handle = NULL;
+    do {
+      be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req, trigger );
+    } while(( be_handle == NULL ) && ( errno == EAGAIN ));
+
+      if( be_handle == NULL )
       goto error;
     chain->_be_request_hdl = be_handle;
 
