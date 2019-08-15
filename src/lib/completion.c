@@ -96,13 +96,18 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
         break;
 
       case DBBE_OPCODE_NSCREATE:
+      case DBBE_OPCODE_NSATTACH:
+        if( cpl->_rc == 0 )
+          rc = cpl->_status;
+        else
+          rc = DBR_SUCCESS;
+        break;
       case DBBE_OPCODE_NSADDUNITS:
       case DBBE_OPCODE_NSREMOVEUNITS:
         // good if the completion rc is 0
         if( cpl->_rc != 0 )
           rc = cpl->_status;
         break;
-      case DBBE_OPCODE_NSATTACH:
       case DBBE_OPCODE_NSDETACH:
         // good if the completion rc is > 0
         if( cpl->_rc <= 0 )

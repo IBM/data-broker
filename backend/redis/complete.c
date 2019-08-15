@@ -142,6 +142,14 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       break;
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
+      if( rc == 0 )
+        completion->_rc = (int64_t)strdup( request->_user->_ns_name ); // namespace context is just the namespace itself
+      else
+      {
+        completion->_rc = 0;
+        completion->_status = (request->_user->_opcode == DBBE_OPCODE_NSATTACH) ? DBR_ERR_NSINVAL : DBR_ERR_EXISTS;
+      }
+      break;
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
       if( spec->_result != 0 )

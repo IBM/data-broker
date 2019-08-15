@@ -245,6 +245,7 @@ int main( int argc, char ** argv )
     {
       rc += TEST( comp->_status, DBR_SUCCESS );
       rc += TEST( comp->_user, req->_user );
+      rc += TEST_NOT( (void*)comp->_rc, NULL );
       free( comp );
     }
   }
@@ -278,6 +279,7 @@ int main( int argc, char ** argv )
     {
       rc += TEST( comp->_status, DBR_SUCCESS );
       rc += TEST( comp->_user, req->_user );
+      rc += TEST_NOT( (void*)comp->_rc, NULL );
       free( comp );
     }
   }
