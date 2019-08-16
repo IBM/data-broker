@@ -44,6 +44,7 @@ int main( int argc, char ** argv )
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "KEYSPACE";
+  req->_ns_hdl = req->_ns_name;
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
   req->_sge_count = 1;
@@ -72,6 +73,7 @@ int main( int argc, char ** argv )
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "KEYSPACE";
+  req->_ns_hdl = req->_ns_name;
   req->_opcode = DBBE_OPCODE_READ;
   req->_user = req;
   req->_sge_count = 1;
@@ -102,6 +104,7 @@ int main( int argc, char ** argv )
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "KEYSPACE";
+  req->_ns_hdl = req->_ns_name;
   req->_opcode = DBBE_OPCODE_MOVE;
   req->_user = req;
   req->_sge_count = 2;
@@ -133,6 +136,7 @@ int main( int argc, char ** argv )
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "NEWSPACE";
+  req->_ns_hdl = req->_ns_name;
   req->_opcode = DBBE_OPCODE_GET;
   req->_user = req;
   req->_sge_count = 1;
@@ -164,6 +168,7 @@ int main( int argc, char ** argv )
   req->_key = "HELLO";
   req->_next = NULL;
   req->_ns_name = "KEYSPACE";
+  req->_ns_hdl = req->_ns_name;
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
   req->_sge_count = 1;
