@@ -109,15 +109,24 @@ libdbrCreate (DBR_Name_t db_name,
   if( create_rc == DBR_ERR_INVALID )
     goto error;
 
-  if( dbrCheck_response( rctx ) != DBR_SUCCESS )
+  create_rc = dbrCheck_response( rctx );
+
+  switch( create_rc )
   {
-    if( rctx->_cpl._rc == DBR_ERR_EXISTS )
-      fprintf(stderr, "name space already exists: %"PRId64"\n", rctx->_cpl._rc );
-    else
-      fprintf(stderr, "name space creation error: %"PRId64"\n", rctx->_cpl._rc );
-    goto error;
+    case DBR_SUCCESS:
+      break;
+    case DBR_ERR_EXISTS:
+      fprintf(stderr, "name space already exists: %s\n", dbrGet_error( create_rc ) );
+      goto error;
+      break;
+    default:
+      fprintf(stderr, "name space creation error: %s\n", dbrGet_error( create_rc ) );
+      goto error;
+      break;
   }
 
+  // assign the returned namespace handle from the backend
+  cs->_be_ns_hdl = (dbBE_NS_Handle_t)rctx->_cpl._rc;
   rctx->_status = dbrSTATUS_CLOSED;
 
   dbrRemove_request( cs, rctx );
