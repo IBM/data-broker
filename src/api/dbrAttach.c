@@ -95,7 +95,7 @@ libdbrAttach (DBR_Name_t db_name)
                                                      0,
                                                      NULL,
                                                      NULL,
-                                                     NULL,
+                                                     db_name,
                                                      NULL,
                                                      tag );
   if( rctx == NULL )

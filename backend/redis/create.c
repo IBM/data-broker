@@ -193,6 +193,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
       break;
     }
     case DBBE_OPCODE_NSCREATE:
+    case DBBE_OPCODE_NSATTACH:
     {
       len = snprintf( keybuf, size, "%s", request->_user->_key );
       if(( len < 0 ) || ( len >= size ))
@@ -200,7 +201,6 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
       break;
     }
     case DBBE_OPCODE_DIRECTORY:
-    case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
     case DBBE_OPCODE_NSQUERY:

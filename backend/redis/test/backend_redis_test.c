@@ -265,9 +265,9 @@ int main( int argc, char ** argv )
 
 
   // attach to namespace
-  req->_key = NULL;
+  req->_key = "KEYSPACE";
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
+  req->_ns_name = NULL;
   req->_opcode = DBBE_OPCODE_NSATTACH;
   req->_user = req;
   req->_sge_count = 0;
@@ -286,6 +286,7 @@ int main( int argc, char ** argv )
       rc += TEST( comp->_status, DBR_SUCCESS );
       rc += TEST( comp->_user, req->_user );
       rc += TEST_NOT( (void*)comp->_rc, NULL );
+      rc += TEST( strcmp( (char*)comp->_rc, req->_key ), 0 );
       free( comp );
     }
   }

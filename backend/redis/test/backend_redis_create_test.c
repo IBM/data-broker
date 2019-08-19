@@ -355,6 +355,8 @@ int main( int argc, char ** argv )
 
   // create an nsattach
   ureq->_opcode = DBBE_OPCODE_NSATTACH;
+  ureq->_ns_name = NULL;
+  ureq->_key = "TestNS";
   ureq->_sge[0].iov_base = NULL;
   ureq->_sge[0].iov_len = 0;
 
@@ -388,6 +390,8 @@ int main( int argc, char ** argv )
 
   // create an nsdetach
   ureq->_opcode = DBBE_OPCODE_NSDETACH;
+  ureq->_key = "";
+  ureq->_ns_name = "TestNS";
   ureq->_sge[0].iov_base = NULL;
   ureq->_sge[0].iov_len = 0;
 
