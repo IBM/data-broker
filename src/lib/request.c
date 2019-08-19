@@ -77,7 +77,16 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
   if( req == NULL )
     return NULL;
 
-  req->_req._ns_name = cs->_db_name;  // just reference the name of the given namespace
+  switch( op )
+  {
+    case DBBE_OPCODE_NSCREATE:
+      req->_req._ns_name = NULL;
+      break;
+    default:
+      req->_req._ns_name = cs->_db_name;  // just reference the name of the given namespace
+      break;
+  }
+
   req->_req._ns_hdl = cs->_be_ns_hdl;
   req->_req._group = group;
   req->_req._key = tuple_name;

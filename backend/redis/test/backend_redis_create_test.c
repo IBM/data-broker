@@ -276,6 +276,8 @@ int main( int argc, char ** argv )
 
   // create an nscreate
   ureq->_opcode = DBBE_OPCODE_NSCREATE;
+  ureq->_ns_name = NULL;
+  ureq->_key = "TestNS";
   ureq->_sge_count = 1;
   ureq->_sge[0].iov_base = strdup("users, admins");
   ureq->_sge[0].iov_len = strlen( ureq->_sge[0].iov_base );
@@ -330,6 +332,8 @@ int main( int argc, char ** argv )
 
   // create an nsquery
   ureq->_opcode = DBBE_OPCODE_NSQUERY;
+  ureq->_ns_name = "TestNS";
+  ureq->_key = "bla";
   char *meta = (char*)calloc( 10000, sizeof( char ) );
   ureq->_sge[0].iov_base = meta;
   ureq->_sge[0].iov_len = 10000;

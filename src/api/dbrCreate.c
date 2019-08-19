@@ -91,7 +91,7 @@ libdbrCreate (DBR_Name_t db_name,
                                 sgec,
                                 sgev,
                                 NULL,
-                                NULL,
+                                db_name,
                                 NULL,
                                 tag );
   if( rctx == NULL )

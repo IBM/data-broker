@@ -104,8 +104,15 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
         return -EMSGSIZE;
       break;
     }
-    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSCREATE:
+    {
+      int keylen = strnlen( request->_user->_key, size );
+      len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
+                      keylen,
+                      request->_user->_key );
+      break;
+    }
+    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDELETE:

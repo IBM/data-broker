@@ -192,8 +192,14 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
         return -EMSGSIZE;
       break;
     }
-    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSCREATE:
+    {
+      len = snprintf( keybuf, size, "%s", request->_user->_key );
+      if(( len < 0 ) || ( len >= size ))
+        return -EMSGSIZE;
+      break;
+    }
+    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
@@ -285,7 +291,7 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
       switch( stage->_stage )
       {
         case 0: // HSETNX ns_name id ns_name
-          rc = dbBE_Redis_command_hsetnx_create( request, buf, cmd, "id", request->_user->_ns_name );
+          rc = dbBE_Redis_command_hsetnx_create( request, buf, cmd, "id", request->_user->_key );
           break;
 
         case 1: // HMSET ns_name refcnt 1 groups permissions
