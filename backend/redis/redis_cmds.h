@@ -131,10 +131,10 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
         case DBBE_REDIS_NSDETACH_STAGE_DELCHECK: // HINCRBY ns_name refcnt -1; HMGET ns_name refcnt flags
         case DBBE_REDIS_NSDETACH_STAGE_DELNS: // DEL ns_name
         {
-          int keylen = strnlen( request->_user->_ns_name, size );
+          int keylen = strnlen( (char*)request->_user->_ns_hdl, size );
           len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
                           keylen,
-                          request->_user->_ns_name );
+                          (char*)request->_user->_ns_hdl );
           break;
         }
         case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*

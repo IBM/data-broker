@@ -336,12 +336,12 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
         {
           char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
-          int keylen = strnlen( request->_user->_ns_name, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + 1; // +1 for "*"
+          int keylen = strnlen( (char*)request->_user->_ns_hdl, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + 1; // +1 for "*"
           int len = snprintf( key,
                               DBBE_REDIS_MAX_KEY_LEN,
                     "$%d\r\n%s%s*\r\n",
                     keylen,
-                    request->_user->_ns_name,
+                    (char*)request->_user->_ns_hdl,
                     DBBE_REDIS_NAMESPACE_SEPARATOR );
           if( len < 0 )
             return -EPROTO;

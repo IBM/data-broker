@@ -70,6 +70,7 @@ int key_creation_test()
   ureq->_flags = 0;
   ureq->_group = DBR_GROUP_LIST_EMPTY;
   ureq->_ns_name = "test";
+  ureq->_ns_hdl = NULL;
   ureq->_match = "";
   ureq->_next = NULL;
   ureq->_sge_count = 1;
@@ -92,7 +93,11 @@ int key_creation_test()
       case DBBE_OPCODE_NSADDUNITS:
       case DBBE_OPCODE_NSREMOVEUNITS:
         continue;
+      case DBBE_OPCODE_NSDETACH:
+        ureq->_ns_hdl = "test";
+        break;
       default:
+        ureq->_ns_hdl = NULL;
         if( req->_step->_expect == dbBE_REDIS_TYPE_UNSPECIFIED )
           return 10000;
         break;
@@ -390,8 +395,8 @@ int main( int argc, char ** argv )
 
   // create an nsdetach
   ureq->_opcode = DBBE_OPCODE_NSDETACH;
-  ureq->_key = "";
-  ureq->_ns_name = "TestNS";
+  ureq->_key = NULL;
+  ureq->_ns_hdl = "TestNS";
   ureq->_sge[0].iov_base = NULL;
   ureq->_sge[0].iov_len = 0;
 
@@ -460,6 +465,7 @@ int main( int argc, char ** argv )
   // create an nsdelete
   ureq->_opcode = DBBE_OPCODE_NSDELETE;
   ureq->_key = NULL;
+  ureq->_ns_name = "TestNS";
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );

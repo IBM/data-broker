@@ -229,6 +229,7 @@ int main( int argc, char ** argv )
   req->_key = "KEYSPACE";
   req->_next = NULL;
   req->_ns_name = NULL;
+  req->_ns_hdl = NULL;
   req->_opcode = DBBE_OPCODE_NSCREATE;
   req->_user = req;
   req->_sge_count = 1;
@@ -268,6 +269,7 @@ int main( int argc, char ** argv )
   req->_key = "KEYSPACE";
   req->_next = NULL;
   req->_ns_name = NULL;
+  req->_ns_hdl = NULL;
   req->_opcode = DBBE_OPCODE_NSATTACH;
   req->_user = req;
   req->_sge_count = 0;
@@ -295,9 +297,10 @@ int main( int argc, char ** argv )
 
 
   // attach to namespace
-  req->_key = "";
+  req->_key = NULL;
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
+  req->_ns_name = NULL;
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSDETACH;
   req->_user = req;
   req->_sge_count = 0;
@@ -315,6 +318,7 @@ int main( int argc, char ** argv )
     {
       rc += TEST( comp->_status, DBR_SUCCESS );
       rc += TEST( comp->_user, req->_user );
+      rc += TEST( comp->_rc, 0 );
       free( comp );
     }
   }
