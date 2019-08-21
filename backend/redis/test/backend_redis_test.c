@@ -329,7 +329,8 @@ int main( int argc, char ** argv )
   // delete namespace
   req->_key = NULL;
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
+  req->_ns_name = NULL;
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSDELETE;
   req->_user = req;
   req->_sge_count = 0;

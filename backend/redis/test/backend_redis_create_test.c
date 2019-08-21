@@ -94,6 +94,7 @@ int key_creation_test()
       case DBBE_OPCODE_NSREMOVEUNITS:
         continue;
       case DBBE_OPCODE_NSDETACH:
+      case DBBE_OPCODE_NSDELETE:
         ureq->_ns_hdl = "test";
         break;
       default:
@@ -465,7 +466,8 @@ int main( int argc, char ** argv )
   // create an nsdelete
   ureq->_opcode = DBBE_OPCODE_NSDELETE;
   ureq->_key = NULL;
-  ureq->_ns_name = "TestNS";
+  ureq->_ns_name = NULL;
+  ureq->_ns_hdl = "TestNS";
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );

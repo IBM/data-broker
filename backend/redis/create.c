@@ -200,9 +200,15 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
         return -EMSGSIZE;
       break;
     }
-    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
+    {
+      len = snprintf( keybuf, size, "%s", (char*)request->_user->_ns_hdl );
+      if(( len < 0 ) || ( len >= size ))
+        return -EMSGSIZE;
+      break;
+    }
+    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
     {
       len = snprintf( keybuf, size, "%s", request->_user->_ns_name );

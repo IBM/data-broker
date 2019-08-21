@@ -82,6 +82,7 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSDETACH:
+    case DBBE_OPCODE_NSDELETE:
       req->_req._ns_name = NULL;
       break;
     default:

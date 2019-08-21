@@ -115,12 +115,19 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
     }
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
-    case DBBE_OPCODE_NSDELETE:
     {
       int keylen = strnlen( request->_user->_ns_name, size );
       len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
                       keylen,
                       request->_user->_ns_name );
+      break;
+    }
+    case DBBE_OPCODE_NSDELETE:
+    {
+      int keylen = strnlen( (char*)request->_user->_ns_hdl, size );
+      len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
+                      keylen,
+                      (char*)request->_user->_ns_hdl );
       break;
     }
 

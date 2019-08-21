@@ -210,8 +210,9 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
   int rc = 0;
   switch( request->_opcode )
   {
+    case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
-      if( request->_key != NULL )
+      if(( request->_key != NULL ) || ( request->_ns_hdl == NULL ))
         rc = EINVAL;
       break;
     case DBBE_OPCODE_REMOVE:
@@ -237,7 +238,6 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
     case DBBE_OPCODE_CANCEL:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
-    case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:
