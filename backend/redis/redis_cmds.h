@@ -94,10 +94,10 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_REMOVE:
     {
-      int keylen = strnlen( request->_user->_ns_name, size ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_key, size );
+      int keylen = strnlen( (char*)request->_user->_ns_hdl, size ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_key, size );
       len = snprintf( keybuf, size, "$%d\r\n%s%s%s\r\n",
                       keylen,
-                      request->_user->_ns_name,
+                      (char*)request->_user->_ns_hdl,
                       DBBE_REDIS_NAMESPACE_SEPARATOR,
                       request->_user->_key );
       if(( len < 0 ) || ( len >= size ))
@@ -116,10 +116,10 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
     {
-      int keylen = strnlen( request->_user->_ns_name, size );
+      int keylen = strnlen( (char*)request->_user->_ns_hdl, size );
       len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
                       keylen,
-                      request->_user->_ns_name );
+                      (char*)request->_user->_ns_hdl );
       break;
     }
     case DBBE_OPCODE_NSDELETE:
@@ -170,7 +170,7 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
           ns = (char*)request->_user->_sge[0].iov_base;
           break;
         default:
-          ns = request->_user->_ns_name;
+          ns = (char*)request->_user->_ns_hdl;
           break;
       }
       if( ns == NULL )

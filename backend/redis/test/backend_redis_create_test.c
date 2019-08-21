@@ -69,8 +69,7 @@ int key_creation_test()
 
   ureq->_flags = 0;
   ureq->_group = DBR_GROUP_LIST_EMPTY;
-  ureq->_ns_name = "test";
-  ureq->_ns_hdl = NULL;
+  ureq->_ns_hdl = NULL; // is set per request type in loop
   ureq->_match = "";
   ureq->_next = NULL;
   ureq->_sge_count = 1;
@@ -93,12 +92,13 @@ int key_creation_test()
       case DBBE_OPCODE_NSADDUNITS:
       case DBBE_OPCODE_NSREMOVEUNITS:
         continue;
-      case DBBE_OPCODE_NSDETACH:
-      case DBBE_OPCODE_NSDELETE:
-        ureq->_ns_hdl = "test";
+      case DBBE_OPCODE_NSCREATE:
+      case DBBE_OPCODE_NSATTACH:
+        ureq->_ns_hdl = NULL;
+        break;
         break;
       default:
-        ureq->_ns_hdl = NULL;
+        ureq->_ns_hdl = "test";
         if( req->_step->_expect == dbBE_REDIS_TYPE_UNSPECIFIED )
           return 10000;
         break;
@@ -172,9 +172,9 @@ int main( int argc, char ** argv )
   ureq->_sge[ 1 ].iov_len = 13;
   ureq->_opcode = DBBE_OPCODE_PUT;
   ureq->_key = "bla";
-  ureq->_ns_name = "TestNS";
+  ureq->_ns_hdl = "TestNS";
 
-  keylen = strlen( ureq->_key ) + strlen( ureq->_ns_name ) + 2;
+  keylen = strlen( ureq->_key ) + strlen( (char*)ureq->_ns_hdl ) + 2;
   vallen = dbBE_SGE_get_len( ureq->_sge, ureq->_sge_count );
   rc += TEST( keylen, 11 );
   rc += TEST( vallen, 25 );
@@ -282,8 +282,8 @@ int main( int argc, char ** argv )
 
   // create an nscreate
   ureq->_opcode = DBBE_OPCODE_NSCREATE;
-  ureq->_ns_name = NULL;
   ureq->_key = "TestNS";
+  ureq->_ns_hdl = NULL;
   ureq->_sge_count = 1;
   ureq->_sge[0].iov_base = strdup("users, admins");
   ureq->_sge[0].iov_len = strlen( ureq->_sge[0].iov_base );
@@ -338,7 +338,7 @@ int main( int argc, char ** argv )
 
   // create an nsquery
   ureq->_opcode = DBBE_OPCODE_NSQUERY;
-  ureq->_ns_name = "TestNS";
+  ureq->_ns_hdl = "TestNS";
   ureq->_key = "bla";
   char *meta = (char*)calloc( 10000, sizeof( char ) );
   ureq->_sge[0].iov_base = meta;
@@ -361,8 +361,8 @@ int main( int argc, char ** argv )
 
   // create an nsattach
   ureq->_opcode = DBBE_OPCODE_NSATTACH;
-  ureq->_ns_name = NULL;
   ureq->_key = "TestNS";
+  ureq->_ns_hdl = NULL;
   ureq->_sge[0].iov_base = NULL;
   ureq->_sge[0].iov_len = 0;
 
@@ -466,7 +466,6 @@ int main( int argc, char ** argv )
   // create an nsdelete
   ureq->_opcode = DBBE_OPCODE_NSDELETE;
   ureq->_key = NULL;
-  ureq->_ns_name = NULL;
   ureq->_ns_hdl = "TestNS";
 
   req = dbBE_Redis_request_allocate( ureq );
@@ -501,7 +500,7 @@ int main( int argc, char ** argv )
   // create a remove command
   ureq->_opcode = DBBE_OPCODE_REMOVE;
   ureq->_key = "TestTup";
-  ureq->_ns_name = "TestNS";
+  ureq->_ns_hdl = "TestNS";
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );

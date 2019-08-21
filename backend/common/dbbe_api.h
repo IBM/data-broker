@@ -99,7 +99,6 @@ enum
 typedef struct dbBE_Request
 {
   dbBE_Opcode _opcode;         /**< operation code */
-  DBR_Name_t _ns_name;         /**< namespace */ // todo requires consolidation!
   dbBE_NS_Handle_t _ns_hdl;    /**< namespace handle; to hold back-end context for namespaces */
   void *_user;                 /**< upper layer data, will not be touched by system lib */
   struct dbBE_Request *_next;  /**< next pointer for chaining */

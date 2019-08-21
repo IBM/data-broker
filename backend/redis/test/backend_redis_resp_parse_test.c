@@ -673,7 +673,6 @@ int main( int argc, char ** argv )
 
   ureq->_opcode = DBBE_OPCODE_UNSPEC;
   ureq->_key = "bla";
-  ureq->_ns_name = "TestNS";
 
 
   ureq->_opcode = DBBE_OPCODE_NSCREATE;

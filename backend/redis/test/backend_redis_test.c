@@ -43,8 +43,7 @@ int main( int argc, char ** argv )
   dbBE_Request_t *req = (dbBE_Request_t*) calloc ( 1, sizeof(dbBE_Request_t) + sge_count * sizeof(dbBE_sge_t) );
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
-  req->_ns_hdl = req->_ns_name;
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
   req->_sge_count = 1;
@@ -72,8 +71,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
-  req->_ns_hdl = req->_ns_name;
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_READ;
   req->_user = req;
   req->_sge_count = 1;
@@ -103,8 +101,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
-  req->_ns_hdl = req->_ns_name;
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_MOVE;
   req->_user = req;
   req->_sge_count = 2;
@@ -135,8 +132,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_name = "NEWSPACE";
-  req->_ns_hdl = req->_ns_name;
+  req->_ns_hdl = "NEWSPACE";
   req->_opcode = DBBE_OPCODE_GET;
   req->_user = req;
   req->_sge_count = 1;
@@ -167,8 +163,7 @@ int main( int argc, char ** argv )
   memset( buf, 0, 128 );
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
-  req->_ns_hdl = req->_ns_name;
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
   req->_sge_count = 1;
@@ -198,7 +193,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_name = "KEYSPACE";
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_REMOVE;
   req->_user = req;
   req->_sge_count = 1;
@@ -228,7 +223,6 @@ int main( int argc, char ** argv )
   // create a namespace
   req->_key = "KEYSPACE";
   req->_next = NULL;
-  req->_ns_name = NULL;
   req->_ns_hdl = NULL;
   req->_opcode = DBBE_OPCODE_NSCREATE;
   req->_user = req;
@@ -268,7 +262,6 @@ int main( int argc, char ** argv )
   // attach to namespace
   req->_key = "KEYSPACE";
   req->_next = NULL;
-  req->_ns_name = NULL;
   req->_ns_hdl = NULL;
   req->_opcode = DBBE_OPCODE_NSATTACH;
   req->_user = req;
@@ -299,7 +292,6 @@ int main( int argc, char ** argv )
   // attach to namespace
   req->_key = NULL;
   req->_next = NULL;
-  req->_ns_name = NULL;
   req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSDETACH;
   req->_user = req;
@@ -329,7 +321,6 @@ int main( int argc, char ** argv )
   // delete namespace
   req->_key = NULL;
   req->_next = NULL;
-  req->_ns_name = NULL;
   req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSDELETE;
   req->_user = req;
@@ -355,6 +346,7 @@ int main( int argc, char ** argv )
   // deletion of namespace requires subsequent detach cmd:
   req->_key = NULL;
   req->_next = NULL;
+  req->_ns_hdl = "KEYSPACE";
   req->_opcode = DBBE_OPCODE_NSDETACH;
   req->_user = req;
   req->_sge_count = 0;

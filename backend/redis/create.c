@@ -162,7 +162,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
     case DBBE_OPCODE_REMOVE:
     {
       len = snprintf( keybuf, size, "%s%s%s",
-                          request->_user->_ns_name,
+                          (char*)request->_user->_ns_hdl,
                           DBBE_REDIS_NAMESPACE_SEPARATOR,
                           request->_user->_key );
       if(( len < 0 ) || ( len >= size ))
@@ -183,7 +183,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
           break;
         default:
           len = snprintf( keybuf, size, "%s%s%s",
-                          request->_user->_ns_name,
+                          (char*)request->_user->_ns_hdl,
                           DBBE_REDIS_NAMESPACE_SEPARATOR,
                           request->_user->_key );
           break;
@@ -211,7 +211,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
     {
-      len = snprintf( keybuf, size, "%s", request->_user->_ns_name );
+      len = snprintf( keybuf, size, "%s", (char*)request->_user->_ns_hdl );
       if(( len < 0 ) || ( len >= size ))
         return -EMSGSIZE;
       break;
@@ -265,12 +265,12 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
         {
           char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
-          int keylen = strnlen( request->_user->_ns_name, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_match, DBBE_REDIS_MAX_KEY_LEN );
+          int keylen = strnlen( (char*)request->_user->_ns_hdl, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_match, DBBE_REDIS_MAX_KEY_LEN );
           int len = snprintf( key,
                               DBBE_REDIS_MAX_KEY_LEN,
                     "$%d\r\n%s%s%s\r\n",
                     keylen,
-                    request->_user->_ns_name,
+                    (char*)request->_user->_ns_hdl,
                     DBBE_REDIS_NAMESPACE_SEPARATOR,
                     request->_user->_match );
           if( len < 0 )
