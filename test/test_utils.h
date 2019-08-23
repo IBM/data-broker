@@ -23,10 +23,29 @@
 #ifndef TEST_TEST_UTILS_H_
 #define TEST_TEST_UTILS_H_
 
-#define TEST( function, expect ) ( (function)==(expect)? 0 : 1 )
-#define TEST_RC( function, expect, returned ) ( ((returned)=(function))==(expect)? 0 : 1 )
-#define TEST_NOT( function, expect ) ( 1 - TEST( function, expect ) )
-#define TEST_NOT_RC( function, expect, returned ) (  ((returned)=(function))!=(expect)? 0 : 1 )
+
+static inline
+int dbrTest_util_print( const char* text, const int rc )
+{
+  if( rc == 0 )
+    printf( "%-74s PASS\n", text );
+  else
+    printf( "%-74s FAIL\n", text );
+  return rc;
+}
+
+// test macros that print/log the input function
+#define TEST( function, expect ) ( (function)==(expect)? dbrTest_util_print( #function, 0 ) : dbrTest_util_print( #function, 1 ) )
+#define TEST_RC( function, expect, returned ) ( ((returned)=(function))==(expect)? dbrTest_util_print( #function, 0 ) : dbrTest_util_print( #function, 1 ) )
+#define TEST_NOT( function, expect ) ( (function)!=(expect)? dbrTest_util_print( #function, 0 ) : dbrTest_util_print( #function, 1 ) )
+#define TEST_NOT_RC( function, expect, returned ) (  ((returned)=(function))!=(expect)? dbrTest_util_print( #function, 0 ) : dbrTest_util_print( #function, 1 ) )
+
+// test macros that print/log provided text
+#define TEST_INFO( function, expect, text ) ( (function)==(expect)? dbrTest_util_print( (text), 0 ) : dbrTest_util_print( (text), 1 ) )
+#define TEST_RC_INFO( function, expect, returned, text ) ( ((returned)=(function))==(expect)? dbrTest_util_print( (text), 0 ) : dbrTest_util_print( (text), 1 ) )
+#define TEST_NOT_INFO( function, expect, text ) ( (function)!=(expect)? dbrTest_util_print( (text), 0 ) : dbrTest_util_print( (text), 1 ) )
+#define TEST_NOT_RC_INFO( function, expect, returned, text ) (  ((returned)=(function))!=(expect)? dbrTest_util_print( (text), 0 ) : dbrTest_util_print( (text), 1 ) )
+
 
 #define TEST_LOG( rc, text ) { if( (rc) != 0 ) printf("%s; rc=%d\n", (text), (rc) ); }
 
