@@ -43,6 +43,7 @@ typedef struct dbBE_Redis_namespace
 #define dbBE_Redis_namespace_get_len( ns ) ( (ns)->_len )
 #define dbBE_Redis_namespace_get_refcnt( ns ) ( (ns)->_refcnt )
 
+int dbBE_Redis_namespace_validate( const dbBE_Redis_namespace_t *ns );
 dbBE_Redis_namespace_t* dbBE_Redis_namespace_create( const char *name );
 int dbBE_Redis_namespace_destroy( dbBE_Redis_namespace_t *ns );
 int dbBE_Redis_namespace_attach( dbBE_Redis_namespace_t *ns );

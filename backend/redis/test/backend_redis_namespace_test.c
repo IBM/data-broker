@@ -105,37 +105,72 @@ int namespacelisttest()
   rc += TEST( dbBE_Redis_namespace_list_insert( NULL, NULL ), NULL );
   rc += TEST( errno, EINVAL );
   rc += TEST( dbBE_Redis_namespace_list_remove( NULL, NULL ), NULL );
+  rc += TEST( dbBE_Redis_namespace_list_get( NULL, NULL ), NULL );
 
   rc += TEST_NOT_RC( dbBE_Redis_namespace_create( "Test" ), NULL, ns );
   rc += TEST_NOT_RC( dbBE_Redis_namespace_list_insert( list, ns ), NULL, list );
-  rc += TEST( dbBE_Redis_namespace_list_insert( list, ns ), list );
+  rc += TEST( dbBE_Redis_namespace_list_insert( list, ns ), NULL );
 
+  TEST_BREAK( rc, "Found error already. Skipping further tests" );
   int i;
+  int doubles = 0;
+  dbBE_Redis_namespace_list_t *tmp = NULL;
   for( i=0; i<DBBE_TEST_NAMESPACE_COUNT; ++i )
   {
     int nlen = (random() % (17-1)) + 1;
     rc += TEST_NOT_RC( dbBE_Redis_namespace_create( generateLongMsg(nlen) ), NULL, many[i] );
     TEST_BREAK( rc, "Unable to create another namespace before insert. Cannot continue." );
-    rc += TEST_NOT_RC( dbBE_Redis_namespace_list_insert( list, many[i] ), NULL, list );
+    rc += TEST_NOT_RC( dbBE_Redis_namespace_list_insert( list, many[i] ), NULL, tmp );
+    if( tmp == NULL ) // in case that entry already existed
+    {
+      ++doubles;
+      --rc;
+      rc += TEST_NOT_RC( dbBE_Redis_namespace_list_get( list, many[i]->_name ), NULL, tmp );
+      rc += TEST_NOT( tmp , NULL );
+      TEST_BREAK( rc, "Inconsistent namespace list entry." );
+      rc += TEST_NOT( dbBE_Redis_namespace_attach( tmp->_ns ), 1 );
+      rc += TEST( dbBE_Redis_namespace_destroy( many[i] ), 0 );
+      --i;
+      continue;
+    }
+    list = tmp;
     Flatten( list );
     rc += TEST_NOT_INFO( list->_n, list, many[i]->_name );
   }
 
+  LOG( DBG_ALL, stdout, "Double creation/attach %d\n", doubles );
+  TEST_BREAK( rc, "Found error already. Skipping further tests" );
   for( i=0; i<DBBE_TEST_NAMESPACE_COUNT; ++i )
   {
     if( many[ i ] != NULL )
     {
       rc += TEST_INFO( 0, 0, many[ i ]->_name );
-      rc += TEST_NOT_RC( dbBE_Redis_namespace_list_remove( list, many[ i ] ), NULL, list );
+      rc += TEST_NOT_RC( dbBE_Redis_namespace_list_remove( list, many[ i ] ), NULL, tmp );
+      rc += TEST_NOT_INFO( tmp, NULL, "namespace list not empty?" );
+      // tmp needs to be non-null since we have at least Test-namespace in there
+      TEST_BREAK( rc, "unexpected drain of namspace list." );
+      if(( tmp->_ns == many[i] ) && ( dbBE_Redis_namespace_validate( many[ i ] ) == 0 )) // still valid ns
+      {
+        rc += TEST_NOT( many[ i ]->_refcnt, 0 );
+        TEST_BREAK( rc, "Inconsistent reference count" );
+        --doubles;
+        list = tmp;
+        --i;
+        continue;
+      }
+      list = tmp;
       rc += TEST_NOT( list->_ns->_name[0], 0 );
       Flatten( list );
-      rc += TEST( dbBE_Redis_namespace_destroy( many[ i ] ), 0 );
+//      rc += TEST( dbBE_Redis_namespace_destroy( many[ i ] ), 0 );
       many[ i ] = NULL;
     }
   }
+  rc += TEST_INFO( doubles, 0, "Multi-attached counter == 0 ?" );
 
   // remove the last one should return NULL for the list ptr
-  rc += TEST( dbBE_Redis_namespace_list_remove( list, ns ), NULL );
+  rc += TEST( dbBE_Redis_namespace_attach( ns ), 2 );
+  // needs to return list ptr, because namespace refcnt is > 1
+  rc += TEST( dbBE_Redis_namespace_list_remove( list, ns ), list );
 
   rc += TEST( dbBE_Redis_namespace_destroy( ns ), 0 );
   return rc;
@@ -146,6 +181,7 @@ int main( int argc, char ** argv )
   int rc = 0;
 
   rc += namespacetest();
+  TEST_BREAK( rc, "Found error already. Skipping further tests" );
   rc += namespacelisttest();
 
   printf( "Test exiting with rc=%d\n", rc );

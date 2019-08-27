@@ -42,7 +42,6 @@ int64_t dbBE_Redis_namespace_checksum( const dbBE_Redis_namespace_t *ns )
   return ( (((int64_t)ns->_len << 32) + nchk ) << 16 ) + (int64_t)ns->_refcnt;
 }
 
-static inline
 int dbBE_Redis_namespace_validate( const dbBE_Redis_namespace_t *ns )
 {
   if( ns == NULL )
@@ -68,14 +67,14 @@ dbBE_Redis_namespace_t* dbBE_Redis_namespace_create( const char *name )
     return NULL;
   }
 
-  size_t len = strnlen( name, DBR_MAX_KEY_LEN );
-  if( len == DBR_MAX_KEY_LEN ) // check for namespace too long
+  size_t len = strnlen( name, DBR_MAX_KEY_LEN + 2 ); // +2 because we wouldn't detect too-long names
+  if( len > DBR_MAX_KEY_LEN ) // check for namespace too long
   {
     errno = E2BIG;
     return NULL;
   }
 
-  dbBE_Redis_namespace_t *ns = (dbBE_Redis_namespace_t*)calloc( 1, sizeof( dbBE_Redis_namespace_t ) + len );
+  dbBE_Redis_namespace_t *ns = (dbBE_Redis_namespace_t*)calloc( 1, sizeof( dbBE_Redis_namespace_t ) + len + 1 ); // +1 for trailling \0
   if( ns == NULL )
   {
     errno = ENOMEM;
@@ -151,26 +150,27 @@ int dbBE_Redis_namespace_detach( dbBE_Redis_namespace_t *ns )
  * NAMESPACE LIST FUNCTIONS
  */
 
-
+// use last bit of ptr address to signal matching namespace was found
+#define DBBE_REDIS_NS_PTR_MATCH( p ) ((dbBE_Redis_namespace_list_t*)((uintptr_t)(p) | 0x1ull))
+#define DBBE_REDIS_NS_MATCHED( p )   (((uintptr_t)(p) & 0x1ull) != 0)
+#define DBBE_REDIS_NS_PTR_FIX( p )   ((dbBE_Redis_namespace_list_t*)((uintptr_t)(p) & (~0x1ull)))
 
 // search for namespace entry
 // if found: return entry but with lowest bit set to 1 (i.e. cannot be dereferenced directly!!!)
 // if not found: return list entry BEFORE insertion needs to happen
 static
 dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_find( dbBE_Redis_namespace_list_t *s,
-                                                             const dbBE_Redis_namespace_t *ns )
+                                                             const char *name )
 {
   dbBE_Redis_namespace_list_t *r = s;
   int dir = 0;
   int lcomp = 0;
-  dir = strncmp( ns->_name, r->_ns->_name, 1 );
+  dir = strncmp( name, r->_ns->_name, 1 );
   do
   {
-    if( r->_ns == ns )  // if even the ptr address matches, no need to fiddle with string comparison
-      return (dbBE_Redis_namespace_list_t*)((uintptr_t)r | 0x1ull);
-    int comp = strncmp( ns->_name, r->_ns->_name, DBR_MAX_KEY_LEN );
+    int comp = strncmp( name, r->_ns->_name, DBR_MAX_KEY_LEN );
     if( comp == 0 )
-      return (dbBE_Redis_namespace_list_t*)((uintptr_t)r | 0x1ull);
+      return DBBE_REDIS_NS_PTR_MATCH( r );
 
     if( comp < 0 )
     {
@@ -202,6 +202,24 @@ dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_find( dbBE_Redis_namespac
   return r;
 }
 
+dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_get( dbBE_Redis_namespace_list_t *s,
+                                                            const char *name )
+{
+  if( (s==NULL) || ( name == NULL ))
+  {
+    errno = EINVAL;
+    return NULL;
+  }
+  dbBE_Redis_namespace_list_t *p = dbBE_Redis_namespace_list_find( s, name );
+  if( DBBE_REDIS_NS_MATCHED( p ) )
+  {
+    p = DBBE_REDIS_NS_PTR_FIX( p );
+    return p;
+  }
+  errno = ENOENT;
+  return NULL;
+}
+
 dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_insert( dbBE_Redis_namespace_list_t *s,
                                                                dbBE_Redis_namespace_t * const ns )
 {
@@ -229,10 +247,12 @@ dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_insert( dbBE_Redis_namesp
     return r;
   }
 
-  dbBE_Redis_namespace_list_t *t = dbBE_Redis_namespace_list_find( r, ns );
+  dbBE_Redis_namespace_list_t *t = dbBE_Redis_namespace_list_find( r, ns->_name );
   if( DBBE_REDIS_NS_MATCHED( t ) ) // if exact entry is found, the lowest bit is 1
   {
-    return DBBE_REDIS_NS_PTR_FIX( t );
+    // don't call attach, because insert of existing NS might be an error case
+    errno = EEXIST;
+    return NULL;
   }
 
   r = (dbBE_Redis_namespace_list_t*)calloc( 1, sizeof( dbBE_Redis_namespace_list_t ) );
@@ -255,10 +275,15 @@ dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_remove( dbBE_Redis_namesp
   }
 
   dbBE_Redis_namespace_list_t *t = s;
-  dbBE_Redis_namespace_list_t *r = dbBE_Redis_namespace_list_find( s, ns );
+  dbBE_Redis_namespace_list_t *r = dbBE_Redis_namespace_list_find( s, ns->_name );
   if( DBBE_REDIS_NS_MATCHED( r ) )
   {
     r = DBBE_REDIS_NS_PTR_FIX( r );
+    if( dbBE_Redis_namespace_detach( r->_ns ) > 0 )
+    {
+      errno = EBUSY;
+      return r;
+    }
     t = r->_n;
     if( t == r ) // last element in the ring?
       t = NULL;
@@ -281,7 +306,8 @@ int dbBE_Redis_namespace_list_clean( dbBE_Redis_namespace_list_t *s )
     dbBE_Redis_namespace_list_t *t = s->_n;
     s->_n = NULL;
     s->_p = NULL;
-    dbBE_Redis_namespace_destroy( s->_ns );
+    while( dbBE_Redis_namespace_destroy( s->_ns ) == -EBUSY )
+      dbBE_Redis_namespace_detach( s->_ns );
     s->_ns = NULL;
     free( s );
     s = t;

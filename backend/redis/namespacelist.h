@@ -28,15 +28,21 @@ typedef struct dbBE_Redis_namespace_list
 } dbBE_Redis_namespace_list_t;
 
 
-#define DBBE_REDIS_NS_MATCHED( p ) (((uintptr_t)(p) & 0x1ull) != 0)
-#define DBBE_REDIS_NS_PTR_FIX( p ) ((dbBE_Redis_namespace_list_t*)((uintptr_t)(p) & (~0x1ull)))
+// retrieve namespace list ptr if namespace 'name' exists; otherwise NULL is returned
+dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_get( dbBE_Redis_namespace_list_t *s,
+                                                            const char *name );
 
+// insert namespace into sorted list; only insert if not exists
+// attach/refcount needs to be done separately if needed
 dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_insert( dbBE_Redis_namespace_list_t *s,
                                                                dbBE_Redis_namespace_t * const ns );
 
+// remove namespace from list in case the reference count hits 0 (in that case it's detached/cleaned up too)
+// otherwise only detach, i.e. refcnt decrease
 dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_remove( dbBE_Redis_namespace_list_t *s,
                                                                const dbBE_Redis_namespace_t *ns );
 
+// wipe the namespace list, regardless of content status
 int dbBE_Redis_namespace_list_clean( dbBE_Redis_namespace_list_t *s );
 
 #endif /* BACKEND_REDIS_NAMESPACELIST_H_ */
