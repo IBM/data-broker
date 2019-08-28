@@ -303,6 +303,7 @@ process_next_item:
             break;
           case DBBE_OPCODE_NSCREATE:
             rc = dbBE_Redis_process_nscreate( request, &result );
+            rc = dbBE_Redis_process_nshandling( &input->_backend->_namespaces, request, &result, rc );
             break;
 
           case DBBE_OPCODE_NSQUERY:
@@ -311,6 +312,7 @@ process_next_item:
 
           case DBBE_OPCODE_NSATTACH:
             rc = dbBE_Redis_process_nsattach( request, &result );
+            rc = dbBE_Redis_process_nshandling( &input->_backend->_namespaces, request, &result, rc );
             break;
 
           case DBBE_OPCODE_NSDETACH:
@@ -318,6 +320,11 @@ process_next_item:
                                               input->_backend->_retry_q,
                                               input->_backend->_conn_mgr,
                                               responses_remain );
+            if(( rc == 0 ) && ( request != NULL ) && ( request->_step->_final != 0 ))
+            {
+              dbBE_Redis_namespace_list_t *tmp = dbBE_Redis_namespace_list_remove( input->_backend->_namespaces, request->_user->_ns_hdl );
+              input->_backend->_namespaces = tmp;
+            }
             break;
 
           case DBBE_OPCODE_NSDELETE:

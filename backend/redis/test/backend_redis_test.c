@@ -15,6 +15,10 @@
  *
  */
 
+#include "test_utils.h"
+#include "../backend/common/dbbe_api.h"
+#include "../redis.h"
+
 #include <stdio.h>
 #ifdef __APPLE__
 #include <stdlib.h>
@@ -24,16 +28,18 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "test_utils.h"
-#include "../backend/common/dbbe_api.h"
-
 int main( int argc, char ** argv )
 {
   int rc = 0;
 
-  dbBE_Handle_t BE = g_dbBE.initialize();
+  dbBE_Handle_t BE = NULL;
 
-  rc += TEST_NOT( BE, NULL );
+  dbBE_Redis_namespace_t *ns = NULL;
+  dbBE_Redis_namespace_t *sns = NULL;
+
+  rc += TEST_NOT_RC( g_dbBE.initialize(), NULL, BE );
+  rc += TEST_NOT_RC( dbBE_Redis_namespace_create("KEYSPACE"), NULL, ns );
+  rc += TEST_NOT_RC( dbBE_Redis_namespace_create("NEWSPACE"), NULL, sns );
 
   TEST_BREAK( rc, "Backend initialization failed" );
 
@@ -43,7 +49,7 @@ int main( int argc, char ** argv )
   dbBE_Request_t *req = (dbBE_Request_t*) calloc ( 1, sizeof(dbBE_Request_t) + sge_count * sizeof(dbBE_sge_t) );
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
   req->_sge_count = 1;
@@ -53,7 +59,7 @@ int main( int argc, char ** argv )
 
   // put data in
   dbBE_Request_handle_t *rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting PUT" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -71,7 +77,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_READ;
   req->_user = req;
   req->_sge_count = 1;
@@ -81,7 +87,7 @@ int main( int argc, char ** argv )
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting READ" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -101,7 +107,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_MOVE;
   req->_user = req;
   req->_sge_count = 2;
@@ -113,7 +119,7 @@ int main( int argc, char ** argv )
   req->_sge[1].iov_len = sizeof( DBR_GROUP_EMPTY );
 
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting MOVE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -132,7 +138,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_hdl = "NEWSPACE";
+  req->_ns_hdl = sns;
   req->_opcode = DBBE_OPCODE_GET;
   req->_user = req;
   req->_sge_count = 1;
@@ -142,7 +148,7 @@ int main( int argc, char ** argv )
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting GET" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -163,7 +169,7 @@ int main( int argc, char ** argv )
   memset( buf, 0, 128 );
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_PUT;
   req->_user = req;
   req->_sge_count = 1;
@@ -173,7 +179,7 @@ int main( int argc, char ** argv )
 
   // put data in
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting PUT" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -193,7 +199,7 @@ int main( int argc, char ** argv )
 
   req->_key = "HELLO";
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_REMOVE;
   req->_user = req;
   req->_sge_count = 1;
@@ -203,7 +209,7 @@ int main( int argc, char ** argv )
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting REMOVE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -234,7 +240,7 @@ int main( int argc, char ** argv )
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSCREATE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -246,7 +252,9 @@ int main( int argc, char ** argv )
       rc += TEST( comp->_status, DBR_SUCCESS );
       rc += TEST( comp->_user, req->_user );
       rc += TEST_NOT( (void*)comp->_rc, NULL );
-      rc += TEST( strcmp( (char*)comp->_rc, req->_key ), 0 );
+      rc += TEST( strncmp( dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)comp->_rc), req->_key, DBR_MAX_KEY_LEN ), 0 );
+      rc += TEST( dbBE_Redis_namespace_destroy( ns ), 0 ); // destroy because we're creating a new and properly intergrated one here
+      ns = (dbBE_Redis_namespace_t*)comp->_rc;
       free( comp );
     }
   }
@@ -269,7 +277,7 @@ int main( int argc, char ** argv )
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSATTACH" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -281,7 +289,8 @@ int main( int argc, char ** argv )
       rc += TEST( comp->_status, DBR_SUCCESS );
       rc += TEST( comp->_user, req->_user );
       rc += TEST_NOT( (void*)comp->_rc, NULL );
-      rc += TEST( strcmp( (char*)comp->_rc, req->_key ), 0 );
+      rc += TEST( strncmp( dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)comp->_rc), req->_key, DBR_MAX_KEY_LEN ), 0 );
+      rc += TEST( (dbBE_Redis_namespace_t*)comp->_rc, ns );
       free( comp );
     }
   }
@@ -292,14 +301,14 @@ int main( int argc, char ** argv )
   // attach to namespace
   req->_key = NULL;
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_NSDETACH;
   req->_user = req;
   req->_sge_count = 0;
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSDETACH" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -321,14 +330,14 @@ int main( int argc, char ** argv )
   // delete namespace
   req->_key = NULL;
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_NSDELETE;
   req->_user = req;
   req->_sge_count = 0;
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSDELETE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -346,14 +355,14 @@ int main( int argc, char ** argv )
   // deletion of namespace requires subsequent detach cmd:
   req->_key = NULL;
   req->_next = NULL;
-  req->_ns_hdl = "KEYSPACE";
+  req->_ns_hdl = ns;
   req->_opcode = DBBE_OPCODE_NSDETACH;
   req->_user = req;
   req->_sge_count = 0;
 
   // get data out
   rhandle = g_dbBE.post( BE, req, 1 );
-  rc += TEST_NOT( rhandle, NULL );
+  rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSDETACH" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
@@ -372,6 +381,8 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, "DELETE:");
 
+  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADFD );
+  rc += TEST( dbBE_Redis_namespace_destroy( sns ), 0 );
   g_dbBE.exit( BE );
 
   printf( "Test exiting with rc=%d\n", rc );

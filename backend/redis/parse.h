@@ -23,6 +23,7 @@
 #include "definitions.h"
 #include "s2r_queue.h"
 #include "conn_mgr.h"
+#include "namespacelist.h"
 
 #include <errno.h>
 
@@ -112,6 +113,15 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
                                   dbBE_Data_transport_t *transport,
                                   dbBE_Redis_s2r_queue_t *post_queue,
                                   dbBE_Redis_connection_mgr_t *conn_mgr );
+
+
+/*
+ * post-process namespace create/attach to handle locally tracked namespace handles/structures
+ */
+int dbBE_Redis_process_nshandling( dbBE_Redis_namespace_list_t **s,
+                                   dbBE_Redis_request_t *request,
+                                   dbBE_Redis_result_t *result,
+                                   int rc );
 
 /*
  * process the response data of a name space create request

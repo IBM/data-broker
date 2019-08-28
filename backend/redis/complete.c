@@ -15,6 +15,9 @@
  *
  */
 
+#include "complete.h"
+#include "namespace.h"
+
 #include <stddef.h>
 #include <errno.h>
 #ifdef __APPLE__
@@ -23,7 +26,6 @@
 #include <malloc.h>
 #endif
 
-#include "complete.h"
 
 /*
  * convert a redis request in result stage into a completion
@@ -143,7 +145,9 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
       if( rc == 0 )
-        completion->_rc = (int64_t)strdup( request->_user->_key ); // namespace context is just the namespace itself
+      {
+        completion->_rc = result->_data._integer;
+      }
       else
       {
         completion->_rc = 0;
