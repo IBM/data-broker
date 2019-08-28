@@ -157,6 +157,9 @@ dbBE_Handle_t Redis_initialize(void)
   context->_conn_mgr = conn_mgr;
 
 
+  // initialize an empty list of namespaces
+  context->_namespaces = NULL;
+
   dbBE_Data_transport_t *transport = &dbBE_Memcopy_transport;
   context->_transport = transport;
 
@@ -186,6 +189,8 @@ int Redis_exit( dbBE_Handle_t be )
     temp = dbBE_Request_set_destroy( context->_cancellations );
     if( temp != 0 ) rc = temp;
     temp = dbBE_Redis_cluster_info_destroy( context->_cluster_info );
+    if( temp != 0 ) rc = temp;
+    temp = dbBE_Redis_namespace_list_clean( context->_namespaces );
     if( temp != 0 ) rc = temp;
     if( context->_sender_connections != NULL )
       free( context->_sender_connections );
