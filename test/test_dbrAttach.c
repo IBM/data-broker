@@ -82,7 +82,7 @@ int main( int argc, char ** argv )
   for( n=0; n<10; ++n )
   {
     cs_hdl = dbrAttach( name );
-    rc += TEST_NOT( NULL, cs_hdl );
+    rc += TEST_NOT_INFO( cs_hdl, NULL, "cs_hdl after attach" );
   }
 
   // test if detach too often keeps the refcount sane
@@ -97,8 +97,9 @@ int main( int argc, char ** argv )
   rc += TEST( DBR_SUCCESS, ret );
 
   // detach again (this causes use-after free, because the hdl should be wiped now)
-  ret = dbrDetach( cs_hdl );
-  rc += TEST( DBR_ERR_INVALID, ret ); // invalid argument (not invalid namespace)
+  rc += TEST_NOT_RC( dbrDetach( cs_hdl ), DBR_SUCCESS, ret );
+  if(( ret != DBR_ERR_INVALID ) && ( ret != DBR_ERR_NSINVAL ))
+    ++rc; // invalid argument (or invalid namespace)
 
   cs_hdl = dbrAttach( name );
   rc += TEST_NOT( NULL, cs_hdl );

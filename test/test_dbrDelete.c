@@ -42,14 +42,13 @@ int main( int argc, char ** argv )
   {
 //    name[ n ] = generateLongMsg( (random() % DBR_MAX_KEY_LEN) + 1 );
     name[ n ] = generateLongMsg( n + 1 );
+    LOG( DBG_ALL, stdout, "Namespace: %s\n", name[ n ] );
 
     // create a test name space and check
-    cs_hdl[ n ] = dbrCreate (name[ n ], level, groups);
-    rc += TEST_NOT( cs_hdl[ n ], NULL );
+    rc += TEST_NOT_RC( dbrCreate (name[ n ], level, groups), NULL, cs_hdl[ n ] );
 
     // query the name space to see if successful
-    ret = dbrQuery( cs_hdl[ n ], &cs_state, DBR_STATE_MASK_ALL );
-    rc += TEST( DBR_SUCCESS, ret );
+    rc += TEST_RC( dbrQuery( cs_hdl[ n ], &cs_state, DBR_STATE_MASK_ALL ), DBR_SUCCESS, ret );
   }
 
   rc += TEST( n, DBR_DELETE_TEST_NS_COUNT );
@@ -60,8 +59,7 @@ int main( int argc, char ** argv )
     int index = n;
     DBR_Name_t thisname = name[ index ];
     // delete the name space
-    ret = dbrDelete( thisname );
-    rc += TEST( DBR_SUCCESS, ret );
+    rc += TEST_RC( dbrDelete( thisname ), DBR_SUCCESS, ret );
     free( name[ index ] );
     name[ index ] = NULL;
   }
