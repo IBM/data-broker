@@ -217,7 +217,7 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
   {
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
-      if(( request->_key != NULL ) || ( request->_ns_hdl == NULL ))
+      if(( request->_key != NULL ) || ( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 ))
         rc = EINVAL;
       break;
     case DBBE_OPCODE_REMOVE:
@@ -226,13 +226,13 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
     case DBBE_OPCODE_PUT:
       if( request->_key == NULL )
         rc = EINVAL;
-      if( request->_ns_hdl == NULL )
+      if( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 )
         rc = EINVAL;
       break;
     case DBBE_OPCODE_MOVE:
       if( request->_sge_count != 2 )
         rc = EINVAL;
-      if( request->_ns_hdl == NULL )
+      if( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 )
         rc = EINVAL;
       break;
     case DBBE_OPCODE_DIRECTORY: // only single-SGE request supported by the RedisBE

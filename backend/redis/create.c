@@ -15,17 +15,18 @@
  *
  */
 
-#include <stddef.h>
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
-
 #include "../common/dbbe_api.h"
 #include "../common/data_transport.h"
 #include "definitions.h"
 #include "protocol.h"
 #include "create.h"
 #include "redis_cmds.h"
+#include "namespace.h"
+
+#include <stddef.h>
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
 
 /*
  * insert a Redis integer representation to the buffer
@@ -153,6 +154,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
     return -EINVAL;
 
   int len = 0;
+  dbBE_Redis_namespace_t *ns = (dbBE_Redis_namespace_t*)request->_user->_ns_hdl;
   memset( keybuf, 0, size );
   switch( request->_user->_opcode )
   {
@@ -162,7 +164,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
     case DBBE_OPCODE_REMOVE:
     {
       len = snprintf( keybuf, size, "%s%s%s",
-                          (char*)request->_user->_ns_hdl,
+                          dbBE_Redis_namespace_get_name( ns ),
                           DBBE_REDIS_NAMESPACE_SEPARATOR,
                           request->_user->_key );
       if(( len < 0 ) || ( len >= size ))
@@ -183,7 +185,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
           break;
         default:
           len = snprintf( keybuf, size, "%s%s%s",
-                          (char*)request->_user->_ns_hdl,
+                          dbBE_Redis_namespace_get_name( ns ),
                           DBBE_REDIS_NAMESPACE_SEPARATOR,
                           request->_user->_key );
           break;
@@ -203,7 +205,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
     {
-      len = snprintf( keybuf, size, "%s", (char*)request->_user->_ns_hdl );
+      len = snprintf( keybuf, size, "%s", dbBE_Redis_namespace_get_name( ns ) );
       if(( len < 0 ) || ( len >= size ))
         return -EMSGSIZE;
       break;
@@ -211,7 +213,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
     {
-      len = snprintf( keybuf, size, "%s", (char*)request->_user->_ns_hdl );
+      len = snprintf( keybuf, size, "%s", dbBE_Redis_namespace_get_name( ns ) );
       if(( len < 0 ) || ( len >= size ))
         return -EMSGSIZE;
       break;
@@ -265,12 +267,13 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
         {
           char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
-          int keylen = strnlen( (char*)request->_user->_ns_hdl, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_match, DBBE_REDIS_MAX_KEY_LEN );
+          char *namespace = dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)(request->_user->_ns_hdl) );
+          int keylen = strnlen( namespace, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_match, DBBE_REDIS_MAX_KEY_LEN );
           int len = snprintf( key,
                               DBBE_REDIS_MAX_KEY_LEN,
                     "$%d\r\n%s%s%s\r\n",
                     keylen,
-                    (char*)request->_user->_ns_hdl,
+                    namespace,
                     DBBE_REDIS_NAMESPACE_SEPARATOR,
                     request->_user->_match );
           if( len < 0 )
@@ -342,12 +345,14 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
         case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
         {
           char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
-          int keylen = strnlen( (char*)request->_user->_ns_hdl, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + 1; // +1 for "*"
+          char *namespace = dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)(request->_user->_ns_hdl) );
+          int keylen = strnlen( namespace,
+                                DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + 1; // +1 for "*"
           int len = snprintf( key,
                               DBBE_REDIS_MAX_KEY_LEN,
                     "$%d\r\n%s%s*\r\n",
                     keylen,
-                    (char*)request->_user->_ns_hdl,
+                    namespace,
                     DBBE_REDIS_NAMESPACE_SEPARATOR );
           if( len < 0 )
             return -EPROTO;
