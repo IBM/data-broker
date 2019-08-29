@@ -126,13 +126,16 @@ int dbBE_Redis_namespace_detach( dbBE_Redis_namespace_t *ns )
   if( rc != 0 )
     return -rc;
 
-  if( --(ns->_refcnt) == 0 )
+  if( ns->_refcnt <= 1 )
   {
     dbBE_Redis_namespace_destroy( ns );
     return 0;
   }
   else
+  {
+    --ns->_refcnt;
     ns->_chksum = dbBE_Redis_namespace_chksum_refup( ns );
+  }
 
   return ns->_refcnt;
 }
