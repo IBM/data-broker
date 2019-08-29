@@ -169,7 +169,7 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
       switch( request->_step->_stage )
       {
         case DBBE_REDIS_MOVE_STAGE_RESTORE: // restore stage uses the new namespace for the key
-          ns_name = (char*)request->_user->_sge[0].iov_base;
+          ns_name = dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)request->_user->_sge[0].iov_base );
           break;
         default:
           ns_name = dbBE_Redis_namespace_get_name( ns );

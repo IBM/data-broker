@@ -111,10 +111,8 @@ int main( int argc, char ** argv )
   req->_opcode = DBBE_OPCODE_MOVE;
   req->_user = req;
   req->_sge_count = 2;
-  memset( buf, 0, 128 );
-  snprintf( buf, 128, "NEWSPACE" );
-  req->_sge[0].iov_base = (void*)buf;
-  req->_sge[0].iov_len = 8;
+  req->_sge[0].iov_base = (void*)sns;
+  req->_sge[0].iov_len = sizeof( void* );
   req->_sge[1].iov_base = DBR_GROUP_EMPTY;
   req->_sge[1].iov_len = sizeof( DBR_GROUP_EMPTY );
 

@@ -164,6 +164,8 @@ int main( int argc, char ** argv )
 
   dbBE_Redis_namespace_t *ns = NULL;
   rc += TEST_NOT_RC( dbBE_Redis_namespace_create( "TestNS" ), NULL, ns );
+  dbBE_Redis_namespace_t *target_ns = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_namespace_create( "Target" ), NULL, target_ns );
   dbBE_Redis_command_stage_spec_t *stage_specs = NULL;
   rc += TEST_NOT_RC( dbBE_Redis_command_stages_spec_init(), NULL, stage_specs );
 
@@ -541,8 +543,8 @@ int main( int argc, char ** argv )
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_RESTORE );
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
-  ureq->_sge[0].iov_base = strdup( "Target" );
-  ureq->_sge[0].iov_len = 6;
+  ureq->_sge[0].iov_base = target_ns;
+  ureq->_sge[0].iov_len = sizeof( dbBE_NS_Handle_t *);
   rc += TEST_RC( dbBE_Redis_create_command_sge( req,
                                                 sr_buf,
                                                 cmd ), 6, cmdlen );
@@ -583,6 +585,7 @@ int main( int argc, char ** argv )
 
   rc += key_creation_test();
 
+  dbBE_Redis_namespace_destroy( target_ns );
   dbBE_Redis_namespace_destroy( ns );
   dbBE_Redis_command_stages_spec_destroy( stage_specs );
 

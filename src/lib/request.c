@@ -63,8 +63,8 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
     case DBBE_OPCODE_MOVE:
       // for the move cmd, we'll put the destination cs and group into the SGE/value
       sge_count = 2;
-      move_sge[0].iov_base = dst_cs->_db_name;
-      move_sge[0].iov_len = strnlen( dst_cs->_db_name, DBR_MAX_KEY_LEN );
+      move_sge[0].iov_base = dst_cs->_be_ns_hdl;
+      move_sge[0].iov_len = sizeof( dst_cs->_be_ns_hdl );
       move_sge[1].iov_base = dst_group;
       move_sge[1].iov_len = sizeof( DBR_Group_t );
       sge = move_sge;
