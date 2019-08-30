@@ -78,6 +78,7 @@ dbrName_space_t* dbrMain_create_local( DBR_Name_t db_name )
   cs->_be_ctx = dbrlib_backend_get_handle();
   cs->_status = dbrNS_STATUS_CREATED;
   cs->_idx = dbrERROR_INDEX;
+  cs->_be_ns_hdl = NULL;
 
   if( dbrMain_insert( cs->_reverse, cs ) == dbrERROR_INDEX )
   {
@@ -171,7 +172,8 @@ dbrMain_delete_local( dbrMain_context_t *libctx, dbrName_space_t *cs )
   if( cs->_db_name[0] != 0 )
     rc = -EFAULT;
 
-  free( cs->_db_name );
+  // cs->_be_ns_hdl is supposed to be cleaned and freed by backend detach/delete
+  if( cs->_db_name ) free( cs->_db_name );
   memzero( cs, 0, sizeof( dbrName_space_t ) );
   if(( cs->_ref_count != 0 )||( cs->_idx != 0 )||(cs->_status != dbrNS_STATUS_UNDEFINED))
     rc = -EFAULT;

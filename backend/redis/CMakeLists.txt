@@ -23,6 +23,7 @@ set( LIBDBBE_REDIS_SOURCE
 	cluster_info.c
 	connection.c
 	locator.c
+	namespace.c
 	protocol.c
 	result.c
 	request.c

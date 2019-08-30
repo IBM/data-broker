@@ -157,6 +157,9 @@ dbBE_Handle_t Redis_initialize(void)
   context->_conn_mgr = conn_mgr;
 
 
+  // initialize an empty list of namespaces
+  context->_namespaces = NULL;
+
   dbBE_Data_transport_t *transport = &dbBE_Memcopy_transport;
   context->_transport = transport;
 
@@ -187,6 +190,8 @@ int Redis_exit( dbBE_Handle_t be )
     if( temp != 0 ) rc = temp;
     temp = dbBE_Redis_cluster_info_destroy( context->_cluster_info );
     if( temp != 0 ) rc = temp;
+    temp = dbBE_Redis_namespace_list_clean( context->_namespaces );
+    if( temp != 0 ) rc = temp;
     if( context->_sender_connections != NULL )
       free( context->_sender_connections );
     dbBE_Transport_sr_buffer_free( context->_sender_buffer );
@@ -210,8 +215,9 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
   int rc = 0;
   switch( request->_opcode )
   {
+    case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
-      if( request->_key != NULL )
+      if(( request->_key != NULL ) || ( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 ))
         rc = EINVAL;
       break;
     case DBBE_OPCODE_REMOVE:
@@ -220,9 +226,15 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
     case DBBE_OPCODE_PUT:
       if( request->_key == NULL )
         rc = EINVAL;
+      if( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 )
+        rc = EINVAL;
       break;
     case DBBE_OPCODE_MOVE:
       if( request->_sge_count != 2 )
+        rc = EINVAL;
+      if( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 )
+        rc = EINVAL;
+      if( dbBE_Redis_namespace_validate( request->_sge[0].iov_base ) != 0 )
         rc = EINVAL;
       break;
     case DBBE_OPCODE_DIRECTORY: // only single-SGE request supported by the RedisBE
@@ -233,7 +245,6 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
     case DBBE_OPCODE_CANCEL:
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
-    case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_NSADDUNITS:
     case DBBE_OPCODE_NSREMOVEUNITS:

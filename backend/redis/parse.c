@@ -768,6 +768,83 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
   return rc;
 }
 
+int dbBE_Redis_process_nshandling( dbBE_Redis_namespace_list_t **s,
+                                   dbBE_Redis_request_t *request,
+                                   dbBE_Redis_result_t *result,
+                                   int rc )
+{
+  if(( rc != 0 ) || (( request != NULL ) && ( request->_step->_final == 0 )))
+    return rc;
+
+  dbBE_Redis_namespace_t *ns = NULL;
+  switch( request->_user->_opcode )
+  {
+    case DBBE_OPCODE_NSCREATE:
+    {
+      ns = dbBE_Redis_namespace_create( request->_user->_key );
+      if( ns == NULL )
+        rc = return_error_clean_result( -errno, result );
+
+      dbBE_Redis_namespace_list_t *tmp = dbBE_Redis_namespace_list_insert( *s, ns );
+      if( tmp == NULL )
+      {
+        rc = return_error_clean_result( -errno, result );
+        dbBE_Redis_namespace_destroy( ns ); // clean up
+      }
+      else
+      {
+        *s = tmp;
+        dbBE_Redis_result_cleanup( result, 0 );
+        result->_type = dbBE_REDIS_TYPE_INT;
+        result->_data._integer = (uint64_t)ns;
+      }
+      break;
+    }
+    case DBBE_OPCODE_NSATTACH:
+    {
+      dbBE_Redis_namespace_list_t *tmp = dbBE_Redis_namespace_list_get( *s, request->_user->_key );
+      if( tmp == NULL )
+      {
+        ns = dbBE_Redis_namespace_create( request->_user->_key );
+        tmp = dbBE_Redis_namespace_list_insert( *s, ns );
+        if( tmp == NULL )
+        {
+          dbBE_Redis_namespace_destroy( ns );
+          rc = return_error_clean_result( -errno, result );
+          break;
+        }
+        *s = tmp;
+      }
+      else // in case it was already there:
+      {
+        ns = tmp->_ns;
+        if( ns == NULL )
+        {
+          LOG( DBG_ERR, stderr, "Fatal: found namespace with NULL entry when looking for %s.\n", request->_user->_key );
+          rc = return_error_clean_result( -EINVAL, result );
+          break;
+        }
+        uint32_t refcnt = dbBE_Redis_namespace_get_refcnt( ns );
+        if( dbBE_Redis_namespace_attach( ns ) != (int)refcnt + 1 )
+        {
+          LOG( DBG_ERR, stderr, "Fatal: inconsistent reference count after attach for %s.\n", request->_user->_key );
+          rc = return_error_clean_result( -EPROTO, result );
+          break;
+        }
+        rc = 0;
+        *s = tmp;
+      }
+      dbBE_Redis_result_cleanup( result, 0 );
+      result->_type = dbBE_REDIS_TYPE_INT;
+      result->_data._integer = (uint64_t)ns;
+    }
+    break;
+    default:
+      break;
+  }
+  return rc;
+}
+
 int dbBE_Redis_process_nscreate( dbBE_Redis_request_t *request,
                                  dbBE_Redis_result_t *result )
 {

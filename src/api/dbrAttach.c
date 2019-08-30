@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ libdbrAttach (DBR_Name_t db_name)
                                                      0,
                                                      NULL,
                                                      NULL,
-                                                     NULL,
+                                                     db_name,
                                                      NULL,
                                                      tag );
   if( rctx == NULL )
@@ -119,6 +119,7 @@ libdbrAttach (DBR_Name_t db_name)
     goto error;
   }
 
+  cs->_be_ns_hdl = (dbBE_NS_Handle_t)rctx->_cpl._rc;
   dbrRemove_request( cs, rctx );
   BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)cs );
 

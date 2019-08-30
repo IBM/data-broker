@@ -69,7 +69,7 @@ int key_creation_test()
 
   ureq->_flags = 0;
   ureq->_group = DBR_GROUP_LIST_EMPTY;
-  ureq->_ns_name = "test";
+  ureq->_ns_hdl = NULL; // is set per request type in loop
   ureq->_match = "";
   ureq->_next = NULL;
   ureq->_sge_count = 1;
@@ -92,7 +92,13 @@ int key_creation_test()
       case DBBE_OPCODE_NSADDUNITS:
       case DBBE_OPCODE_NSREMOVEUNITS:
         continue;
+      case DBBE_OPCODE_NSCREATE:
+      case DBBE_OPCODE_NSATTACH:
+        ureq->_ns_hdl = NULL;
+        break;
+        break;
       default:
+        ureq->_ns_hdl = "test";
         if( req->_step->_expect == dbBE_REDIS_TYPE_UNSPECIFIED )
           return 10000;
         break;
@@ -156,8 +162,12 @@ int main( int argc, char ** argv )
   dbBE_Redis_request_t *req;
   dbBE_Request_t* ureq = (dbBE_Request_t*) malloc (sizeof(dbBE_Request_t) + 2 * sizeof(dbBE_sge_t));
 
-  dbBE_Redis_command_stage_spec_t *stage_specs = dbBE_Redis_command_stages_spec_init();
-  rc += TEST_NOT( stage_specs, NULL );
+  dbBE_Redis_namespace_t *ns = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_namespace_create( "TestNS" ), NULL, ns );
+  dbBE_Redis_namespace_t *target_ns = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_namespace_create( "Target" ), NULL, target_ns );
+  dbBE_Redis_command_stage_spec_t *stage_specs = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_command_stages_spec_init(), NULL, stage_specs );
 
   ureq->_sge_count = 2;
   ureq->_sge[ 0 ].iov_base = strdup("Hello World!");
@@ -166,9 +176,9 @@ int main( int argc, char ** argv )
   ureq->_sge[ 1 ].iov_len = 13;
   ureq->_opcode = DBBE_OPCODE_PUT;
   ureq->_key = "bla";
-  ureq->_ns_name = "TestNS";
+  ureq->_ns_hdl = ns;
 
-  keylen = strlen( ureq->_key ) + strlen( ureq->_ns_name ) + 2;
+  keylen = strlen( ureq->_key ) + strlen( dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)(ureq->_ns_hdl) ) ) + 2;
   vallen = dbBE_SGE_get_len( ureq->_sge, ureq->_sge_count );
   rc += TEST( keylen, 11 );
   rc += TEST( vallen, 25 );
@@ -276,6 +286,8 @@ int main( int argc, char ** argv )
 
   // create an nscreate
   ureq->_opcode = DBBE_OPCODE_NSCREATE;
+  ureq->_key = "TestNS";
+  ureq->_ns_hdl = NULL;
   ureq->_sge_count = 1;
   ureq->_sge[0].iov_base = strdup("users, admins");
   ureq->_sge[0].iov_len = strlen( ureq->_sge[0].iov_base );
@@ -330,6 +342,8 @@ int main( int argc, char ** argv )
 
   // create an nsquery
   ureq->_opcode = DBBE_OPCODE_NSQUERY;
+  ureq->_ns_hdl = ns;
+  ureq->_key = "bla";
   char *meta = (char*)calloc( 10000, sizeof( char ) );
   ureq->_sge[0].iov_base = meta;
   ureq->_sge[0].iov_len = 10000;
@@ -351,6 +365,8 @@ int main( int argc, char ** argv )
 
   // create an nsattach
   ureq->_opcode = DBBE_OPCODE_NSATTACH;
+  ureq->_key = "TestNS";
+  ureq->_ns_hdl = NULL;
   ureq->_sge[0].iov_base = NULL;
   ureq->_sge[0].iov_len = 0;
 
@@ -384,6 +400,8 @@ int main( int argc, char ** argv )
 
   // create an nsdetach
   ureq->_opcode = DBBE_OPCODE_NSDETACH;
+  ureq->_key = NULL;
+  ureq->_ns_hdl = ns;
   ureq->_sge[0].iov_base = NULL;
   ureq->_sge[0].iov_len = 0;
 
@@ -452,6 +470,7 @@ int main( int argc, char ** argv )
   // create an nsdelete
   ureq->_opcode = DBBE_OPCODE_NSDELETE;
   ureq->_key = NULL;
+  ureq->_ns_hdl = ns;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
@@ -485,7 +504,7 @@ int main( int argc, char ** argv )
   // create a remove command
   ureq->_opcode = DBBE_OPCODE_REMOVE;
   ureq->_key = "TestTup";
-  ureq->_ns_name = "TestNS";
+  ureq->_ns_hdl = ns;
 
   req = dbBE_Redis_request_allocate( ureq );
   rc += TEST_NOT( req, NULL );
@@ -524,8 +543,8 @@ int main( int argc, char ** argv )
   rc += TEST( req->_step->_stage, DBBE_REDIS_MOVE_STAGE_RESTORE );
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
-  ureq->_sge[0].iov_base = strdup( "Target" );
-  ureq->_sge[0].iov_len = 6;
+  ureq->_sge[0].iov_base = target_ns;
+  ureq->_sge[0].iov_len = sizeof( dbBE_NS_Handle_t *);
   rc += TEST_RC( dbBE_Redis_create_command_sge( req,
                                                 sr_buf,
                                                 cmd ), 6, cmdlen );
@@ -566,6 +585,8 @@ int main( int argc, char ** argv )
 
   rc += key_creation_test();
 
+  dbBE_Redis_namespace_destroy( target_ns );
+  dbBE_Redis_namespace_destroy( ns );
   dbBE_Redis_command_stages_spec_destroy( stage_specs );
 
   printf( "Test exiting with rc=%d\n", rc );

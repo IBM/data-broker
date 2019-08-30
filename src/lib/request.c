@@ -63,8 +63,8 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
     case DBBE_OPCODE_MOVE:
       // for the move cmd, we'll put the destination cs and group into the SGE/value
       sge_count = 2;
-      move_sge[0].iov_base = dst_cs->_db_name;
-      move_sge[0].iov_len = strnlen( dst_cs->_db_name, DBR_MAX_KEY_LEN );
+      move_sge[0].iov_base = dst_cs->_be_ns_hdl;
+      move_sge[0].iov_len = sizeof( dst_cs->_be_ns_hdl );
       move_sge[1].iov_base = dst_group;
       move_sge[1].iov_len = sizeof( DBR_Group_t );
       sge = move_sge;
@@ -77,7 +77,7 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
   if( req == NULL )
     return NULL;
 
-  req->_req._ns_name = cs->_db_name;  // just reference the name of the given namespace
+  req->_req._ns_hdl = cs->_be_ns_hdl;
   req->_req._group = group;
   req->_req._key = tuple_name;
   req->_req._match = match_template;

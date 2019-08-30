@@ -72,6 +72,7 @@ typedef struct
   int _ref_count;                    ///< local reference counter
   DBR_Name_t _db_name;               ///< name of the name space
   void *_be_ctx;                     ///< back end access context
+  dbBE_NS_Handle_t _be_ns_hdl;       ///< back end namespace handle
   dbrName_space_status_t _status;    ///< status of the name space for local status tracking
 } dbrName_space_t;
 

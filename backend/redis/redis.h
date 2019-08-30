@@ -30,6 +30,7 @@
 #include "locator.h"
 #include "conn_mgr.h"
 #include "cluster_info.h"
+#include "namespacelist.h"
 
 typedef struct
 {
@@ -43,6 +44,7 @@ typedef struct
   dbBE_Request_set_t *_cancellations;
   dbBE_Data_transport_t *_transport;
   dbBE_Redis_sr_buffer_t *_sender_buffer;
+  dbBE_Redis_namespace_list_t *_namespaces;
   int *_sender_connections;
   // sender/receiver threads
 

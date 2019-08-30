@@ -32,6 +32,7 @@ set(DB_BACKEND_TEST_SOURCES
 	backend_redis_locator_test.c
 	backend_redis_connection_test.c
 	backend_redis_conn_mgr_test.c
+	backend_redis_namespace_test.c
 	backend_redis_parse_test.c
 	backend_redis_create_test.c
 	backend_redis_test.c

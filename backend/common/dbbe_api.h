@@ -43,6 +43,8 @@
  */
 typedef void* dbBE_Handle_t;
 
+typedef void* dbBE_NS_Handle_t;
+
 /**
  *  @struct dbBE_sge_t dbbe_api.h "backend/common/dbbe_api.h"
  *
@@ -97,7 +99,7 @@ enum
 typedef struct dbBE_Request
 {
   dbBE_Opcode _opcode;         /**< operation code */
-  DBR_Name_t _ns_name;         /**< namespace name */
+  dbBE_NS_Handle_t _ns_hdl;    /**< namespace handle; to hold back-end context for namespaces */
   void *_user;                 /**< upper layer data, will not be touched by system lib */
   struct dbBE_Request *_next;  /**< next pointer for chaining */
   DBR_Group_t _group;          /**< group */
