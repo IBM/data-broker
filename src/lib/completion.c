@@ -73,8 +73,8 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
         break;
 
       case DBBE_OPCODE_DIRECTORY:
-        // good if the completion rc bytes is less or equal the size in SGEs
-        if( rsize < cpl->_rc )
+        // good if the completion rc bytes is less or equal the size in SGE[0] because other parts of the sge contain the count
+        if( req->_sge[0].iov_len < cpl->_rc )
           rc = DBR_ERR_UBUFFER;
         if( cpl->_status == DBR_SUCCESS )
         {

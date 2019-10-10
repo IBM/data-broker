@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018,2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,9 +41,12 @@ libdbrDirectory( DBR_Handle_t cs_handle,
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( cs->_reverse, DBR_ERR_TAGERROR );
 
-  dbBE_sge_t sge;
-  sge.iov_base = result_buffer;
-  sge.iov_len = size;
+  dbBE_sge_t sge[2];
+  sge[0].iov_base = result_buffer;
+  sge[0].iov_len = size;
+  // place the count argument into len of second sge
+  sge[1].iov_base = NULL;
+  sge[1].iov_len = count;
 
   DBR_Errorcode_t rc = DBR_SUCCESS;
   dbrRequestContext_t *ctx = dbrCreate_request_ctx( DBBE_OPCODE_DIRECTORY,
@@ -51,8 +54,8 @@ libdbrDirectory( DBR_Handle_t cs_handle,
                                                     group,
                                                     NULL,
                                                     DBR_GROUP_EMPTY,
-                                                    1,
-                                                    &sge,
+                                                    2,
+                                                    sge,
                                                     ret_size,
                                                     NULL,
                                                     match_template,
