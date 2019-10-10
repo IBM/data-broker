@@ -268,7 +268,7 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   // test a subsequent scan request with cursor
-  ureq->_key = "40";
+  req->_status.directory.scankey = strdup("40");
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
   rc += TEST_RC( dbBE_Redis_create_command_sge( req,
@@ -281,6 +281,7 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
 
   free( ureq->_match ); ureq->_match = NULL;
+  free( req->_status.directory.scankey );
   ureq->_key = "bla";
   dbBE_Redis_request_destroy( req );
 
