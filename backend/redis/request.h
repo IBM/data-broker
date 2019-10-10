@@ -34,6 +34,7 @@ typedef struct dbBE_Redis_intern_detach_data
 typedef struct dbBE_Redis_intern_directory_data
 {
   dbBE_Refcounter_t *reference;
+  char *scankey;
 } dbBE_Redis_intern_directory_data_t;
 
 typedef struct dbBE_Redis_intern_move_data

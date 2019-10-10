@@ -669,6 +669,7 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
             dbBE_Redis_request_t *scan = scan_list;
             scan_list = scan_list->_next;
 
+            scan->_status.directory.scankey = strdup("0");
             dbBE_Redis_request_stage_transition( scan );
             rc = dbBE_Redis_s2r_queue_push( post_queue, scan );
             if( rc != 0 )
@@ -707,10 +708,14 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
       int n;
       for( n=0; n<subresult->_data._array._len; ++n )
       {
+        if( subresult->_data._array._data[ n ]._data._string._data == NULL )
+          continue;
         char *key = strstr( subresult->_data._array._data[ n ]._data._string._data, DBBE_REDIS_NAMESPACE_SEPARATOR );
         if( key == NULL )
+        {
+          LOG( DBG_ERR, stderr, "no separator in this key, So it's not a proper DBR Key\n" );
           return return_error_clean_result( -EILSEQ, result );
-
+        }
         key += DBBE_REDIS_NAMESPACE_SEPARATOR_LEN;
 
         // We only support single-SGE requests for now, the check for single-SGE is done in the init-phase of the request
@@ -720,6 +725,11 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
           key = key-1;
           key[0] = '\n';
         }
+        // ignore uplicate key returned by SCAN
+#ifdef DBR_PREVENT_KEYDUPES
+        if( strstr( (char*)request->_user->_sge[0].iov_base, key ) != NULL )
+          continue;
+#endif
         ssize_t remaining = request->_user->_sge[0].iov_len - current_len;
         char *startloc = (char*)(request->_user->_sge[0].iov_base) + current_len;
         snprintf( startloc, remaining, "%s", key ); // append to the key list
@@ -732,7 +742,8 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         // it returned a valid cursor, so we have to send another scan request
         // todo: this is invalid behavior/hack... don't touch the user data
         // assign a user key because user key of user request is not use
-        request->_user->_key = strdup( subresult->_data._string._data );
+        free( request->_status.directory.scankey );
+        request->_status.directory.scankey = strdup( subresult->_data._string._data );
         // do not transition - this request needs to repeat, just with a new cursor
         dbBE_Redis_s2r_queue_push( post_queue, request );
         dbBE_Refcounter_up( request->_status.directory.reference );
@@ -741,6 +752,7 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
       }
       else
       {
+        free( request->_status.directory.scankey );
         // if there are other requests in flight, we can drop this one
         if( dbBE_Refcounter_get( request->_status.directory.reference ) != 0 )
         {
@@ -1199,6 +1211,9 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
       int n;
       for( n=0; n<subresult->_data._array._len; ++n )
       {
+        if( subresult->_data._array._data[ n ]._data._string._data == NULL )
+          continue;
+
         // place that user request into the deletion
         dbBE_Redis_request_t *delkey = dbBE_Redis_request_allocate( request->_user );
         if( ! delkey )
