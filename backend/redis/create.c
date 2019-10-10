@@ -230,6 +230,28 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
   return len;
 }
 
+#ifdef DBR_DEBUG_PROTOCOL
+static int Flatten_cmd_b( dbBE_sge_t *cmd, int cmdlen, dbBE_Redis_sr_buffer_t *dest )
+{
+  if(( cmd == NULL ) || ( cmdlen > DBBE_SGE_MAX ) || (cmdlen <= 0 ) || ( dest == NULL ))
+    return -EINVAL;
+
+  int n = 0;
+  dbBE_Transport_sr_buffer_reset( dest );
+  for( n = 0; n < cmdlen; ++n )
+  {
+    if( cmd[ n ].iov_base == NULL )
+      return -EBADMSG;
+    memcpy( dbBE_Transport_sr_buffer_get_available_position( dest ),
+            cmd[ n ].iov_base,
+            cmd[ n ].iov_len );
+    dbBE_Transport_sr_buffer_add_data( dest, cmd[ n ].iov_len, 1 );
+    *(dbBE_Transport_sr_buffer_get_available_position( dest )) = '\0'; // string termination (for debugging purposes only)
+  }
+  return 0;
+}
+#endif
+
 int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
                                    dbBE_Redis_sr_buffer_t *buf,
                                    dbBE_sge_t *cmd )
@@ -288,7 +310,13 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
                                                buf,
                                                cmd,
                                                &keysge,
-                                               request->_user->_key );
+                                               request->_status.directory.scankey );
+#ifdef DBR_DEBUG_PROTOCOL
+          dbBE_Redis_sr_buffer_t *cbuf = dbBE_Transport_sr_buffer_allocate( 1024 );
+          Flatten_cmd_b( cmd, rc, cbuf );
+          LOG( DBG_ALL, stderr, "SCANCMD:%s\n", dbBE_Transport_sr_buffer_get_start( cbuf ) );
+          dbBE_Transport_sr_buffer_free( cbuf );
+#endif
           break;
         }
         default:
