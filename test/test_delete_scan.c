@@ -106,8 +106,6 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( strchr( (char*)tbuf, '6' ), NULL );
   rc += TEST( rsize, 11 );
 
-  rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_LOCAL, 1000, tbuf, 1024, &rsize ), DBR_SUCCESS );
-
   free( tbuf );
 
   // delete the name space
@@ -132,12 +130,12 @@ int main( int argc, char ** argv )
 
 
   LOG( DBG_ALL, stderr, "Trying to get deleted values - this might take a while since every requste runs into timeout\n" );
-  rc += getValue( cs_hdl, "1" );
-  rc += getValue( cs_hdl, "2" );
-  rc += getValue( cs_hdl, "3" );
-  rc += getValue( cs_hdl, "4" );
-  rc += getValue( cs_hdl, "5" );
-  rc += getValue( cs_hdl, "6" );
+  rc += TEST_NOT( DBR_SUCCESS, dbrTestKey( cs_hdl, "1" ) );
+  rc += TEST_NOT( DBR_SUCCESS, dbrTestKey( cs_hdl, "2" ) );
+  rc += TEST_NOT( DBR_SUCCESS, dbrTestKey( cs_hdl, "3" ) );
+  rc += TEST_NOT( DBR_SUCCESS, dbrTestKey( cs_hdl, "4" ) );
+  rc += TEST_NOT( DBR_SUCCESS, dbrTestKey( cs_hdl, "5" ) );
+  rc += TEST_NOT( DBR_SUCCESS, dbrTestKey( cs_hdl, "6" ) );
 
   ret = dbrDelete( name );
   rc += TEST( DBR_SUCCESS, ret );
