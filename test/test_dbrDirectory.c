@@ -78,13 +78,6 @@ int main( int argc, char ** argv )
   key_data = generateLongMsg( DBR_SCAN_TEST_ITER + DBR_SCAN_TEST_KEYMAX );
   val_data = generateLongMsg( DBR_SCAN_TEST_ITER + DBR_SCAN_TEST_KEYMAX );
 
-  char *orig_val = getenv( DBR_TIMEOUT_ENV );
-  LOG( DBG_ALL, stderr, "Setting current timeout of %s to 2s to speed up the test\n", orig_val );
-  int env_overwrite = ! ( orig_val == NULL );
-
-  setenv( DBR_TIMEOUT_ENV, "1", env_overwrite );
-
-
   DBR_Name_t name = strdup("cstestname");
   DBR_Tuple_persist_level_t level = DBR_PERST_VOLATILE_SIMPLE;
   DBR_GroupList_t groups = 0;
@@ -128,9 +121,26 @@ int main( int argc, char ** argv )
       ++pos;
     ++n;
   }
-  rc += TEST( n, DBR_SCAN_TEST_ITER );
+  rc += TEST_NOT( n == DBR_SCAN_TEST_ITER, 0 );
   if( rc )
     LOG( DBG_ALL, stderr, "Returned only %d/%d\n", n, DBR_SCAN_TEST_ITER );
+
+  // limit the directory to half the number of keys
+  rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_EMPTY, DBR_SCAN_TEST_ITER >> 1,
+                            tbuf, DBR_SCAN_TEST_ITER * 32, &rsize ), DBR_SUCCESS );
+  n = 0;
+  pos = tbuf;
+  while( pos != NULL )
+  {
+    pos = strchr( pos, '\n' );
+    if( pos != NULL )
+      ++pos;
+    ++n;
+  }
+  rc += TEST_NOT( n == DBR_SCAN_TEST_ITER >> 1, 0 );
+  if( rc )
+    LOG( DBG_ALL, stderr, "Returned only %d/%d\n", n, DBR_SCAN_TEST_ITER );
+
 
   // delete the name space
   ret = dbrDelete( name );
@@ -140,11 +150,6 @@ int main( int argc, char ** argv )
 
 exit:
   free( name );
-  LOG( DBG_ALL, stderr, "Restoring env variable status\n" );
-  if( env_overwrite == 0 )
-    unsetenv( DBR_TIMEOUT_ENV );
-  else
-    setenv( DBR_TIMEOUT_ENV, orig_val, 1 );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

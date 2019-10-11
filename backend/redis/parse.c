@@ -658,7 +658,8 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         {
           // allocate a memory area to count inflight scans to know when the request is complete
           request->_status.directory.reference = dbBE_Refcounter_allocate();
-          if( request->_status.directory.reference == NULL )
+          request->_status.directory.keycount = dbBE_Refcounter_allocate();
+          if(( request->_status.directory.reference == NULL ) || ( request->_status.directory.keycount == NULL ))
           {
             rc = return_error_clean_result( -ENOMEM, result );
             break;
@@ -703,6 +704,8 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         break;
       }
 
+      int completed = 0;
+
       // parse the result array and accumulate the keys
       dbBE_Redis_result_t *subresult = &result->_data._array._data[1];
       int n;
@@ -730,14 +733,23 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
         if( strstr( (char*)request->_user->_sge[0].iov_base, key ) != NULL )
           continue;
 #endif
-        ssize_t remaining = request->_user->_sge[0].iov_len - current_len;
-        char *startloc = (char*)(request->_user->_sge[0].iov_base) + current_len;
-        snprintf( startloc, remaining, "%s", key ); // append to the key list
+//         are we finished by hitting the user-requested limit?
+        completed = ( dbBE_Refcounter_get( request->_status.directory.keycount ) >= request->_user->_sge[1].iov_len );
+
+        if( ! completed )
+        {
+          ssize_t remaining = request->_user->_sge[0].iov_len - current_len;
+          char *startloc = (char*)(request->_user->_sge[0].iov_base) + current_len;
+          snprintf( startloc, remaining, "%s", key ); // append to the key list
+          dbBE_Refcounter_up( request->_status.directory.keycount );
+        }
+        else
+          break;
       }
       // if cursor is not "0", then create another match request
       subresult = &result->_data._array._data[0];
-      if(( subresult->_data._string._size != 1 ) ||
-          ( subresult->_data._string._data[0] != '0' ))
+      completed |= (( subresult->_data._string._data[0] == '0' ) && ( subresult->_data._string._size == 1 ));
+      if( ! completed )
       {
         // it returned a valid cursor, so we have to send another scan request
         // todo: this is invalid behavior/hack... don't touch the user data
@@ -754,7 +766,7 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
       {
         free( request->_status.directory.scankey );
         // if there are other requests in flight, we can drop this one
-        if( dbBE_Refcounter_get( request->_status.directory.reference ) != 0 )
+        if( dbBE_Refcounter_get( request->_status.directory.reference ) > 0 )
         {
           dbBE_Redis_request_destroy( request );
           *in_out_request = NULL;
@@ -764,7 +776,9 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
           // completed: time to clean up the allocated mem structures
           dbBE_Redis_result_cleanup( result, 0 );  // clean up and set transferred size
           dbBE_Refcounter_destroy( request->_status.directory.reference );
+          dbBE_Refcounter_destroy( request->_status.directory.keycount );
           request->_status.directory.reference = NULL;
+          request->_status.directory.keycount = NULL;
           result->_type = dbBE_REDIS_TYPE_INT;
           result->_data._integer = strnlen( (char*)request->_user->_sge[0].iov_base, request->_user->_sge[0].iov_len );
           rc = 0;

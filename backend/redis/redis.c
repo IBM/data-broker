@@ -238,8 +238,11 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
         rc = EINVAL;
       break;
     case DBBE_OPCODE_DIRECTORY: // only single-SGE request supported by the RedisBE
-      if( request->_sge_count != 1 )
+      if( request->_sge_count != 2 )
         rc = ENOTSUP;
+      if(( request->_sge[0].iov_base == NULL ) || ( request->_sge[0].iov_len < 1 ) ||
+          ( request->_sge[1].iov_base != NULL ) || ( request->_sge[1].iov_len < 1 ))
+        rc = EINVAL;
       break;
     case DBBE_OPCODE_UNSPEC:
     case DBBE_OPCODE_CANCEL:
