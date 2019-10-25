@@ -27,6 +27,7 @@ include( ${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake )
 # test backend first
 set(DB_BACKEND_TEST_SOURCES
 	backend_transport_srbuffer_test.c
+	backend_transport_dbuffer_test.c
 	backend_transport_sge_buffer_test.c
 )
 

@@ -18,6 +18,9 @@
 #ifndef BACKEND_TRANSPORTS_SR_BUFFER_H_
 #define BACKEND_TRANSPORTS_SR_BUFFER_H_
 
+#include <stddef.h>
+#include <sys/types.h>
+
 /*
  * Send/Recv buffer for interaction with Redis
  *
@@ -45,6 +48,12 @@ typedef struct
  */
 dbBE_Redis_sr_buffer_t* dbBE_Transport_sr_buffer_allocate( const size_t size );
 
+/*
+ * initialize existing sr_buffer with size and memory location
+ */
+int dbBE_Transport_sr_buffer_initialize( dbBE_Redis_sr_buffer_t *sr_buf,
+                                         const size_t size,
+                                         char *buffer );
 /*
  * reset the stats of the send-receive buffer
  */
