@@ -15,40 +15,40 @@
  *
  */
 
+#include "transports/sge_buffer.h"
 #include "test_utils.h"
-#include "redis/cmd_buffer.h"
 
 int main( int argc, char **arcv )
 {
   int rc = 0;
 
-  dbBE_Redis_cmd_buffer_t *cmd = NULL;
+  dbBE_Transport_sge_buffer_t *cmd = NULL;
   dbBE_sge_t *pos = NULL;
 
-  rc += TEST_NOT_RC( dbBE_Redis_cmd_buffer_create(), NULL, cmd );
+  rc += TEST_NOT_RC( dbBE_Transport_sge_buffer_create(), NULL, cmd );
   rc += TEST( cmd->_index, 0 );
   rc += TEST( cmd->_cmd[0].iov_base, NULL );
   rc += TEST( cmd->_cmd[0].iov_len, 0 );
 
-  rc += TEST( dbBE_Redis_cmd_buffer_add( NULL, 0 ), DBBE_REDIS_CMD_INDEX_INVAL );
-  rc += TEST( dbBE_Redis_cmd_buffer_get_current( NULL ), NULL );
-  rc += TEST( dbBE_Redis_cmd_buffer_reset( NULL ), DBR_ERR_INVALID );
-  rc += TEST( dbBE_Redis_cmd_buffer_destroy( NULL ), DBR_ERR_INVALID );
+  rc += TEST( dbBE_Transport_sge_buffer_add( NULL, 0 ), DBBE_TRANSPORT_SGE_INDEX_INVAL );
+  rc += TEST( dbBE_Transport_sge_buffer_get_current( NULL ), NULL );
+  rc += TEST( dbBE_Transport_sge_buffer_reset( NULL ), DBR_ERR_INVALID );
+  rc += TEST( dbBE_Transport_sge_buffer_destroy( NULL ), DBR_ERR_INVALID );
 
-  rc += TEST( dbBE_Redis_cmd_buffer_add( cmd, DBBE_SGE_MAX+1 ), DBBE_REDIS_CMD_INDEX_INVAL );
+  rc += TEST( dbBE_Transport_sge_buffer_add( cmd, DBBE_SGE_MAX+1 ), DBBE_TRANSPORT_SGE_INDEX_INVAL );
 
-  rc += TEST_RC( dbBE_Redis_cmd_buffer_get_current( cmd ), cmd->_cmd, pos );
+  rc += TEST_RC( dbBE_Transport_sge_buffer_get_current( cmd ), cmd->_cmd, pos );
 
-  rc += TEST( dbBE_Redis_cmd_buffer_add( cmd, 5 ), 5 );
-  rc += TEST( dbBE_Redis_cmd_buffer_remain( cmd ), DBBE_SGE_MAX-5 );
-  rc += TEST( dbBE_Redis_cmd_buffer_get_current( cmd ), &cmd->_cmd[5] );
-  rc += TEST( dbBE_Redis_cmd_buffer_add( cmd, 7 ), 12 );
-  rc += TEST( dbBE_Redis_cmd_buffer_remain( cmd ), DBBE_SGE_MAX-12 );
+  rc += TEST( dbBE_Transport_sge_buffer_add( cmd, 5 ), 5 );
+  rc += TEST( dbBE_Transport_sge_buffer_remain( cmd ), DBBE_SGE_MAX-5 );
+  rc += TEST( dbBE_Transport_sge_buffer_get_current( cmd ), &cmd->_cmd[5] );
+  rc += TEST( dbBE_Transport_sge_buffer_add( cmd, 7 ), 12 );
+  rc += TEST( dbBE_Transport_sge_buffer_remain( cmd ), DBBE_SGE_MAX-12 );
 
-  rc += TEST( dbBE_Redis_cmd_buffer_reset( cmd ), DBR_SUCCESS );
-  rc += TEST( dbBE_Redis_cmd_buffer_get_current( cmd ), cmd->_cmd );
+  rc += TEST( dbBE_Transport_sge_buffer_reset( cmd ), DBR_SUCCESS );
+  rc += TEST( dbBE_Transport_sge_buffer_get_current( cmd ), cmd->_cmd );
 
-  rc += TEST( dbBE_Redis_cmd_buffer_destroy( cmd ), DBR_SUCCESS );
+  rc += TEST( dbBE_Transport_sge_buffer_destroy( cmd ), DBR_SUCCESS );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

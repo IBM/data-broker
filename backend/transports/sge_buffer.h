@@ -15,27 +15,30 @@
  *
  */
 
-#ifndef BACKEND_REDIS_CMD_BUFFER_H_
-#define BACKEND_REDIS_CMD_BUFFER_H_
+#ifndef BACKEND_TRANSPORTS_SGE_BUFFER_H_
+#define BACKEND_TRANSPORTS_SGE_BUFFER_H_
 
-#include "definitions.h"
 #include "common/dbbe_api.h"
 
 #include <stdlib.h> // calloc
 #include <string.h> // memset
 #include <limits.h> // UINT_MAX
 
-#define DBBE_REDIS_CMD_INDEX_INVAL ( UINT_MAX )
+#define DBBE_TRANSPORT_SGE_INDEX_INVAL ( UINT_MAX )
 
 typedef struct {
   dbBE_sge_t _cmd[ DBBE_SGE_MAX ];
   unsigned _index;
-} dbBE_Redis_cmd_buffer_t;
+} dbBE_Transport_sge_buffer_t;
+
+
+#define dbBE_Transport_sge_get( cbuf ) ( cbuf->_cmd )
+#define dbBE_Transport_sge_count( cbuf ) ( cbuf->_index )
 
 static inline
-dbBE_Redis_cmd_buffer_t* dbBE_Redis_cmd_buffer_create()
+dbBE_Transport_sge_buffer_t* dbBE_Transport_sge_buffer_create()
 {
-  dbBE_Redis_cmd_buffer_t *buf = (dbBE_Redis_cmd_buffer_t*)calloc( 1, sizeof( dbBE_Redis_cmd_buffer_t ));
+  dbBE_Transport_sge_buffer_t *buf = (dbBE_Transport_sge_buffer_t*)calloc( 1, sizeof( dbBE_Transport_sge_buffer_t ));
   if( buf == NULL )
     return NULL;
 
@@ -43,18 +46,18 @@ dbBE_Redis_cmd_buffer_t* dbBE_Redis_cmd_buffer_create()
 }
 
 static inline
-DBR_Errorcode_t dbBE_Redis_cmd_buffer_destroy( dbBE_Redis_cmd_buffer_t *cbuf )
+DBR_Errorcode_t dbBE_Transport_sge_buffer_destroy( dbBE_Transport_sge_buffer_t *cbuf )
 {
   if( cbuf == NULL )
     return DBR_ERR_INVALID;
 
-  memset( cbuf, 0, sizeof( dbBE_Redis_cmd_buffer_t ) );
+  memset( cbuf, 0, sizeof( dbBE_Transport_sge_buffer_t ) );
   free( cbuf );
   return DBR_SUCCESS;
 }
 
 static inline
-dbBE_sge_t* dbBE_Redis_cmd_buffer_get_current( dbBE_Redis_cmd_buffer_t *cbuf )
+dbBE_sge_t* dbBE_Transport_sge_buffer_get_current( dbBE_Transport_sge_buffer_t *cbuf )
 {
   if( cbuf == NULL )
     return NULL;
@@ -62,31 +65,43 @@ dbBE_sge_t* dbBE_Redis_cmd_buffer_get_current( dbBE_Redis_cmd_buffer_t *cbuf )
 }
 
 static inline
-unsigned dbBE_Redis_cmd_buffer_remain( dbBE_Redis_cmd_buffer_t *cbuf )
+unsigned dbBE_Transport_sge_buffer_remain( dbBE_Transport_sge_buffer_t *cbuf )
 {
   if( cbuf == NULL )
-    return DBBE_REDIS_CMD_INDEX_INVAL;
+    return DBBE_TRANSPORT_SGE_INDEX_INVAL;
   return DBBE_SGE_MAX - cbuf->_index;
 }
 
 static inline
-unsigned dbBE_Redis_cmd_buffer_add( dbBE_Redis_cmd_buffer_t *cbuf, const unsigned addition )
+unsigned dbBE_Transport_sge_buffer_add( dbBE_Transport_sge_buffer_t *cbuf, const unsigned addition )
 {
   if( cbuf == NULL )
-    return DBBE_REDIS_CMD_INDEX_INVAL;
+    return DBBE_TRANSPORT_SGE_INDEX_INVAL;
   if( cbuf->_index + addition > DBBE_SGE_MAX )
-    return DBBE_REDIS_CMD_INDEX_INVAL;
+    return DBBE_TRANSPORT_SGE_INDEX_INVAL;
   cbuf->_index += addition;
   return cbuf->_index;
 }
 
 static inline
-DBR_Errorcode_t dbBE_Redis_cmd_buffer_reset( dbBE_Redis_cmd_buffer_t *cbuf )
+DBR_Errorcode_t dbBE_Transport_sge_buffer_reset( dbBE_Transport_sge_buffer_t *cbuf )
 {
   if( cbuf == NULL )
     return DBR_ERR_INVALID;
-  memset( cbuf, 0, sizeof( dbBE_Redis_cmd_buffer_t ) );
+  memset( cbuf, 0, sizeof( dbBE_Transport_sge_buffer_t ) );
   return DBR_SUCCESS;
 }
 
-#endif /* BACKEND_REDIS_CMD_BUFFER_H_ */
+static inline
+size_t dbBE_Transport_sge_buffer_get_size( dbBE_Transport_sge_buffer_t *cbuf )
+{
+  if( cbuf == NULL )
+    return 0;
+  int i;
+  size_t len = 0;
+  for( i = cbuf->_index-1; i>=0; --i )
+    len += cbuf->_cmd[ i ].iov_len;
+  return len;
+}
+
+#endif /* BACKEND_TRANSPORTS_SGE_BUFFER_H_ */
