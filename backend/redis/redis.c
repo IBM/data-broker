@@ -145,8 +145,16 @@ dbBE_Handle_t Redis_initialize(void)
 
   context->_sender_connections = sender_conns;
 
+  dbBE_Data_transport_t *transport = &dbBE_Smallcopy_transport;
+  context->_transport = transport;
+
+  // create config
+  dbBE_Redis_conn_mgr_config_t config;
+  config._rbuf_len = transport->_recv_buffer_len;
+  config._sbuf_len = transport->_send_buffer_len;
+
   // create connection mgr
-  dbBE_Redis_connection_mgr_t *conn_mgr = dbBE_Redis_connection_mgr_init();
+  dbBE_Redis_connection_mgr_t *conn_mgr = dbBE_Redis_connection_mgr_init( &config );
   if( conn_mgr == NULL )
   {
     LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to initialize connection mgr.\n" );
@@ -156,12 +164,8 @@ dbBE_Handle_t Redis_initialize(void)
 
   context->_conn_mgr = conn_mgr;
 
-
   // initialize an empty list of namespaces
   context->_namespaces = NULL;
-
-  dbBE_Data_transport_t *transport = &dbBE_Memcopy_transport;
-  context->_transport = transport;
 
   if( dbBE_Redis_connect_initial( context ) != 0 )
   {

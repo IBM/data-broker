@@ -108,9 +108,12 @@ int main( int argc, char ** argv )
   flimit = ( (int64_t)sh_limit.rlim_cur <= flimit + 10 ) ? (int64_t)sh_limit.rlim_cur - 10 : flimit;
   LOG( DBG_ALL, stdout, "Connections limited to #%"PRId64"\n", flimit );
 
+  dbBE_Redis_conn_mgr_config_t config;
+  config._rbuf_len = 16384;
 
   rc += TEST_NOT_RC( dbBE_Redis_locator_create(), NULL, locator );
-  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_init(), NULL, mgr );
+  rc += TEST( dbBE_Redis_connection_mgr_init( NULL ), NULL );
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_init( &config ), NULL, mgr );
 
   rc += TEST( dbBE_Redis_connection_mgr_add( mgr, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_mgr_rm( mgr, NULL ), -EINVAL );
@@ -129,7 +132,11 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_mgr_retrieve_info( NULL, NULL, NULL, DBBE_INFO_CATEGORY_UNSPECIFIED ), NULL );
   rc += TEST( dbBE_Redis_connection_mgr_retrieve_info( mgr, NULL, NULL, DBBE_INFO_CATEGORY_UNSPECIFIED ), NULL );
   rc += TEST( dbBE_Redis_connection_mgr_retrieve_info( mgr, conn, NULL, DBBE_INFO_CATEGORY_UNSPECIFIED ), NULL );
-  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_info( mgr, conn, conn->_recvbuf, DBBE_INFO_CATEGORY_CLUSTER_SLOTS ), NULL, result );
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_info( mgr,
+                                                              conn,
+                                                              dbBE_Transport_dbuffer_get_active( conn->_recvbuf ),
+                                                              DBBE_INFO_CATEGORY_CLUSTER_SLOTS ),
+                     NULL, result );
 
   // split path to handle single node and cluster mode situations
   if( result->_type == dbBE_REDIS_TYPE_ARRAY )
@@ -142,7 +149,11 @@ int main( int argc, char ** argv )
 
   TEST_BREAK( rc, "Cluster Info creation failed" );
 
-  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_info( mgr, conn, conn->_recvbuf, DBBE_INFO_CATEGORY_ROLE ), NULL, result );
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_retrieve_info( mgr,
+                                                              conn,
+                                                              dbBE_Transport_dbuffer_get_active( conn->_recvbuf ),
+                                                              DBBE_INFO_CATEGORY_ROLE ),
+                     NULL, result );
   rc += TEST( result->_type, dbBE_REDIS_TYPE_ARRAY );
   rc += ( result->_data._array._len >= 3 ) ? 0 : 1;
 

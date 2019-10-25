@@ -58,7 +58,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   dbBE_Transport_dbuffer_t *recvb = NULL;
   dbBE_Transport_sge_buffer_t *cmd = NULL;
 
-  dbBE_Data_transport_device_t *send_tr = dbBE_Memcopy_transport.create();
+  dbBE_Data_transport_t *send_tr = &dbBE_Smallcopy_transport;
   if( send_tr == NULL )
   {
     rc = ENOMEM;

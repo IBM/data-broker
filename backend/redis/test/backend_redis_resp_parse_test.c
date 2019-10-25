@@ -160,13 +160,19 @@ int TestNSDetach( const char *namespace,
   dbBE_Redis_request_t *req_io = dbBE_Redis_request_allocate( req->_user );
 
   // create a dummy connection mgr (for scan)
-  dbBE_Redis_connection_mgr_t *cmr = dbBE_Redis_connection_mgr_init();
+  dbBE_Redis_connection_mgr_t *cmr;
+  dbBE_Redis_conn_mgr_config_t config;
+  config._rbuf_len = 1024;
+  config._sbuf_len = 1024;
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_init( &config ), NULL, cmr );
 
   // create a fake valid connection to allow the delete scan to start
-  dbBE_Redis_connection_t *conn = dbBE_Redis_connection_create( 1024 );
+  dbBE_Redis_connection_t *conn;
+  rc += TEST_NOT_RC( dbBE_Redis_connection_create( 1024 ), NULL, conn );
   conn->_socket = socket( AF_INET, SOCK_STREAM, 0 );
   conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
-  dbBE_Redis_connection_mgr_add( cmr, conn );
+  rc += TEST( dbBE_Redis_connection_mgr_add( cmr, conn ), 0 );
+  TEST_BREAK( rc, "Conn/ConnMgr setup already failed, can't continue\n" );
 
   // create a dummy request queue (for del)
   dbBE_Redis_s2r_queue_t *post_queue = dbBE_Redis_s2r_queue_create( 12 );
@@ -443,6 +449,8 @@ int TestRead( const char *namespace,
   TEST_BREAK( rc, "NULL-ptr request in TestNSCreate()." );
 
   dbBE_Data_transport_t *transport = &dbBE_Memcopy_transport;
+  dbBE_Redis_connection_t *connection = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_connection_create(1024), NULL, connection );
 
   // create return data struct to test result (LINDEX/LPOP)
   // returns number of entries in list (integer)
@@ -461,6 +469,8 @@ int TestRead( const char *namespace,
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
   rc += TEST( dbBE_Redis_process_get( req, &result, transport ), 0 );
 
+
+  dbBE_Redis_connection_destroy( connection );
   return rc;
 }
 
@@ -484,13 +494,19 @@ int TestDirectory( const char *namespace,
   dbBE_Data_transport_t *transport = &dbBE_Memcopy_transport;
 
   // create a dummy connection mgr (for scan)
-  dbBE_Redis_connection_mgr_t *cmr = dbBE_Redis_connection_mgr_init();
+  dbBE_Redis_connection_mgr_t *cmr;
+  dbBE_Redis_conn_mgr_config_t config;
+  config._rbuf_len = 1024;
+  config._sbuf_len = 1024;
+  rc += TEST_NOT_RC( dbBE_Redis_connection_mgr_init( &config ), NULL, cmr );
 
   // create a fake valid connection to allow the delete scan to start
-  dbBE_Redis_connection_t *conn = dbBE_Redis_connection_create( 1024 );
+  dbBE_Redis_connection_t *conn;
+  rc += TEST_NOT_RC( dbBE_Redis_connection_create( 1024 ), NULL, conn );
   conn->_socket = socket( AF_INET, SOCK_STREAM, 0 );
   conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
-  dbBE_Redis_connection_mgr_add( cmr, conn );
+  rc += TEST( dbBE_Redis_connection_mgr_add( cmr, conn ), 0 );
+  TEST_BREAK( rc, "Conn/ConnMgr init already failed. Can't continue\n" );
 
   // create a dummy request queue (for del)
   dbBE_Redis_s2r_queue_t *post_queue = dbBE_Redis_s2r_queue_create( 12 );

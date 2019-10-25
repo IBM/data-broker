@@ -38,10 +38,17 @@ typedef enum
 
 typedef struct
 {
+  size_t _rbuf_len; ///< length of receive buffer for new connections
+  size_t _sbuf_len; ///< length of send buffer for new connections
+} dbBE_Redis_conn_mgr_config_t;
+
+typedef struct
+{
   // connection list
   dbBE_Redis_connection_t *_connections[ DBBE_REDIS_MAX_CONNECTIONS ];
   dbBE_Redis_connection_t *_broken[ DBBE_REDIS_MAX_CONNECTIONS ];
   dbBE_Redis_address_t *_local; // used to determine local vs. remote connections
+  const dbBE_Redis_conn_mgr_config_t *_config;
   //  pthread_mutex_lock_t _lock;
 
   int _connection_count;
@@ -56,7 +63,7 @@ typedef struct
 /*
  * initialize the connection mgr
  */
-dbBE_Redis_connection_mgr_t* dbBE_Redis_connection_mgr_init();
+dbBE_Redis_connection_mgr_t* dbBE_Redis_connection_mgr_init( const dbBE_Redis_conn_mgr_config_t *config );
 
 /*
  * cleanup the connection_mgr
