@@ -152,6 +152,7 @@ int TestRedis_extract_bulk_string()
   int rc = 0;
   size_t len;
   size_t parsed;
+  size_t total = 0;
 
   char *buffer = (char*)malloc( DBBE_TEST_BUFFER_LEN );
   if( buffer == NULL )
@@ -163,7 +164,7 @@ int TestRedis_extract_bulk_string()
   len = TestReset_buffer( buffer, "5\r\nabcde\r\n" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), 5 );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), 5 );
   string[ 5 ] = '\0';
   rc += TEST( strncmp( string, "abcde", DBBE_TEST_BUFFER_LEN) , 0 );
   rc += TEST( parsed, len );
@@ -172,7 +173,7 @@ int TestRedis_extract_bulk_string()
   len = TestReset_buffer( buffer, "4\r\nabcde\r\n" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), 5 );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), 5 );
   string[ 5 ] = '\0';
   rc += TEST( strncmp( string, "abcde", DBBE_TEST_BUFFER_LEN) , 0 );
   rc += TEST( parsed, len );
@@ -181,7 +182,7 @@ int TestRedis_extract_bulk_string()
   len = TestReset_buffer( buffer, "-1\r\n" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), 0 );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), 0 );
   rc += TEST( string, NULL );
   rc += TEST( parsed, len );
 
@@ -189,7 +190,7 @@ int TestRedis_extract_bulk_string()
   len = TestReset_buffer( buffer, "-5\r\nabcde\r\n" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EPROTO );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EPROTO );
   rc += TEST( string, buffer );
   rc += TEST( parsed, len );
 
@@ -197,7 +198,7 @@ int TestRedis_extract_bulk_string()
   len = TestReset_buffer( buffer, "5\r\nabcdefgh" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EPROTO );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EPROTO );
   rc += TEST( strncmp( string, "abcdefgh", DBBE_TEST_BUFFER_LEN) , 0 );
   rc += TEST( parsed, len );
 
@@ -205,7 +206,7 @@ int TestRedis_extract_bulk_string()
   len = TestReset_buffer( buffer, "abcdefgh\r\n" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EPROTO );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EPROTO );
   rc += TEST( string, buffer );
   rc += TEST( parsed, len );
 
@@ -214,61 +215,121 @@ int TestRedis_extract_bulk_string()
   len = TestReset_buffer( buffer, "10" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EAGAIN );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EAGAIN );
   rc += TEST( string, buffer );
   rc += TEST( parsed, 0 );
 
   len = TestReset_buffer( buffer, "10\r" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EAGAIN );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EAGAIN );
   rc += TEST( string, buffer );
   rc += TEST( parsed, 0 );
 
+  // partial retrieve without expected total length
   len = TestReset_buffer( buffer, "10\r\n" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EAGAIN );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EAGAIN );
   rc += TEST( string, buffer );
   rc += TEST( parsed, 0 );
 
   len = TestReset_buffer( buffer, "10\r\nHello" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EAGAIN );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EAGAIN );
   rc += TEST( string, buffer );
   rc += TEST( parsed, 0 );
 
   len = TestReset_buffer( buffer, "10\r\nHelloWorld" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EAGAIN );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EAGAIN );
   rc += TEST( string, buffer );
   rc += TEST( parsed, 0 );
 
   len = TestReset_buffer( buffer, "10\r\nHelloWorld\r" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), -EAGAIN );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), -EAGAIN );
   rc += TEST( string, buffer );
   rc += TEST( parsed, 0 );
 
   len = TestReset_buffer( buffer, "10\r\nHelloWorldX\r\n" );
   string = buffer;
   parsed = 0;
-  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len ), 11 );
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, NULL ), 11 );
   string[ 11 ] = '\0';
   rc += TEST( strncmp( string, "HelloWorldX", DBBE_TEST_BUFFER_LEN) , 0 );
   rc += TEST( parsed, len );
 
 
+  // partial retrieve with expected total length
+  len = TestReset_buffer( buffer, "10\r\n" );
+  string = buffer;
+  parsed = 0;
+  total = 0;
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, &total ), -EOVERFLOW );
+  rc += TEST( string, buffer+parsed );
+  rc += TEST( parsed, 4 );
+  rc += TEST( total, 10 );
+
+  len = TestReset_buffer( buffer, "10\r\nHello" );
+  string = buffer;
+  parsed = 0;
+  total = 0;
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, &total ), -EOVERFLOW );
+  rc += TEST( string, buffer+4 );
+  rc += TEST( parsed, 4 );
+  rc += TEST( total, 10 );
+
+  len = TestReset_buffer( buffer, "10\r\nHelloWorld" );
+  string = buffer;
+  parsed = 0;
+  total = 0;
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, &total ), -EAGAIN );
+  rc += TEST( string, buffer );
+  rc += TEST( parsed, 0 );
+  rc += TEST( total, 0 );
+
+  len = TestReset_buffer( buffer, "10\r\nHelloWorld\r" );
+  string = buffer;
+  parsed = 0;
+  total = 0;
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, &total ), -EAGAIN );
+  rc += TEST( string, buffer );
+  rc += TEST( parsed, 0 );
+  rc += TEST( total, 0 );
+
+  len = TestReset_buffer( buffer, "10\r\nHelloWorldX\r\n" );
+  string = buffer;
+  parsed = 0;
+  total = 0;
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, &total ), 11 );
+  string[ 11 ] = '\0';
+  rc += TEST( strncmp( string, "HelloWorldX", DBBE_TEST_BUFFER_LEN) , 0 );
+  rc += TEST( parsed, len );
+  rc += TEST( total, 0 );
+
+  // check if subsequent protocol items are ignored
+  len = TestReset_buffer( buffer, "10\r\nHelloWorld\r\n:2\r\n" );
+  string = buffer;
+  parsed = 0;
+  total = 0;
+  rc += TEST( dbBE_Redis_extract_bulk_string( &string, &parsed, len, &total ), 10 );
+  string[ 10 ] = '\0';
+  rc += TEST( strncmp( string, "HelloWorld", DBBE_TEST_BUFFER_LEN) , 0 );
+  rc += TEST( string, buffer+4 );
+  rc += TEST( parsed, 16 );
+  rc += TEST( total, 0 );
 
 
-  rc += TEST( dbBE_Redis_extract_bulk_string( &buffer, NULL, len ), -EINVAL );
+
+  rc += TEST( dbBE_Redis_extract_bulk_string( &buffer, NULL, len, NULL ), -EINVAL );
   free( buffer );
   buffer = NULL;
-  rc += TEST( dbBE_Redis_extract_bulk_string( NULL, NULL, len ), -EINVAL );
-  rc += TEST( dbBE_Redis_extract_bulk_string( NULL, &parsed, len ), -EINVAL );
+  rc += TEST( dbBE_Redis_extract_bulk_string( NULL, NULL, len, NULL ), -EINVAL );
+  rc += TEST( dbBE_Redis_extract_bulk_string( NULL, &parsed, len, NULL ), -EINVAL );
 
   printf( "TestRedis_extract_bulk_string exiting with rc=%d\n", rc );
   return rc;
@@ -456,10 +517,10 @@ int TestRedis_parse_ctx_buffer_errors()
   // parse an unterminated string
   len = TestReset_sr_buffer( sr_buf, "$40\r\nHello W" );
   err_code = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
-  rc += TEST( err_code, -EAGAIN );
-  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ), dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
+  rc += TEST( err_code, 0 );
+  rc += TEST( dbBE_Transport_sr_buffer_get_start( sr_buf ) + len, dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
   rc += TEST( dbBE_Transport_sr_buffer_available( sr_buf ), len );
-  rc += TEST( dbBE_Transport_sr_buffer_processed( sr_buf ), 0 );
+  rc += TEST( dbBE_Transport_sr_buffer_processed( sr_buf ), len );
 
 
   // parse an incomplete error msg

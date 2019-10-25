@@ -34,6 +34,7 @@
 #include "../../src/libdatabroker_int.h"
 #include "result.h"
 #include "parse.h"
+#include "connection.h"
 
 
 // length of the ASK response including the trailing space
@@ -167,7 +168,7 @@ char* dbBE_Redis_find_terminator( char *haystack, const int64_t limit )
   return NULL;
 }
 
-int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t limit )
+int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t limit, size_t *actual_size )
 {
   if(( p == NULL ) || ( *p == NULL ) || ( parsed == NULL ) || ( limit <= 0 ))
   {
@@ -179,8 +180,7 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
   int64_t exp_len = dbBE_Redis_extract_integer( *p, &processed, limit );
 
   // check for incomplete data
-  if( (( exp_len == -EAGAIN ) && ( processed == 0 )) ||
-      ( exp_len >= limit - (int64_t)processed ) )
+  if(( exp_len == -EAGAIN ) && ( processed == 0 ))
    {
     *parsed = 0;
     return -EAGAIN;
@@ -202,7 +202,25 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
     return -EPROTO;
   }
 
+  LOG( DBG_TRACE, stderr, "Parsing p/string length: %ld; avail: %ld\n", exp_len, limit );
+
   char *string = ( *p + processed );
+
+  // available data is less than expected length plus termination: includes string-head-only case
+  if(( exp_len >= limit - (int64_t)processed ))
+  {
+    // caller not interested in partial strings or we're just missing the terminator: EAGAIN
+    if(( actual_size == NULL ) || ( exp_len == limit - (int64_t)processed ))
+    {
+      *parsed = 0;
+      return -EAGAIN;
+    }
+
+    *parsed = processed;
+    *p = string;
+    *actual_size = exp_len;
+    return -EOVERFLOW;
+  }
 
   // check for incomplete data with only the \n missing
   if( ( string[exp_len] == '\r' ) && ( exp_len + 1 == limit - (int64_t)processed ) )
@@ -215,7 +233,7 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
   // check the terminator
   if(( string[exp_len] != '\r' ) || ( string[exp_len+1] != '\n' ))
   {
-    LOG( DBG_ERR, stderr, "Terminator not in expected place: exp=%"PRId64"; lim=%"PRId64"; prcssd=%zd; %x %x|%x %x %x\n",
+    LOG( DBG_ERR, stderr, "Bulk String Terminator not in expected place: exp=%"PRId64"; lim=%"PRId64"; prcssd=%zd; %x %x|%x %x %x\n",
          exp_len, limit, processed, string[exp_len-2], string[exp_len-1], string[exp_len], string[exp_len+1], string[exp_len+2] );
     // if the terminator is not in the expected place, try to parse for the terminator and adjust or fail if terminator is not found
     char *terminator = dbBE_Redis_find_terminator( string, limit - processed );
@@ -370,21 +388,42 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     case '$': // parse a bulk string
     {
       char *str = p;
-      len = dbBE_Redis_extract_bulk_string( &str, &parsed, available );
+      size_t actual = 0;
+      len = dbBE_Redis_extract_bulk_string( &str, &parsed, available, &actual );
       if( len >= 0 )
       {
         result->_data._string._data = str;
         result->_data._string._size = len;
         result->_type = dbBE_REDIS_TYPE_CHAR;
       }
-      else if( len == -EAGAIN )
-        rc = -EAGAIN;
       else
       {
-        rc = -EBADMSG;
-        result->_type = dbBE_REDIS_TYPE_INVALID;
+        switch( len )
+        {
+          case -EAGAIN:
+            rc = -EAGAIN;
+            break;
+          case -EOVERFLOW:
+            // prevent partial strings in arrays
+            if( toplevel == 0 )
+            {
+              rc = -EAGAIN;
+              break;
+            }
+            // partial string received:
+            result->_type = dbBE_REDIS_TYPE_STRING_PART;
+            result->_data._pstring._total_size = actual;
+            result->_data._pstring._data = str;
+            result->_data._pstring._size = available - parsed;
+            parsed = available; // make sure the remaining bytes of the string are considered as parsed
+            rc = 0;
+            break;
+          default:
+            rc = -EBADMSG;
+            result->_type = dbBE_REDIS_TYPE_INVALID;
+        }
       }
-
+      LOG( DBG_TRACE, stderr, "Bulkstring extraction: type=%d\n", result->_type );
       break;
     }
 
@@ -427,7 +466,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     }
     default:
       // this is a parsing error
-      fprintf( stderr, "DataBroker library error: Redis response parser: Protocol error.\n" );
+      fprintf( stderr, "DataBroker library error: Redis response parser: Protocol error. t=%c\n", type );
       result->_type = dbBE_REDIS_TYPE_INVALID;
       rc = -EPROTO;
   }

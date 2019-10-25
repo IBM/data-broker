@@ -115,8 +115,8 @@ int Redis_insert_to_sr_buffer( dbBE_Redis_sr_buffer_t *sr_buf, dbBE_REDIS_DATA_T
     case dbBE_REDIS_TYPE_CHAR: ///< character/string
       data_len = Redis_insert_bulk_string( writepos, data->_string._data );
       break;
-    case dbBE_REDIS_TYPE_STRING_HEAD:
-      data_len = Redis_insert_bulk_string_head( writepos, data->_integer );
+    case dbBE_REDIS_TYPE_STRING_PART:
+      data_len = Redis_insert_bulk_string_head( writepos, data->_pstring._total_size );
       break;
     case dbBE_REDIS_TYPE_RAW:
       data_len = Redis_insert_raw( writepos, data->_string._data, data->_string._size );
