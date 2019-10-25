@@ -56,13 +56,8 @@
 #define DBBE_REDIS_HASH_SLOT_MAX ( 16384 )
 
 
-/*
- * max number of SGEs in assembled redis commands (IOV_MAX replacement)
- */
-#define DBBE_SGE_MAX ( 256 )
 
-
-#define DBBE_REDIS_COALESCED_MAX ( 16 )
+#define DBBE_REDIS_COALESCED_MAX ( 32 )
 
 /*
  * result type returned when parsing a Redis recv buffer
