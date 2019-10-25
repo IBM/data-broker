@@ -31,10 +31,12 @@
 #include <inttypes.h>
 
 #include "dbbe_api.h"
+#include "transports/sge_buffer.h"
+
 
 
 /**
- * @typedef dbBE_Data_transport_device_t
+ * @typedef dbBE_Data_transport_endpoint_t
  * @brief   generalized ptr to a device structure to handle data transport
  *
  * A transport device handle to hold information about the transport
@@ -46,7 +48,33 @@
  * accelerator.
  *
  */
-typedef void* dbBE_Data_transport_device_t;
+typedef void* dbBE_Data_transport_endpoint_t;
+
+
+/**
+ * @typedef  dbBE_Data_send_cb
+ * @brief    callback function required to be provided by a transport endpoint
+ *
+ * This callback will be called when gather() is called.
+ * Depending on the transport implementation, the callback is required to
+ * provide SGE handling capabilities based on the input SGE.
+ */
+typedef ssize_t (*dbBE_Data_send_cb)( dbBE_Data_transport_endpoint_t*, dbBE_Transport_sge_buffer_t* );
+
+/**
+ * @typedef dbBE_Data_recv_cb
+ * @brief   callback function required to be provided by a transport endpoint
+ *
+ * This callback will be called when scatter() is called and the available input
+ * suggests that only partial data has been received previously.
+ * Depending on the transport implementation, the callback is required to
+ * provide SGE handling capabilities based on the input SGE.
+ *
+ * @param[in]  void*    Transport endpoint like (connection, membuffer, queue pair, etc)
+ * @param[in]  sge*     destination SGE where to place the data
+ * @param[in]  count    number of destination SGEs
+ */
+typedef ssize_t (*dbBE_Data_recv_cb)( dbBE_Data_transport_endpoint_t*, dbBE_Transport_sge_buffer_t* );
 
 /**
  * @struct dbBE_Data_transport data_transport.h backend/common/data_transport.h
@@ -60,16 +88,11 @@ typedef void* dbBE_Data_transport_device_t;
  */
 typedef struct dbBE_Data_transport
 {
-  /**
-   * @brief create and initialize a transport device
-   *
-   */
-  dbBE_Data_transport_device_t* (*create)( void );
+  dbBE_Transport_sge_buffer_t _sSGE;  // transport-owned send SGE; use as pre-allocated SGE at your service
+  dbBE_Transport_sge_buffer_t _rSGE;  // transport-owned recv SGE; use as pre-allocated SGE at your service
 
-  /**
-   * @brief destroy a transport device
-   */
-  int (*destroy)( dbBE_Data_transport_device_t *);
+  size_t _recv_buffer_len; ///< default/recommended size of buffer for data retrieval
+  size_t _send_buffer_len; ///< default/recommended size of buffer for sending data
 
   /**
    * @brief  data gathering function
@@ -85,7 +108,7 @@ typedef struct dbBE_Data_transport
    * @return 0 on success and non-zero on error, indicating the condition
    *
    */
-  int64_t (*gather)( dbBE_Data_transport_device_t*, // destination device definition
+  int64_t (*gather)( dbBE_Data_transport_endpoint_t*, // destination device definition
       size_t,  // destination space limit
       int,     // number of SG elements
       dbBE_sge_t* );  // SGE definitions
@@ -98,18 +121,23 @@ typedef struct dbBE_Data_transport
    * to the SGE locations specified by the user
    * the scattering is limited by the sizes of the defined SGEs and
    * the amount of input data.
+   * The device is required to provide a recv() call that supports SGEs.
+   * The recv() call is called to retrieve potentially not-yet-received data
    *
-   * @param [in] device     ptr to the device information to handle the gather process
-   * @param [in] size       amount of available source data
-   * @param [in] sge_count  number of elements in the SGE list
-   * @param [in] SGE_list   scatter-gather list
+   * @param [in] device     ptr to the device information to handle the gather process (requires a recv() callback that supports SGE)
+   * @param [in] recv_cb    callback function of the device to retrieve additional data (requires support for SGEs)
+   * @param [in] size       total amount of available source data
+   * @param [in] sge_count  number of elements in the user/destination SGE list
+   * @param [in] SGE_list   user/destination scatter-gather list
    *
    * @return 0 on success and non-zero on error, indicating the condition
    */
-  int64_t (*scatter)( dbBE_Data_transport_device_t*,   // source device definition
-      size_t,  // source space limit
-      int,     // number of SG elements
-      dbBE_sge_t* );  // SGE definitions
+  int64_t (*scatter)( dbBE_Data_transport_endpoint_t*, // device (connection, buffer, queue pair, ...) to use for the callback
+      dbBE_Data_recv_cb,   // callback function to use for receiving more data (SGE capability)
+      dbBE_sge_t*, // (single sge) partially existing data (not required to get from transport device
+      size_t,  // total amount of expected source data
+      int,     // number of destination SG elements
+      dbBE_sge_t* );  // target/user SGE definitions
 
 } dbBE_Data_transport_t;
 
@@ -118,5 +146,6 @@ typedef struct dbBE_Data_transport
  */
 
 #include "transports/memcopy.h"
+#include "transports/smallcopy.h"
 
 #endif /* BACKEND_COMMON_DATA_TRANSPORT_H_ */

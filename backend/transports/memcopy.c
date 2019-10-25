@@ -32,38 +32,15 @@
 
 
 dbBE_Data_transport_t dbBE_Memcopy_transport =
-    { .create = dbBE_Transport_memory_create,
-      .destroy = dbBE_Transport_memory_destroy,
-      .gather  = dbBE_Transport_memory_gather,
-      .scatter = dbBE_Transport_memory_scatter
+    { .gather  = dbBE_Transport_memory_gather,
+      .scatter = dbBE_Transport_memory_scatter,
+      ._recv_buffer_len = DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN,
+      ._send_buffer_len = 16384
     };
 
-typedef void* dbBE_Data_transport_memory_dev_t;
+typedef char* dbBE_Data_transport_memory_dev_t;
 
-dbBE_Data_transport_device_t* dbBE_Transport_memory_create()
-{
-  dbBE_Data_transport_memory_dev_t *dev = (dbBE_Data_transport_memory_dev_t*)malloc( DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN );
-
-  if( dev == NULL )
-    goto error;
-
-  return (dbBE_Data_transport_device_t*)dev;
-
-error:
-  if( dev != NULL ) free( dev );
-  return NULL;
-}
-
-int dbBE_Transport_memory_destroy( dbBE_Data_transport_device_t *dev )
-{
-  if( dev != NULL )
-  {
-    memset( dev, 0, sizeof( DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN ) );
-    free( dev );
-  }
-  return 0;
-}
-int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* dev,
+int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_endpoint_t* dev,
                                       size_t len,
                                       int sge_count,
                                       dbBE_sge_t *sge )
@@ -89,17 +66,22 @@ int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* dev,
   return (int64_t)len - remain;
 }
 
-int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_device_t* dev,
-                                       size_t len,
+int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_endpoint_t* dev,
+                                       dbBE_Data_recv_cb recv,
+                                       dbBE_sge_t *partial,
+                                       size_t total,
                                        int sge_count,
                                        dbBE_sge_t *sge)
 {
-  int64_t remain = (int64_t)len;
-  if(( dev == NULL ) || ( remain < 0 ) || ( sge_count < 0 ) || ( sge == NULL ))
+  int64_t remain = (int64_t)total;
+  if(( partial == NULL) || ( remain < 0 ) || ( sge_count < 0 ) || ( sge == NULL ))
     return -EINVAL;
 
-  dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-  char *pos = (char*)mdev;
+  if( total > partial->iov_len ) // we only have partial data, which is not supported with this transport
+    return -EAGAIN;
+
+  char *pos = NULL;
+  pos = partial->iov_base;
 
   int n;
   for( n = 0; (n < sge_count) && ( remain > 0 ); ++n )
@@ -109,29 +91,5 @@ int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_device_t* dev,
     pos += copy_size;
     remain -= copy_size;
   }
-  return (int64_t)len - remain;
-}
-
-int64_t dbBE_Transport_memory_insert( dbBE_Data_transport_device_t *dev,
-                                      size_t len,
-                                      void *data )
-{
-  if(( dev == NULL ) || ( data == NULL ) || ( len > DBBE_TRANSPORT_MEMCOPY_BUFFER_LEN ))
-    return -EINVAL;
-
-  dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-  memcpy( mdev, data, len );
-  return len;
-}
-
-int64_t dbBE_Transport_memory_extract( dbBE_Data_transport_device_t *dev,
-                                       size_t len,
-                                       void *data )
-{
-  if(( dev == NULL ) || ( data == NULL ))
-    return -EINVAL;
-
-  dbBE_Data_transport_memory_dev_t *mdev = (dbBE_Data_transport_memory_dev_t*)dev;
-  memcpy( data, mdev, len );
-  return len;
+  return (int64_t)total - remain;
 }

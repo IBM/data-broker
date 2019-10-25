@@ -25,17 +25,15 @@
 
 extern dbBE_Data_transport_t dbBE_Memcopy_transport;
 
-dbBE_Data_transport_device_t* dbBE_Transport_memory_create();
-
-int dbBE_Transport_memory_destroy( dbBE_Data_transport_device_t *dev );
-
-int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_device_t* dev,
+int64_t dbBE_Transport_memory_gather( dbBE_Data_transport_endpoint_t* dev,
                                       size_t len,
                                       int sge_count,
                                       dbBE_sge_t *sge );
 
-int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_device_t* dev,
-                                       size_t len,
+int64_t dbBE_Transport_memory_scatter( dbBE_Data_transport_endpoint_t* dev,
+                                       dbBE_Data_recv_cb recv,
+                                       dbBE_sge_t *partial,
+                                       size_t total,
                                        int sge_count,
                                        dbBE_sge_t *sge);
 
