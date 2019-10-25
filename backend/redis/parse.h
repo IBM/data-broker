@@ -91,7 +91,8 @@ int dbBE_Redis_process_put( dbBE_Redis_request_t *request,
  */
 int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
                             dbBE_Redis_result_t *result,
-                            dbBE_Data_transport_t *transport );
+                            dbBE_Data_transport_t *transport,
+                            dbBE_Redis_connection_t *connection );
 
 /*
  * process the response data of a move request and its stages

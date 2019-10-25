@@ -467,7 +467,7 @@ int TestRead( const char *namespace,
   rc += TEST( dbBE_Transport_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_get( req, &result, transport ), 0 );
+  rc += TEST( dbBE_Redis_process_get( req, &result, transport, connection ), 0 );
 
 
   dbBE_Redis_connection_destroy( connection );

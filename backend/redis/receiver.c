@@ -311,7 +311,7 @@ process_next_item:
 
           case DBBE_OPCODE_GET:
           case DBBE_OPCODE_READ:
-            rc = dbBE_Redis_process_get( request, &result, input->_backend->_transport );
+            rc = dbBE_Redis_process_get( request, &result, input->_backend->_transport, conn );
             break;
 
           case DBBE_OPCODE_REMOVE:
