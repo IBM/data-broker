@@ -130,7 +130,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
-  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$4\r\n1000\r\n" );
+  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$2\r\n10\r\n" );
   s->_stage = stage;
 
 
@@ -245,7 +245,7 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   s->_final = 0;
   s->_result = 0;
   s->_expect = dbBE_REDIS_TYPE_ARRAY; // will return array of [ char, array [ char ] ]
-  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$4\r\n1000\r\n" );
+  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$2\r\n10\r\n" );
   s->_stage = stage;
 
   stage = DBBE_REDIS_NSDETACH_STAGE_DELKEYS;

@@ -30,7 +30,7 @@
  * This imposes the limit on the data size that can
  * be transmitted
  */
-#define DBBE_TRANSPORT_SMALLCOPY_BUFFER_LEN ( 16 * 1024 )
+#define DBBE_TRANSPORT_SMALLCOPY_BUFFER_LEN ( 32 * 1024 )
 
 
 dbBE_Data_transport_t dbBE_Smallcopy_transport =
