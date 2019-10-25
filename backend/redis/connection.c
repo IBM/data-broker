@@ -55,8 +55,8 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
 
   dbBE_Redis_slot_bitmap_t *slots = NULL;
   dbBE_Redis_s2r_queue_t *queue = NULL;
-  dbBE_Redis_sr_buffer_t *recvb = NULL;
-  dbBE_Redis_cmd_buffer_t *cmd = NULL;
+  dbBE_Transport_dbuffer_t *recvb = NULL;
+  dbBE_Transport_sge_buffer_t *cmd = NULL;
 
   dbBE_Data_transport_device_t *send_tr = dbBE_Memcopy_transport.create();
   if( send_tr == NULL )
@@ -66,7 +66,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   }
 
 //  dbBE_Redis_sr_buffer_t *sendb = dbBE_Transport_sr_buffer_allocate( sr_buffer_size );
-  recvb = dbBE_Transport_sr_buffer_allocate( sr_buffer_size );
+  recvb = dbBE_Transport_dbuffer_allocate( sr_buffer_size );
 
   if( recvb == NULL )
   {
@@ -74,8 +74,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
     goto error;
   }
 
-  conn->_senddev = send_tr;
-//  conn->_recvdev = recv_tr;
+  conn->_sr_dev = send_tr;
 
   conn->_recvbuf = recvb;
   conn->_index = DBBE_REDIS_LOCATOR_INDEX_INVAL;
@@ -100,7 +99,7 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   }
   conn->_slots = slots;
 
-  cmd = dbBE_Redis_cmd_buffer_create();
+  cmd = dbBE_Transport_sge_buffer_create();
   if( cmd == NULL )
   {
     rc = ENOMEM;
@@ -109,22 +108,20 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
   conn->_cmd = cmd;
 
   // todo: currently not used. Will be required/extended once transports API is clarified
-  if( conn->_senddev != NULL )
+  if( conn->_sr_dev != NULL )
   {
-    dbBE_Memcopy_transport.destroy( send_tr );
-    conn->_senddev = NULL;
+    send_tr = NULL;
+    conn->_sr_dev = NULL;
   }
   return conn;
 
 error:
-  if( send_tr != NULL )
-    dbBE_Memcopy_transport.destroy( send_tr );
   if( recvb != NULL )
-    dbBE_Transport_sr_buffer_free( recvb );
+    dbBE_Transport_dbuffer_free( recvb );
   if( slots != NULL )
     dbBE_Redis_slot_bitmap_destroy( slots );
   if( cmd != NULL )
-    dbBE_Redis_cmd_buffer_destroy( cmd );
+    dbBE_Transport_sge_buffer_destroy( cmd );
   if( conn )
     free( conn );
 
@@ -136,7 +133,7 @@ error:
  * assign a recv buffer to the connection
  */
 int dbBE_Redis_connection_assign_recvbuf( dbBE_Redis_connection_t *conn,
-                                          dbBE_Redis_sr_buffer_t *recvb )
+                                          dbBE_Transport_dbuffer_t *recvb )
 {
   if( conn == NULL )
     return -EINVAL;
@@ -349,17 +346,23 @@ ssize_t dbBE_Redis_connection_recv_base( dbBE_Redis_connection_t *conn, dbBE_Red
   int stored_errno=0;
   do
   {
-    if( dbBE_Transport_sr_buffer_remaining( buf ) <= 0 )
+    if( dbBE_Transport_sr_buffer_remaining( buf ) - 4 <= 0 )
     {
       LOG( DBG_ERR, stderr, "Recv Buffer overrun. Protocol error.\n" );
       return -ENOBUFS;
     }
     errno = 0;
+
+    // receive 7/8th at max
+    ssize_t rsize = dbBE_Transport_sr_buffer_remaining( buf ) - (dbBE_Transport_sr_buffer_remaining( buf ) >> 4);
     rc = recv( conn->_socket,
                dbBE_Transport_sr_buffer_get_available_position( buf ),
-               dbBE_Transport_sr_buffer_remaining( buf ),
+               rsize,
                0 );
     stored_errno=errno;
+
+    LOG( DBG_TRACE, stderr, "recv( %d, %p, %ld, 0) = %ld\n", conn->_socket, dbBE_Transport_sr_buffer_get_available_position( buf ), rsize, rc );
+
     if( stored_errno == EINTR )
       LOG( DBG_INFO, stderr, "recv() got interrupted by a signal. will retry\n" );
     if( rc == 0 )
@@ -399,14 +402,15 @@ ssize_t dbBE_Redis_connection_recv_direct( dbBE_Redis_connection_t *conn,
 /*
  * receive data from a connection and place data into the attached sr_buffer
  */
-ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn )
+ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn,
+                                    dbBE_Redis_sr_buffer_t *buf )
 {
-  if( conn == NULL )
+  if(( conn == NULL ) || ( buf == NULL ))
     return -EINVAL;
   if( ! dbBE_Redis_connection_RTR( conn ) )
     return -ENOTCONN;
 
-  int empty = dbBE_Transport_sr_buffer_empty( conn->_recvbuf );
+  int empty = dbBE_Transport_sr_buffer_empty( buf );
   if( ! empty )
     return -ENOTEMPTY;
 
@@ -415,46 +419,58 @@ ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn )
     return 0;
   }
 
-  dbBE_Transport_sr_buffer_reset( conn->_recvbuf );
-  ssize_t rc = dbBE_Redis_connection_recv_base( conn, conn->_recvbuf );
+  dbBE_Transport_sr_buffer_reset( buf );
+  ssize_t rc = dbBE_Redis_connection_recv_base( conn, buf );
 
-  LOG( DBG_TRACE, stdout, "RECV: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( conn->_recvbuf ) );
+  LOG( DBG_TRACE, stdout, "RECV: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( buf ) );
 
 #ifdef DEBUG_REDIS_PROTOCOL
-  if( dbBE_Transport_sr_buffer_available( conn->_recvbuf ) > 1000 )
+  if( dbBE_Transport_sr_buffer_available( buf ) > 1000 )
   {
-    char *logptr = dbBE_Transport_sr_buffer_get_start( conn->_recvbuf );
-    logptr += dbBE_Transport_sr_buffer_available( conn->_recvbuf ) - 4;
+    char *logptr = dbBE_Transport_sr_buffer_get_start( buf );
+    logptr += dbBE_Transport_sr_buffer_available( buf ) - 4;
     LOG( DBG_ALL, stderr, "RECV last bytes: %x %x %x %x (total:%"PRId64"\n",
-         logptr[0], logptr[1], logptr[2], logptr[3], dbBE_Transport_sr_buffer_available( conn->_recvbuf ) );
+         logptr[0], logptr[1], logptr[2], logptr[3], dbBE_Transport_sr_buffer_available( buf ) );
   }
 #endif
   return rc;
 }
 
-ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn )
+ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn,
+                                         dbBE_Redis_sr_buffer_t *buf )
 {
-  if( conn == NULL )
+  if(( conn == NULL ) || ( buf == NULL ))
     return -EINVAL;
   if( ! dbBE_Redis_connection_RTR( conn ) )
     return -ENOTCONN;
 
-  ssize_t rc = dbBE_Redis_connection_recv_base( conn, conn->_recvbuf );
+  ssize_t rc = dbBE_Redis_connection_recv_base( conn, buf );
 
   LOG( DBG_VERBOSE, stdout, "recv_more: conn=%d; new=%zd; avail/rem=%zd/%zd\n",
-       conn->_socket, rc, dbBE_Transport_sr_buffer_available( conn->_recvbuf ), dbBE_Transport_sr_buffer_remaining( conn->_recvbuf ) );
-  LOG( DBG_TRACE, stdout, "recv_more: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( conn->_recvbuf ) );
+       conn->_socket, rc, dbBE_Transport_sr_buffer_available( buf ), dbBE_Transport_sr_buffer_remaining( buf ) );
+  LOG( DBG_TRACE, stdout, "recv_more: conn=%d:%s", conn->_socket, dbBE_Transport_sr_buffer_get_start( buf ) );
 
 #ifdef DEBUG_REDIS_PROTOCOL
-  if( dbBE_Transport_sr_buffer_available( conn->_recvbuf ) > 1000 )
+  if( dbBE_Transport_sr_buffer_available( buf ) > 1000 )
   {
-    char *logptr = dbBE_Transport_sr_buffer_get_start( conn->_recvbuf );
-    logptr += dbBE_Transport_sr_buffer_available( conn->_recvbuf ) - 4;
+    char *logptr = dbBE_Transport_sr_buffer_get_start( buf );
+    logptr += dbBE_Transport_sr_buffer_available( buf ) - 4;
     LOG( DBG_ALL, stderr, "RECV last bytes: %x %x %x %x (total:%"PRId64"\n",
-         logptr[0], logptr[1], logptr[2], logptr[3], dbBE_Transport_sr_buffer_available( conn->_recvbuf ) );
+         logptr[0], logptr[1], logptr[2], logptr[3], dbBE_Transport_sr_buffer_available( buf ) );
   }
 #endif
   return rc;
+}
+
+ssize_t dbBE_Redis_connection_recv_sge( dbBE_Redis_connection_t *conn,
+                                        dbBE_Transport_sge_buffer_t *sb )
+{
+  struct msghdr msg;
+  memset( &msg, 0, sizeof( struct msghdr ) );
+  msg.msg_iov = sb->_cmd;
+  msg.msg_iovlen = sb->_index;
+
+  return recvmsg( conn->_socket, &msg, 0 );
 }
 
 int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn,
@@ -547,7 +563,7 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn )
   dbBE_Transport_sr_buffer_free( tmpbuffer );
 #endif
 
-  dbBE_Redis_cmd_buffer_reset( conn->_cmd );
+  dbBE_Transport_sge_buffer_reset( conn->_cmd );
   // good case: early exit
   if( rc == datalen )
     return rc;
@@ -713,9 +729,9 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
 
   dbBE_Redis_slot_bitmap_destroy( conn->_slots );
   dbBE_Redis_s2r_queue_destroy( conn->_posted_q );
-  dbBE_Transport_sr_buffer_free( conn->_recvbuf );
+  dbBE_Transport_dbuffer_free( conn->_recvbuf );
   dbBE_Redis_address_destroy( conn->_address );
-  dbBE_Redis_cmd_buffer_destroy( conn->_cmd );
+  dbBE_Transport_sge_buffer_destroy( conn->_cmd );
 
   // wipe memory
   memset( conn, 0, sizeof( dbBE_Redis_connection_t ) );

@@ -81,6 +81,8 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_get_status( conn ), DBBE_CONNECTION_STATUS_DISCONNECTED );
 
 
+  dbBE_Redis_sr_buffer_t *rbuf = dbBE_Transport_dbuffer_get_active( conn->_recvbuf );
+
   // now we should be able to link
   fprintf(stderr,"7.conn->_status = %u\n", conn->_status);
   addr = dbBE_Redis_connection_link( conn, url, auth );
@@ -104,7 +106,7 @@ int main( int argc, char ** argv )
 
   rc += TEST( dbBE_Redis_connection_send( conn, NULL ), -EINVAL );
   rc += TEST( dbBE_Redis_connection_send( conn, sbuf ), -ENOTCONN );
-  rc += TEST( dbBE_Redis_connection_recv( conn ), -ENOTCONN );
+  rc += TEST( dbBE_Redis_connection_recv( conn, rbuf ), -ENOTCONN );
 
   dbBE_sge_t sge[4];
   memset( sge, 0, 4 * sizeof( dbBE_sge_t ) );
@@ -142,11 +144,11 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_send( conn, sbuf ), len );
 
   // receive the Redis response
-  len = dbBE_Redis_connection_recv( conn );
+  len = dbBE_Redis_connection_recv( conn, rbuf );
   if( len > 0 )
   {
-    rc += TEST( dbBE_Transport_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
-    rc += TEST( dbBE_Transport_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
+    rc += TEST( dbBE_Transport_sr_buffer_available( rbuf ), (unsigned)len );
+    rc += TEST( dbBE_Transport_sr_buffer_advance( rbuf, len ), (size_t)len );
   }
 
   // send a get command for the inserted item
@@ -158,11 +160,11 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_connection_send( conn, sbuf ), len );
 
   // receive the Redis response
-  len = dbBE_Redis_connection_recv( conn );
+  len = dbBE_Redis_connection_recv( conn, rbuf );
   if( len > 0 )
   {
-    rc += TEST( dbBE_Transport_sr_buffer_available( conn->_recvbuf ), (unsigned)len );
-    rc += TEST( dbBE_Transport_sr_buffer_advance( conn->_recvbuf, len ), (size_t)len );
+    rc += TEST( dbBE_Transport_sr_buffer_available( rbuf ), (unsigned)len );
+    rc += TEST( dbBE_Transport_sr_buffer_advance( rbuf, len ), (size_t)len );
   }
 
 connect_failed:
