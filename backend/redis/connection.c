@@ -106,13 +106,6 @@ dbBE_Redis_connection_t *dbBE_Redis_connection_create( const uint64_t sr_buffer_
     goto error;
   }
   conn->_cmd = cmd;
-
-  // todo: currently not used. Will be required/extended once transports API is clarified
-  if( conn->_sr_dev != NULL )
-  {
-    send_tr = NULL;
-    conn->_sr_dev = NULL;
-  }
   return conn;
 
 error:

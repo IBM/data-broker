@@ -789,7 +789,8 @@ int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
 }
 
 int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
-                             dbBE_Redis_result_t *result )
+                             dbBE_Redis_result_t *result,
+                             dbBE_Redis_connection_t *conn )
 {
   int rc = 0;
   rc = dbBE_Redis_process_general( request, result );
@@ -799,23 +800,64 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
     case DBBE_REDIS_MOVE_STAGE_DUMP:
       if( rc == 0 )
       {
-        if( result->_data._string._data == NULL )
+        if( result->_type == dbBE_REDIS_TYPE_STRING_PART )
         {
-          rc = return_error_clean_result( -ENOENT, result );
-          break;
+          request->_status.move.dumped_value = (char*)malloc( result->_data._pstring._total_size + 2 );
+          if( request->_status.move.dumped_value == NULL )
+          {
+            rc = return_error_clean_result( -ENOMEM, result );
+            break;
+          }
+
+          memcpy( request->_status.move.dumped_value, result->_data._pstring._data, result->_data._pstring._size );
+
+          dbBE_sge_t sge;
+          sge.iov_base = request->_status.move.dumped_value + result->_data._pstring._size;
+          sge.iov_len = result->_data._pstring._total_size - result->_data._pstring._size + 2; // + termination
+
+          dbBE_sge_t pstring;
+          pstring.iov_base = result->_data._pstring._data;
+          pstring.iov_len = result->_data._pstring._size;
+          size_t transferred = conn->_sr_dev->scatter( (dbBE_Data_transport_endpoint_t*)conn,
+                                                   dbBE_Redis_connection_recv_sge_w,
+                                                   &pstring,
+                                                   result->_data._pstring._total_size + 2, // terminator
+                                                   1,
+                                                   &sge );
+
+          if( transferred < 0 )
+          {
+            free( request->_status.move.dumped_value );
+            rc = return_error_clean_result( -EPROTO, result );
+            break;
+          }
+          if( transferred < result->_data._pstring._total_size )
+          {
+            free( request->_status.move.dumped_value );
+            rc = return_error_clean_result( -ENODATA, result );
+            break;
+          }
+          request->_status.move.len = result->_data._pstring._total_size;
+        }
+        else
+        {
+          if( result->_data._string._data == NULL )
+          {
+            rc = return_error_clean_result( -ENOENT, result );
+            break;
+          }
+
+          request->_status.move.dumped_value = (char*)malloc( result->_data._string._size + 2 );
+          if( request->_status.move.dumped_value == NULL )
+          {
+            rc = return_error_clean_result( -ENOMEM, result );
+            break;
+          }
+
+          memcpy( request->_status.move.dumped_value, result->_data._string._data, result->_data._string._size );
+          request->_status.move.len = result->_data._string._size;
         }
 
-        // create a mem-region to store the dumped data
-        char *buf = (char*)calloc( result->_data._string._size + 8, sizeof( char ) );
-        if( buf == NULL )
-        {
-          rc = return_error_clean_result( -ENOMEM, result );
-          break;
-        }
-
-        memcpy( buf, result->_data._string._data, result->_data._string._size );
-        request->_status.move.dumped_value = buf;
-        request->_status.move.len = result->_data._string._size;
       }
       break;
 
