@@ -20,10 +20,11 @@
 
 #include "locator.h"
 #include "transports/sr_buffer.h"
+#include "transports/double_buffer.h"
+#include "transports/sge_buffer.h"
 #include "common/data_transport.h"
 #include "s2r_queue.h"
 #include "slot_bitmap.h"
-#include "cmd_buffer.h"
 
 //#ifndef DEBUG_REDIS_PROTOCOL
 //#define DEBUG_REDIS_PROTOCOL
@@ -53,15 +54,13 @@ typedef struct dbBE_Redis_connection
   int _socket;
   int _index;
   dbBE_Redis_address_t *_address;
-  dbBE_Data_transport_device_t *_senddev;
-//  dbBE_Data_transport_device_t *_recvdev;
-//  dbBE_Redis_sr_buffer_t *_sendbuf;
-  dbBE_Redis_sr_buffer_t *_recvbuf;
+  dbBE_Data_transport_t *_sr_dev;
+  dbBE_Transport_dbuffer_t *_recvbuf;
   dbBE_Redis_s2r_queue_t *_posted_q;
   dbBE_Redis_slot_bitmap_t *_slots;
   volatile dbBE_Connection_status_t _status;
   struct timeval _last_alive;
-  dbBE_Redis_cmd_buffer_t *_cmd;
+  dbBE_Transport_sge_buffer_t *_cmd;
   char _url[ DBR_SERVER_URL_MAX_LENGTH ];
 } dbBE_Redis_connection_t;
 
@@ -158,13 +157,15 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn );
 /*
  * receive data from a connection and place data into the attached sr_buffer
  */
-ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn );
+ssize_t dbBE_Redis_connection_recv( dbBE_Redis_connection_t *conn,
+                                    dbBE_Redis_sr_buffer_t *buf );
 
 /*
  * continue reception of data to the current receive buffer
  * to try to complete interrupted or incomplete messages
  */
-ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn );
+ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn,
+                                         dbBE_Redis_sr_buffer_t *buf );
 
 /*
  * receive into user-provided buffer instead of connection-attached default
@@ -172,6 +173,18 @@ ssize_t dbBE_Redis_connection_recv_more( dbBE_Redis_connection_t *conn );
  */
 ssize_t dbBE_Redis_connection_recv_direct( dbBE_Redis_connection_t *conn,
                                            dbBE_Redis_sr_buffer_t *buf );
+
+
+ssize_t dbBE_Redis_connection_recv_sge( dbBE_Redis_connection_t *conn,
+                                        dbBE_Transport_sge_buffer_t *sb );
+
+// transport-compatible wrapper for recv_sge:
+static inline
+ssize_t dbBE_Redis_connection_recv_sge_w( dbBE_Data_transport_endpoint_t *conn,
+                                          dbBE_Transport_sge_buffer_t *sb )
+{
+  return dbBE_Redis_connection_recv_sge( (dbBE_Redis_connection_t*)(conn), sb );
+}
 
 /*
  * flush the send buffer by sending it to the connected Redis instance

@@ -260,7 +260,7 @@ void* dbBE_Redis_sender( void *args )
     // create_command assembles an SGE list
     // entries either come directly from user or from send buffer
     // when complete, connection.send() fires the assembled data
-    dbBE_sge_t *cmd = dbBE_Redis_cmd_buffer_get_current( conn->_cmd );
+    dbBE_sge_t *cmd = dbBE_Transport_sge_buffer_get_current( conn->_cmd );
     rc = dbBE_Redis_create_command_sge( request, input->_backend->_sender_buffer, cmd );
     if( rc < 0 )
     {
@@ -270,7 +270,7 @@ void* dbBE_Redis_sender( void *args )
     }
 
     // update cmd buffer status for this connection
-    if( dbBE_Redis_cmd_buffer_add( conn->_cmd, rc ) > ( (DBBE_SGE_MAX << 4) * 3 ))
+    if( dbBE_Transport_sge_buffer_add( conn->_cmd, rc ) > ( (DBBE_SGE_MAX << 4) * 3 ))
       request_limit = 1; // if we exceed 75% of the SGE space, we better stop to avoid blowing the limit with the next request
 
     // instead of sending, add connection to a pending connections list

@@ -60,7 +60,7 @@ int64_t dbBE_Redis_extract_integer( char *p, size_t *parsed, const int64_t limit
  * the return will be -EAGAIN and the buffer parsing will be reset
  * to the place before the call
  */
-int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t limit );
+int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t limit, size_t *actual_size );
 
 /*
  * parse the input buffer
@@ -91,7 +91,8 @@ int dbBE_Redis_process_put( dbBE_Redis_request_t *request,
  */
 int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
                             dbBE_Redis_result_t *result,
-                            dbBE_Data_transport_t *transport );
+                            dbBE_Data_transport_t *transport,
+                            dbBE_Redis_connection_t *connection );
 
 /*
  * process the response data of a move request and its stages
@@ -197,6 +198,11 @@ int dbBE_Redis_process_general( dbBE_Redis_request_t *request,
         // update request connection index
         // update location manager
         break;
+      case dbBE_REDIS_TYPE_STRING_PART:
+        // partial strings are ok, if the expected type is char/string too
+        if( spec->_expect == dbBE_REDIS_TYPE_CHAR )
+          break;
+        // intentionally no further break
       default:
         rc = -EBADMSG;
         break;

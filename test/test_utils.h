@@ -14,11 +14,14 @@
  * limitations under the License.
  *
  */
+#include "logutil.h"
+#include "common/dbbe_api.h"
+
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#include "logutil.h"
+#include <errno.h>
+#include <string.h>
 
 #ifndef TEST_TEST_UTILS_H_
 #define TEST_TEST_UTILS_H_
@@ -62,5 +65,29 @@ char* generateLongMsg( const uint64_t size )
   LOG( DBG_TRACE, stdout, "%s\n", msg );
   return msg;
 }
+
+static inline
+int Flatten_sge( dbBE_sge_t *cmd, int cmdlen, char *dest )
+{
+  if(( cmd == NULL ) || ( cmdlen > DBBE_SGE_MAX ) || (cmdlen < 0 ) || ( dest == NULL ))
+    return -EINVAL;
+
+  int n = 0;
+  char *p = dest;
+  for( n = 0; n < cmdlen; ++n )
+  {
+    if( cmd[ n ].iov_base == NULL )
+      return -EBADMSG;
+    memcpy( p,
+            cmd[ n ].iov_base,
+            cmd[ n ].iov_len );
+    p += cmd[ n ].iov_len;
+    p[1] = '\0'; // string termination (for debugging purposes only)
+  }
+  p[1] = '\0'; // final (in some cases double termination
+  return 0;
+}
+
+
 
 #endif /* TEST_TEST_UTILS_H_ */

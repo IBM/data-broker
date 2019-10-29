@@ -15,6 +15,8 @@
  *
  */
 
+#include "sr_buffer.h"
+
 #include <stddef.h>
 #ifdef __APPLE__
 #include <stdlib.h>
@@ -22,8 +24,8 @@
 #include <malloc.h>
 #endif
 #include <string.h>
+#include <errno.h>
 
-#include "sr_buffer.h"
 
 dbBE_Redis_sr_buffer_t* dbBE_Transport_sr_buffer_allocate( const size_t size )
 {
@@ -31,22 +33,40 @@ dbBE_Redis_sr_buffer_t* dbBE_Transport_sr_buffer_allocate( const size_t size )
   if( ret == NULL )
     return NULL;
 
-  memset( ret, 0, sizeof( dbBE_Redis_sr_buffer_t ) );
-  ret->_size = size;
-  ret->_available = 0;
-  ret->_processed = 0;
-  ret->_start = (char*)malloc( size );
-
-  if( ret->_start == NULL )
+  if( dbBE_Transport_sr_buffer_initialize( ret, size, (char*)malloc( size ) ) != 0 )
   {
     free( ret );
     return NULL;
   }
 
-  memset( ret->_start, 0, size );
-
   return ret;
 }
+
+/*
+ * initialize existing sr_buffer with size and memory location
+ */
+int dbBE_Transport_sr_buffer_initialize( dbBE_Redis_sr_buffer_t *sr_buf,
+                                         const size_t size,
+                                         char *buffer )
+{
+  if( sr_buf == NULL )
+    return -EINVAL;
+
+  memset( sr_buf, 0, sizeof( dbBE_Redis_sr_buffer_t ) );
+
+  sr_buf->_size = size;
+  sr_buf->_available = 0;
+  sr_buf->_processed = 0;
+  sr_buf->_start = buffer;
+
+  if( sr_buf->_start == NULL )
+    return -ENOMEM;
+
+  memset( sr_buf->_start, 0, size );
+
+  return 0;
+}
+
 
 void dbBE_Transport_sr_buffer_reset( dbBE_Redis_sr_buffer_t *sr_buf )
 {

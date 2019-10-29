@@ -29,6 +29,7 @@
 
 #include <inttypes.h>
 #include <stddef.h> // size_t
+#include <stdlib.h> // calloc
 #include <libdatabroker.h>
 #include <sys/uio.h>
 
@@ -44,6 +45,11 @@
 typedef void* dbBE_Handle_t;
 
 typedef void* dbBE_NS_Handle_t;
+
+/*
+ * max number of SGEs in assembled redis commands (IOV_MAX replacement)
+ */
+#define DBBE_SGE_MAX ( 256 )
 
 /**
  *  @struct dbBE_sge_t dbbe_api.h "backend/common/dbbe_api.h"
@@ -227,6 +233,23 @@ typedef struct dbBE_api
 
 
 /**
+ * @brief Global backend data
+ *
+ * Each back-end needs to implement this structure. It is used by the client library
+ * to reference the back-end
+ *
+ * @todo Considering that each user lib has a global context already, we could probably
+ *       get rid if this g_dbBE and have the user lib keep track. This would enable
+ *       an option to use multiple back-ends concurrently.
+ */
+extern const dbBE_api_t g_dbBE;
+
+/**********************************************************************
+ * A set of helper functions to handle requests, completions, or SGEs
+ */
+
+
+/**
  * @brief calculate the total size of an SGE list
  *
  * Browses the SGEs of an input list and returns the total size in bytes.
@@ -236,7 +259,8 @@ typedef struct dbBE_api
  *
  * @return size of the SGE in bytes
  */
-static inline size_t dbBE_SGE_get_len( const dbBE_sge_t *sge, const int sge_count )
+static inline
+size_t dbBE_SGE_get_len( const dbBE_sge_t *sge, const int sge_count )
 {
   if( sge == NULL )
     return 0;
@@ -248,16 +272,17 @@ static inline size_t dbBE_SGE_get_len( const dbBE_sge_t *sge, const int sge_coun
 }
 
 /**
- * @brief Global backend data
+ * @brief allocate a new request struct including SGE-space
  *
- * Each back-end needs to implement this structure. It is used by the client library
- * to reference the back-end
+ * @param [in] sge_count  number of SGEs to allocate at the end of the structure
  *
- * @todo Considering that each user lib has a global context already, we could probably
- *       get rid if this g_dbBE and have the user lib keep track. This would enable
- *       an option to use multiple back-ends concurrently.
+ * @return pointer to new allocated struct or NULL in case of failure
  */
-extern const dbBE_api_t g_dbBE;
+static inline
+dbBE_Request_t* dbBE_Request_allocate( const int sge_count )
+{
+  return (dbBE_Request_t*)calloc( 1, sizeof( dbBE_Request_t) + sge_count * sizeof( dbBE_sge_t ) );
+}
 
 /**
  *@}

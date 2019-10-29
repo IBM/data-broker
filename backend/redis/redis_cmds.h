@@ -63,25 +63,6 @@ int dbBE_Redis_command_microcmd_create( dbBE_Redis_command_stage_spec_t *stage,
 }
 
 
-int dbBE_Redis_command_cmdandkey_only_create( dbBE_Redis_command_stage_spec_t *stage,
-                                              dbBE_Redis_sr_buffer_t *sr_buf,
-                                              char *keybuffer,
-                                              size_t vallen )
-{
-  int len = 0;
-  dbBE_Redis_data_t data;
-  len += dbBE_Redis_command_microcmd_create( stage, sr_buf, &data );
-
-  data._string._data = keybuffer;
-  data._string._size = strnlen( data._string._data, DBBE_REDIS_MAX_KEY_LEN );
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_CHAR, &data );
-
-  data._integer = vallen;
-  len += Redis_insert_to_sr_buffer( sr_buf, dbBE_REDIS_TYPE_STRING_HEAD, &data );
-
-  return len;
-}
-
 int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint16_t size )
 {
   if( keybuf == NULL )
@@ -201,7 +182,7 @@ int64_t dbBE_Redis_command_create_insert_value( dbBE_Redis_sr_buffer_t *sr_buf,
                                                 int sge_count,
                                                 int64_t vallen )
 {
-  int64_t slen = transport->gather( (dbBE_Data_transport_device_t*)dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
+  int64_t slen = transport->gather( (dbBE_Data_transport_endpoint_t*)dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
                                     dbBE_Transport_sr_buffer_remaining( sr_buf ),
                                     sge_count,
                                     sge );

@@ -262,7 +262,7 @@ int main( int argc, char ** argv )
                                                 sr_buf,
                                                 cmd ), 5, cmdlen );
   rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
-  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
+  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$2\r\n10\r\n",
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
@@ -275,7 +275,7 @@ int main( int argc, char ** argv )
                                                 sr_buf,
                                                 cmd ), 5, cmdlen );
   rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
-  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$2\r\n40\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
+  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$2\r\n40\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$2\r\n10\r\n",
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
@@ -429,7 +429,7 @@ int main( int argc, char ** argv )
                                                 sr_buf,
                                                 cmd ), 5, cmdlen );
   rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
-  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$4\r\n1000\r\n",
+  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$2\r\n10\r\n",
                       dbBE_Transport_sr_buffer_get_start( data_buf ) ),
               0 );
   TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );

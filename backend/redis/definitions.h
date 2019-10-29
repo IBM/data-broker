@@ -56,13 +56,8 @@
 #define DBBE_REDIS_HASH_SLOT_MAX ( 16384 )
 
 
-/*
- * max number of SGEs in assembled redis commands (IOV_MAX replacement)
- */
-#define DBBE_SGE_MAX ( 256 )
 
-
-#define DBBE_REDIS_COALESCED_MAX ( 16 )
+#define DBBE_REDIS_COALESCED_MAX ( 32 )
 
 /*
  * result type returned when parsing a Redis recv buffer
@@ -72,7 +67,7 @@ typedef enum
 {
   dbBE_REDIS_TYPE_UNSPECIFIED = 0, ///< unspecified result or uninitialized value
   dbBE_REDIS_TYPE_CHAR, ///< character/string
-  dbBE_REDIS_TYPE_STRING_HEAD, ///< just the head of the string
+  dbBE_REDIS_TYPE_STRING_PART, ///< just the head of the string or partial data
   dbBE_REDIS_TYPE_RAW, ///< for any raw data to go in/out of the sr-buffer
   dbBE_REDIS_TYPE_INT,  ///< integer
   dbBE_REDIS_TYPE_ERROR, ///< Redis error string
@@ -103,6 +98,12 @@ typedef struct {
   char *_data;
 } dbBE_Redis_string_t;
 
+typedef struct {
+  int64_t _size;   ///< length of currently available data
+  char *_data;
+  int64_t _total_size;  ///< total/actual size of the data
+} dbBE_Redis_string_part_t;
+
 /*
  * parser returns this result, depending on the dbBE_REDIS_RESULT
  * different entries in this union will make sense
@@ -110,6 +111,7 @@ typedef struct {
 typedef union {
   int64_t _integer;
   dbBE_Redis_string_t _string;
+  dbBE_Redis_string_part_t _pstring;
   dbBE_Redis_array_t _array;
   dbBE_Redis_hash_location_t _location;
 } dbBE_Redis_data_t;

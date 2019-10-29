@@ -34,6 +34,7 @@
 #include "../../src/libdatabroker_int.h"
 #include "result.h"
 #include "parse.h"
+#include "connection.h"
 
 
 // length of the ASK response including the trailing space
@@ -51,6 +52,8 @@ int return_error_clean_result( int rc, dbBE_Redis_result_t *result )
   return rc;
 }
 
+static char* gScrapSpace = NULL;
+#define DBBE_REDIS_SCRAP_SPACE_LEN ( 512ull * 1024ull * 1024ull )
 
 int64_t dbBE_Redis_nul_terminate_string( char *p, size_t *parsed, const int64_t limit )
 {
@@ -167,7 +170,7 @@ char* dbBE_Redis_find_terminator( char *haystack, const int64_t limit )
   return NULL;
 }
 
-int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t limit )
+int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t limit, size_t *actual_size )
 {
   if(( p == NULL ) || ( *p == NULL ) || ( parsed == NULL ) || ( limit <= 0 ))
   {
@@ -179,8 +182,7 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
   int64_t exp_len = dbBE_Redis_extract_integer( *p, &processed, limit );
 
   // check for incomplete data
-  if( (( exp_len == -EAGAIN ) && ( processed == 0 )) ||
-      ( exp_len >= limit - (int64_t)processed ) )
+  if(( exp_len == -EAGAIN ) && ( processed == 0 ))
    {
     *parsed = 0;
     return -EAGAIN;
@@ -202,7 +204,25 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
     return -EPROTO;
   }
 
+  LOG( DBG_TRACE, stderr, "Parsing p/string length: %ld; avail: %ld\n", exp_len, limit );
+
   char *string = ( *p + processed );
+
+  // available data is less than expected length plus termination: includes string-head-only case
+  if(( exp_len >= limit - (int64_t)processed ))
+  {
+    // caller not interested in partial strings or we're just missing the terminator: EAGAIN
+    if(( actual_size == NULL ) || ( exp_len == limit - (int64_t)processed ))
+    {
+      *parsed = 0;
+      return -EAGAIN;
+    }
+
+    *parsed = processed;
+    *p = string;
+    *actual_size = exp_len;
+    return -EOVERFLOW;
+  }
 
   // check for incomplete data with only the \n missing
   if( ( string[exp_len] == '\r' ) && ( exp_len + 1 == limit - (int64_t)processed ) )
@@ -215,7 +235,7 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
   // check the terminator
   if(( string[exp_len] != '\r' ) || ( string[exp_len+1] != '\n' ))
   {
-    LOG( DBG_ERR, stderr, "Terminator not in expected place: exp=%"PRId64"; lim=%"PRId64"; prcssd=%zd; %x %x|%x %x %x\n",
+    LOG( DBG_ERR, stderr, "Bulk String Terminator not in expected place: exp=%"PRId64"; lim=%"PRId64"; prcssd=%zd; %x %x|%x %x %x\n",
          exp_len, limit, processed, string[exp_len-2], string[exp_len-1], string[exp_len], string[exp_len+1], string[exp_len+2] );
     // if the terminator is not in the expected place, try to parse for the terminator and adjust or fail if terminator is not found
     char *terminator = dbBE_Redis_find_terminator( string, limit - processed );
@@ -370,21 +390,42 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     case '$': // parse a bulk string
     {
       char *str = p;
-      len = dbBE_Redis_extract_bulk_string( &str, &parsed, available );
+      size_t actual = 0;
+      len = dbBE_Redis_extract_bulk_string( &str, &parsed, available, &actual );
       if( len >= 0 )
       {
         result->_data._string._data = str;
         result->_data._string._size = len;
         result->_type = dbBE_REDIS_TYPE_CHAR;
       }
-      else if( len == -EAGAIN )
-        rc = -EAGAIN;
       else
       {
-        rc = -EBADMSG;
-        result->_type = dbBE_REDIS_TYPE_INVALID;
+        switch( len )
+        {
+          case -EAGAIN:
+            rc = -EAGAIN;
+            break;
+          case -EOVERFLOW:
+            // prevent partial strings in arrays
+            if( toplevel == 0 )
+            {
+              rc = -EAGAIN;
+              break;
+            }
+            // partial string received:
+            result->_type = dbBE_REDIS_TYPE_STRING_PART;
+            result->_data._pstring._total_size = actual;
+            result->_data._pstring._data = str;
+            result->_data._pstring._size = available - parsed;
+            parsed = available; // make sure the remaining bytes of the string are considered as parsed
+            rc = 0;
+            break;
+          default:
+            rc = -EBADMSG;
+            result->_type = dbBE_REDIS_TYPE_INVALID;
+        }
       }
-
+      LOG( DBG_TRACE, stderr, "Bulkstring extraction: type=%d\n", result->_type );
       break;
     }
 
@@ -427,7 +468,7 @@ int dbBE_Redis_parse_sr_buffer_check( dbBE_Redis_sr_buffer_t *sr_buf,
     }
     default:
       // this is a parsing error
-      fprintf( stderr, "DataBroker library error: Redis response parser: Protocol error.\n" );
+      fprintf( stderr, "DataBroker library error: Redis response parser: Protocol error. t=%c\n", type );
       result->_type = dbBE_REDIS_TYPE_INVALID;
       rc = -EPROTO;
   }
@@ -477,9 +518,129 @@ int dbBE_Redis_process_put( dbBE_Redis_request_t *request,
   return rc;
 }
 
+/*
+ * assembling a recv-SGE for the remaining data and copy( scatter )  available data
+ * into the user SGE.
+ *  - find the correct SGE index and offset to start the receive
+ *  - make sure to not receive more data than the pstring length
+ *  - append a 2byte SGE for the \r\n terminator
+ */
+dbBE_Transport_sge_buffer_t* dbBE_Redis_parse_copy_assemble_sge( dbBE_Request_t *r,
+                                                             dbBE_Redis_result_t *c,
+                                                             dbBE_Transport_sge_buffer_t *sge_buf,
+                                                             dbBE_Transport_dbuffer_t *dbuf,
+                                                             dbBE_sge_t overflow )
+{
+  size_t c_off = c->_data._pstring._size;
+
+  dbBE_Transport_sge_buffer_reset( sge_buf );
+  dbBE_sge_t *sge = sge_buf->_cmd;
+
+  int r_idx = 0; // new receive-SGE index
+  int u_idx = 0; // user-SGE index
+
+  char *value = c->_data._pstring._data;
+  size_t remaining = c->_data._pstring._total_size; // remaining available data
+  size_t pos = 0;
+  ssize_t usize = remaining - dbBE_SGE_get_len( r->_sge, r->_sge_count );  // how much data cannot fit into user buffer
+
+  errno = 0;
+  while((( c_off > 0 ) || ( remaining > 0 )) && ( u_idx < r->_sge_count ))
+  {
+    if( c_off > 0 )
+    {
+      // if the remaining c_offset data fits into the next SGE:
+      if( r->_sge[ u_idx ].iov_len >= c_off )
+      {
+        // copying is done here to be able to re-use the sr_buffer (transport would be the logical place
+        memcpy( r->_sge[ u_idx ].iov_base, &value[ pos ], c_off );
+        pos += c_off;
+        remaining -= c_off;
+
+        // we found the SGE where to start the receive; set starting point and remaining length
+        sge[ r_idx ].iov_base = (void*)((char*)r->_sge[ u_idx ].iov_base + c_off );
+        sge[ r_idx ].iov_len = r->_sge[ u_idx ].iov_len - c_off;
+        if( sge[ r_idx ].iov_len > remaining ) // is this the last sge we could fill with remaining data?
+        {
+          sge[ r_idx ].iov_len = remaining;
+          remaining = 0;
+        }
+        ++r_idx;
+        ++u_idx;
+        c_off = 0;
+        continue;
+      }
+      else
+      {
+        // fill the user SGE with the available data
+        size_t copylen = ( remaining < r->_sge[ u_idx ].iov_len ) ? remaining : r->_sge[ u_idx ].iov_len;
+        memcpy( r->_sge[ u_idx ].iov_base, &value[ pos ], copylen );
+        pos += copylen;
+        c_off -= copylen;
+        remaining -= copylen;
+
+        // nothing to create in the new recv-SGE yet because:
+        // if remaining == 0, we're done; if remaining != 0, we have a full user SGE
+        ++u_idx;
+        continue;
+      }
+    }
+
+    // only get here if the available data has been (copied and) processed
+    // so, this is only for the remaining unreceived data to fit/fill in
+    size_t sge_len = ( remaining < r->_sge[ u_idx ].iov_len ) ? remaining : r->_sge[ u_idx ].iov_len;
+    sge[ r_idx ].iov_base = r->_sge[ u_idx ].iov_base;
+    sge[ r_idx ].iov_len = sge_len;
+    ++r_idx;
+    remaining -= sge_len;
+    if( ++u_idx > r->_sge_count )
+    {
+      // user SGE too short/buffer too small
+      errno = E2BIG;
+      break;
+    }
+  }
+
+  // at this point, we can be sure that the sr-buf is fully processed
+  // or remaining data won't fit into user buffer so it can be dropped
+  // (we got into this function because the space was limited anyway)
+  dbBE_Redis_sr_buffer_t *sr_buf = dbBE_Transport_dbuffer_get_active( dbuf );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
+
+  // to determine the amount of remaining bytes to receive, remove the remaining
+  // uncopied data, it can be dropped because it is too much for the recv anyway
+  usize -= c_off;
+  c_off = 0;
+
+  // if the remaining expected data is too big for the user buffer, we need to point to the overflow buffer
+  if( usize > (ssize_t)dbBE_Transport_sr_buffer_get_size( sr_buf ) - 2 ) // -2 because of termination
+  {
+    if( overflow.iov_len < usize ) // does the data fit into the provided overflow buffer?
+    {
+      errno = E2BIG;
+      return NULL;
+    }
+    sge[ r_idx ].iov_base = overflow.iov_base;
+    sge[ r_idx ].iov_len = usize + 2;
+    ++r_idx;
+    ++sge_buf->_index;
+  }
+
+  // append another element to allow space for the redis protocol terminator
+  // to be received at the end of the receive buffer
+  // also allow subsequent available data to be received to make sure the
+  // connection buffer gets drained
+  sge_buf->_index = r_idx + 1;
+  sge[ r_idx ].iov_base = dbBE_Transport_sr_buffer_get_available_position( sr_buf );
+  sge[ r_idx ].iov_len = dbBE_Transport_sr_buffer_get_size( sr_buf ) - (dbBE_Transport_sr_buffer_get_size( sr_buf ) >> 3); // 7/8th of buffer for new data
+
+  return sge_buf;
+}
+
 int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
                             dbBE_Redis_result_t *result,
-                            dbBE_Data_transport_t *transport )
+                            dbBE_Data_transport_t *transport,
+                            dbBE_Redis_connection_t *connection )
 {
   int rc = 0;
 
@@ -493,7 +654,7 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
     if( request->_step->_result != 0 )
     {
       // signal that key is not available
-      if( result->_data._string._data == NULL )
+      if( ( result->_type == dbBE_REDIS_TYPE_CHAR ) && ( result->_data._string._data == NULL ))
       {
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
         result->_type = dbBE_REDIS_TYPE_INT;
@@ -504,17 +665,86 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
           return -EAGAIN;
       }
 
-      int64_t transferred = transport->scatter( (dbBE_Data_transport_device_t*)result->_data._string._data,
-                                                result->_data._string._size,
-                                                request->_user->_sge_count,
-                                                request->_user->_sge );
-      if(( transferred == result->_data._string._size ) ||
-          (( (request->_user->_flags & DBBE_OPCODE_FLAGS_PARTIAL) != 0 ) && ( transferred < result->_data._string._size )) )
+      int64_t transferred = 0;
+      int64_t data_len = 0;
+      if( result->_type == dbBE_REDIS_TYPE_STRING_PART )
       {
-        int64_t tmplen = result->_data._string._size;
+        LOG( DBG_TRACE, stderr, "PARTIAL STRING: %ld/%ld\n", result->_data._pstring._size, result->_data._pstring._total_size );
+
+        // prepare sge for another receive call
+        if( gScrapSpace == NULL )
+          gScrapSpace = (char*)malloc( DBBE_REDIS_SCRAP_SPACE_LEN );
+
+        dbBE_sge_t overflow;
+        overflow.iov_base = gScrapSpace;
+        overflow.iov_len = DBBE_REDIS_SCRAP_SPACE_LEN;
+        dbBE_Transport_sge_buffer_t *sge_buf = dbBE_Redis_parse_copy_assemble_sge( request->_user, result, &transport->_rSGE, connection->_recvbuf, overflow );
+        dbBE_Redis_sr_buffer_t *sr_buf = dbBE_Transport_dbuffer_get_active( connection->_recvbuf );
+
+        if( sge_buf != NULL )
+        {
+          dbBE_sge_t pstring;
+          pstring.iov_base = result->_data._pstring._data;
+          pstring.iov_len = result->_data._pstring._size;
+          data_len = result->_data._pstring._total_size;
+          transferred = transport->scatter( (dbBE_Data_transport_endpoint_t*)connection,
+                                            dbBE_Redis_connection_recv_sge_w,
+                                            &pstring,
+                                            result->_data._pstring._total_size + 2, // terminator
+                                            sge_buf->_index,
+                                            sge_buf->_cmd );
+        }
+        else
+        {
+          transferred = -result->_data._pstring._total_size;
+          rc = -ENOMEM;
+        }
+        // adjust for the redis protocol terminator
+        if( transferred > 0 )
+        {
+          transferred -= 2; // remove the terminator from the amount of transferred data
+          dbBE_Transport_sr_buffer_add_data( sr_buf, 2, 0 ); // we've received data ...
+          dbBE_Transport_sr_buffer_advance( sr_buf, 2 ); // that's already processed
+          transferred += result->_data._pstring._size; // add what's been already received
+        }
+        // there's another response in the recv buffer after the termination
+        if( transferred > data_len )
+        {
+          int64_t remain = transferred - data_len;
+          transferred = data_len;
+          dbBE_Transport_sr_buffer_add_data( sr_buf, remain, 0 );
+        }
+      }
+      else
+      {
+        dbBE_sge_t pstring;
+        pstring.iov_base = result->_data._string._data;
+        pstring.iov_len = result->_data._string._size;
+        data_len = result->_data._string._size;
+        transferred = transport->scatter( (dbBE_Data_transport_endpoint_t*)NULL,
+                                          NULL,
+                                          &pstring,
+                                          result->_data._string._size,
+                                          request->_user->_sge_count,
+                                          request->_user->_sge );
+
+        // nothing to do because for completely received data, we've already parsed/processed the sr_buffer
+      }
+      // reset/clean the recv and cmd buffers
+      dbBE_Transport_sge_buffer_reset( &transport->_rSGE );
+
+      if( transferred == -EAGAIN )
+        return -EAGAIN;
+      if( (transferred >= 0 ) && (
+             ( transferred == data_len ) || (
+                 ( (request->_user->_flags & DBBE_OPCODE_FLAGS_PARTIAL) != 0 ) && ( transferred < data_len )
+             )
+          )
+        )
+      {
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set transferred size
         result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = tmplen;
+        result->_data._integer = data_len;
       }
       else
       {
@@ -962,8 +1192,14 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
           strcat( res_str, ":" );
         }
 
-        // invoke the transport to copy the data to the user buffer
-        int64_t transferred = transport->scatter( (dbBE_Data_transport_device_t*)res_str, total_len,
+        // invoke the transport to copy the data to the user buffer (from partial string, because we already have received it regardless of transport
+        dbBE_sge_t pstring;
+        pstring.iov_base = res_str;
+        pstring.iov_len = total_len;
+        int64_t transferred = transport->scatter( (dbBE_Data_transport_endpoint_t*)NULL,
+                                                  NULL,
+                                                  &pstring,
+                                                  total_len,
                                                   request->_user->_sge_count, request->_user->_sge );
         free( res_str );
         if( transferred != (int64_t)total_len )

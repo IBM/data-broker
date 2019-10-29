@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2019 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,6 +94,11 @@ int dbBE_Redis_result_terminate_strings( dbBE_Redis_result_t *result )
         rc = dbBE_Redis_result_terminate_strings( &result->_data._array._data[ n ] );
       break;
     }
+    case dbBE_REDIS_TYPE_STRING_PART:
+      // should already have a trailing '\0', but better save than sorry...
+      if( result->_data._pstring._data != NULL )
+        result->_data._pstring._data[ result->_data._pstring._size ] = '\0';
+      break;
     default:
       LOG( DBG_ERR, stderr, "Unexpected entry in result: type=%d\n", result->_type );
       return -EBADMSG;

@@ -75,15 +75,18 @@ receive_more_responses:
   if( conn == NULL )
     goto skip_receiving;
 
-  rc = dbBE_Redis_connection_recv( conn );
+  dbBE_Redis_sr_buffer_t *sr_buf = dbBE_Transport_dbuffer_get_active( conn->_recvbuf );
+
+  receive_limit = dbBE_Transport_sr_buffer_get_size( sr_buf );
+  rc = dbBE_Redis_connection_recv( conn, sr_buf );
   if( rc <= 0 )
   {
     switch( rc )
     {
       case -ENOTEMPTY:
-        rc = dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf );
+        rc = dbBE_Transport_sr_buffer_unprocessed( sr_buf );
         LOG( DBG_ERR, stderr, "Redis connection %d recv buffer not empty. remaining=%d %s\n",
-             conn->_index, rc, dbBE_Transport_sr_buffer_get_processed_position( conn->_recvbuf ) );
+             conn->_index, rc, dbBE_Transport_sr_buffer_get_processed_position( sr_buf ) );
         break;
       case -ENOTCONN:
         LOG( DBG_ERR, stderr, "Redis connection %d down\n", conn->_index );
@@ -148,17 +151,41 @@ process_next_item:
   dbBE_Redis_result_cleanup( &result, 0 );
 
 
-  rc = dbBE_Redis_parse_sr_buffer( conn->_recvbuf, &result );
+
+
+
+
+
+
+
+  sr_buf = dbBE_Transport_dbuffer_get_active( conn->_recvbuf );
+  rc = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
+
+  // memcpy transport is not ready for partial string result handling
+  if(( result._type == dbBE_REDIS_TYPE_STRING_PART ) && ( input->_backend->_transport == &dbBE_Memcopy_transport ))
+  {
+    // restore parsing position for the next loop
+    dbBE_Transport_sr_buffer_rewind_processed_to( sr_buf, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+    rc = -EAGAIN;
+  }
 
   while( rc == -EAGAIN )
   {
     LOG( DBG_VERBOSE, stdout, "Incomplete recv. Trying to retrieve more data.\n" );
-    rc = dbBE_Redis_connection_recv_more( conn );
+    rc = dbBE_Redis_connection_recv_more( conn, sr_buf );
     if( rc == 0 )
     {
       rc = -EAGAIN;
     }
-    rc = dbBE_Redis_parse_sr_buffer( conn->_recvbuf, &result );
+    rc = dbBE_Redis_parse_sr_buffer( sr_buf, &result );
+
+    // memcpy transport is not ready for partial string result handling
+    if(( result._type == dbBE_REDIS_TYPE_STRING_PART ) && ( input->_backend->_transport == &dbBE_Memcopy_transport ))
+    {
+      // restore parsing position for the next loop
+      dbBE_Transport_sr_buffer_rewind_processed_to( sr_buf, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
+      rc = -EAGAIN;
+    }
   }
 
   // decide:
@@ -284,7 +311,7 @@ process_next_item:
 
           case DBBE_OPCODE_GET:
           case DBBE_OPCODE_READ:
-            rc = dbBE_Redis_process_get( request, &result, input->_backend->_transport );
+            rc = dbBE_Redis_process_get( request, &result, input->_backend->_transport, conn );
             break;
 
           case DBBE_OPCODE_REMOVE:
@@ -345,7 +372,8 @@ process_next_item:
           break;
 
         // do not attempt to queue a new request until all responses have been
-        if(( responses_remain > 0 ) && ( ! dbBE_Transport_sr_buffer_empty( conn->_recvbuf ) ))
+        sr_buf = dbBE_Transport_dbuffer_get_active( conn->_recvbuf ); // re-get the active buffer in case it has changed while processing cmds
+        if(( responses_remain > 0 ) && ( ! dbBE_Transport_sr_buffer_empty( sr_buf ) ))
           break;
 
         if( rc >= 0 )
@@ -395,12 +423,12 @@ process_next_item:
             dbBE_Redis_result_cleanup( &result, 0 );
             dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
             LOG( DBG_TRACE, stderr, "EAGAIN in parsing op=%d conn %d; remaining data=%ld\n", request->_user->_opcode,
-                 conn->_index, dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf ) );
+                 conn->_index, dbBE_Transport_sr_buffer_unprocessed( sr_buf ) );
 
-            if( ! dbBE_Transport_sr_buffer_empty( conn->_recvbuf ) )
+            if( ! dbBE_Transport_sr_buffer_empty( sr_buf ) )
             {
               LOG( DBG_TRACE, stderr, "Multiple responses in buffer of conn %d; remaining data=%ld\n",
-                   conn->_index, dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf ) );
+                   conn->_index, dbBE_Transport_sr_buffer_unprocessed( sr_buf ) );
               goto process_next_item;
             }
             else
@@ -446,10 +474,10 @@ process_next_item:
   // can only complete out-of-order because Gets would block the whole completion queue
 
   // repeat if the receive buffer contains more responses
-  if( ! dbBE_Transport_sr_buffer_empty( conn->_recvbuf ) )
+  if( ! dbBE_Transport_sr_buffer_empty( sr_buf ) )
   {
     LOG( DBG_TRACE, stderr, "Multiple responses in buffer of conn %d; remaining data=%ld\n",
-         conn->_index, dbBE_Transport_sr_buffer_unprocessed( conn->_recvbuf ) );
+         conn->_index, dbBE_Transport_sr_buffer_unprocessed( sr_buf ) );
     goto process_next_item;
   }
   dbBE_Redis_result_cleanup( &result, 0 );

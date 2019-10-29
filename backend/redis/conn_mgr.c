@@ -43,8 +43,11 @@
 /*
  * initialize the connection mgr
  */
-dbBE_Redis_connection_mgr_t* dbBE_Redis_connection_mgr_init()
+dbBE_Redis_connection_mgr_t* dbBE_Redis_connection_mgr_init( const dbBE_Redis_conn_mgr_config_t *config )
 {
+  if( config == NULL )
+    return NULL;
+
   dbBE_Redis_connection_mgr_t *conn_mgr = (dbBE_Redis_connection_mgr_t*)malloc( sizeof(dbBE_Redis_connection_mgr_t) );
   if( conn_mgr == NULL )
   {
@@ -62,6 +65,16 @@ dbBE_Redis_connection_mgr_t* dbBE_Redis_connection_mgr_init()
     return NULL;
   }
 
+  // take ownership of config; since input can be reference to static mem, make a heap copy to prevent explosions on exit
+  dbBE_Redis_conn_mgr_config_t *conf = (dbBE_Redis_conn_mgr_config_t*)calloc( 1, sizeof( dbBE_Redis_conn_mgr_config_t ) );
+  if( conf == NULL )
+  {
+    LOG( DBG_ERR, stderr, "connection_mgr_init: Failed to allocate config\n" );
+    free( conn_mgr );
+    return NULL;
+  }
+  memcpy( conf, config, sizeof( dbBE_Redis_conn_mgr_config_t ) );
+  conn_mgr->_config = conf;
 
   return conn_mgr;
 }
@@ -94,6 +107,9 @@ void dbBE_Redis_connection_mgr_exit( dbBE_Redis_connection_mgr_t *conn_mgr )
 
   if( conn_mgr->_local )
     dbBE_Redis_address_destroy( conn_mgr->_local );
+
+  if( conn_mgr->_config )
+    free( (dbBE_Redis_conn_mgr_config_t*)conn_mgr->_config );
 
   memset( conn_mgr, 0, sizeof( dbBE_Redis_connection_mgr_t) );
   free( conn_mgr );
@@ -173,7 +189,7 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connectio
   char *authfile = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   LOG( DBG_VERBOSE, stderr, "authfile=%s\n", authfile );
 
-  dbBE_Redis_connection_t *new_conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
+  dbBE_Redis_connection_t *new_conn = dbBE_Redis_connection_create( conn_mgr->_config->_rbuf_len );
   if( new_conn == NULL )
   {
     rc = -ENOMEM;

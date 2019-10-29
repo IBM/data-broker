@@ -16,7 +16,9 @@
 
 set( LIBDBBE_TRANSPORT_SOURCE
 	sr_buffer.c
+	double_buffer.c
 	memcopy.c
+	smallcopy.c
 )
 add_library(dbbe_transport SHARED ${LIBDBBE_TRANSPORT_SOURCE})
 
