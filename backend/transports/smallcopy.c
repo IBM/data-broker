@@ -70,7 +70,8 @@ int64_t dbBE_Transport_scopy_scatter( dbBE_Data_transport_endpoint_t* dev,
 
     // sge_count-1 to ignore terminator SGE; + partial len because input sge is shortened by that amount already
     size_t sge_space = partial->iov_len + dbBE_SGE_get_len( sge, sge_count );
-    memcpy( sge_buf->_cmd, sge, sge_count * sizeof( struct iovec ) );
+    if( sge_buf->_cmd != sge )
+      memcpy( sge_buf->_cmd, sge, sge_count * sizeof( struct iovec ) );
     sge_buf->_index = sge_count;
 
     // our regular receive buffer is fairly small,

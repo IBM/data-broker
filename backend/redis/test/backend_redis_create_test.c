@@ -570,8 +570,6 @@ int main( int argc, char ** argv )
   if( req->_status.move.dumped_value != NULL )
     free( req->_status.move.dumped_value );
   req->_status.move.dumped_value = NULL;
-  if( ureq->_sge[0].iov_base != NULL )
-    free( ureq->_sge[0].iov_base );
   ureq->_sge[0].iov_base = NULL;
   dbBE_Redis_request_destroy( req );
 
