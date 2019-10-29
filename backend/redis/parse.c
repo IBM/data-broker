@@ -52,7 +52,7 @@ int return_error_clean_result( int rc, dbBE_Redis_result_t *result )
   return rc;
 }
 
-static char* gScrapSpace = NULL;
+char* gScrapSpace = NULL;
 #define DBBE_REDIS_SCRAP_SPACE_LEN ( 512ull * 1024ull * 1024ull )
 
 int64_t dbBE_Redis_nul_terminate_string( char *p, size_t *parsed, const int64_t limit )
