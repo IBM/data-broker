@@ -100,7 +100,7 @@ error:
 
   // detach locally because we know we're attached
   ref = dbrMain_detach( ctx, cs );
-  BIGLOCK_UNLOCK( cs->_reverse );
+  BIGLOCK_UNLOCK( ctx );
 
   if( ref <= 1 )
     return DBR_ERR_NSBUSY;
