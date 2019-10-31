@@ -42,6 +42,7 @@ int main( int argc, char ** argv )
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_CANCELLED ), "Operation was cancelled"), 0 );
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_NOTIMPL ), "Operation not implemented"), 0 );
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_BE_GENERAL ), "Unspecified back-end error"), 0 );
+  rc += TEST( strcmp( dbrGet_error( DBR_ERR_ITERATOR ), "Invalid iterator or error iterating the namespace"), 0 );
   rc += TEST( strcmp( dbrGet_error( DBR_ERR_PLUGIN ), "Error while processing request/data in data adapter"), 0 );
 
   rc += TEST( strcmp( dbrGet_error( -1 ), "Unknown Error" ), 0 );
