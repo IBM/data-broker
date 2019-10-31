@@ -211,6 +211,7 @@ int dbBE_Redis_create_key( dbBE_Redis_request_t *request, char *keybuf, uint16_t
         return -EMSGSIZE;
       break;
     }
+    case DBBE_OPCODE_ITERATOR:
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
     {
@@ -463,6 +464,7 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
       break;
     }
 
+    case DBBE_OPCODE_ITERATOR:
     default:
       return -ENOSYS;
   }

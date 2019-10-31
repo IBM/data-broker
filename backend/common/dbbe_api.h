@@ -84,6 +84,7 @@ typedef enum
   DBBE_OPCODE_NSQUERY,  /**< Namespace query operation  */
   DBBE_OPCODE_NSADDUNITS,  /**< Namespace add units to increase the number of backing storage nodes of a namespace  */
   DBBE_OPCODE_NSREMOVEUNITS, /**< Namespace remove units to decrease the number of backing storage nodes of a namespace */
+  DBBE_OPCODE_ITERATOR, /**< Iteration over existing keys */
   DBBE_OPCODE_MAX  /**< Non-implemented operation to simplify range checks for opcodes  */
 } dbBE_Opcode;
 

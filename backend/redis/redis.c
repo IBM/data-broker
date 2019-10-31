@@ -248,6 +248,10 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
           ( request->_sge[1].iov_base != NULL ) || ( request->_sge[1].iov_len < 1 ))
         rc = EINVAL;
       break;
+    case DBBE_OPCODE_ITERATOR:
+      if(( request->_sge_count != 1 ) && ( request->_sge[0].iov_base != request->_key ))
+        rc = EINVAL;
+      break;
     case DBBE_OPCODE_UNSPEC:
     case DBBE_OPCODE_CANCEL:
     case DBBE_OPCODE_NSCREATE:

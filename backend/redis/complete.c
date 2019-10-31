@@ -174,6 +174,10 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
           completion->_rc = result->_data._integer;
       }
       break;
+    case DBBE_OPCODE_ITERATOR:
+      if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
+        completion->_rc = result->_data._integer;  // int64 value contains the iterator pointer
+      break;
     default:
       break;
   }
