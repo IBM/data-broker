@@ -169,6 +169,8 @@ int main( int argc, char ** argv )
   dbBE_Redis_command_stage_spec_t *stage_specs = NULL;
   rc += TEST_NOT_RC( dbBE_Redis_command_stages_spec_init(), NULL, stage_specs );
 
+  TEST_BREAK( rc, "Namespace creation failed. Aborting test\n" );
+
   ureq->_sge_count = 2;
   ureq->_sge[ 0 ].iov_base = strdup("Hello World!");
   ureq->_sge[ 0 ].iov_len = 12;
@@ -570,8 +572,6 @@ int main( int argc, char ** argv )
   if( req->_status.move.dumped_value != NULL )
     free( req->_status.move.dumped_value );
   req->_status.move.dumped_value = NULL;
-  if( ureq->_sge[0].iov_base != NULL )
-    free( ureq->_sge[0].iov_base );
   ureq->_sge[0].iov_base = NULL;
   dbBE_Redis_request_destroy( req );
 
