@@ -167,6 +167,16 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
                                 dbBE_Data_transport_t *transport );
 
 /*
+ * the iterator processing handles the response array of SCAN
+ * the cursor will update the iterator, the keys will be cached
+ * and if one connection is fully iterated, it continues with the next
+ */
+int dbBE_Redis_process_iterator( dbBE_Redis_request_t **in_out_request,
+                                 dbBE_Redis_result_t *result,
+                                 dbBE_Redis_s2r_queue_t *post_queue,
+                                 dbBE_Redis_connection_mgr_t *conn_mgr );
+
+/*
  * do generic result checks based on request, result, and types
  */
 static inline
@@ -200,9 +210,14 @@ int dbBE_Redis_process_general( dbBE_Redis_request_t *request,
         break;
       case dbBE_REDIS_TYPE_STRING_PART:
         // partial strings are ok, if the expected type is char/string too
-        if( spec->_expect == dbBE_REDIS_TYPE_CHAR )
+        if(( spec->_expect == dbBE_REDIS_TYPE_CHAR ) &&
+            (( request->_user->_opcode == DBBE_OPCODE_READ ) ||
+                ( request->_user->_opcode == DBBE_OPCODE_GET ) ||
+                ( request->_user->_opcode == DBBE_OPCODE_MOVE )))
+        {
           break;
-        // intentionally no further break
+        }
+        // no break for partial strings of 'unprepared' commands
       default:
         rc = -EBADMSG;
         break;

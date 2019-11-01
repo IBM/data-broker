@@ -359,6 +359,12 @@ process_next_item:
                                               &result );
             break;
 
+          case DBBE_OPCODE_ITERATOR:
+            rc = dbBE_Redis_process_iterator( &request,
+                                              &result,
+                                              input->_backend->_retry_q,
+                                              input->_backend->_conn_mgr );
+            break;
           default:
             fprintf( stderr, "RedisBE: Invalid command detected.\n" );
             rc = -ENOTSUP;
