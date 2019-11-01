@@ -229,6 +229,14 @@ typedef char *DBR_Tuple_template_t;
  * It refers to a function that will be executed on a tuple, given its name, thus possibly modifying its value.
  */
 typedef DBR_Errorcode_t (*FunctPtr_t)(void*);
+
+
+
+/**
+ * @typedef DBR_Iterator_t
+ * @brief   Iterator type
+ */
+typedef void* DBR_Iterator_t;
 /**
  *@}
  */
@@ -754,6 +762,30 @@ DBR_Errorcode_t dbrTest( DBR_Tag_t req_tag );
  */
 DBR_Errorcode_t dbrCancel( DBR_Tag_t req_tag );
 
+
+
+/**
+ * @brief Create or progress an iterator
+ *
+ * Creates an iterator with a filter to iterate over the available
+ * set of tuples. It returns the next key available with no sorting
+ * order. There's also no guarantee that the value of a returned key
+ * is still in the storage by the time it's requested.
+ *
+ * @param [in] dbr_handle       Handle to attached namespace
+ * @param [in] iterator         Iterator handle (or NULL to create a new)
+ * @param [in] match_template   filter expression
+ * @param [inout] tuple_name    point to memory to be filled with the first/next tuple_name available
+ *
+ * @return
+ *   - an iterator handle for subsequent calls
+ *   - NULL if there was an error or the end of the iteration is reached
+ */
+DBR_Iterator_t dbrIterator( DBR_Handle_t dbr_handle,
+                            DBR_Iterator_t it,
+                            DBR_Group_t group,
+                            DBR_Tuple_template_t match_template,
+                            DBR_Tuple_name_t tuple_name );
 
 
 /*
