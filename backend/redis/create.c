@@ -253,6 +253,39 @@ static int Flatten_cmd_b( dbBE_sge_t *cmd, int cmdlen, dbBE_Redis_sr_buffer_t *d
 }
 #endif
 
+int dbBE_Redis_create_scan_key( dbBE_Redis_request_t *request,
+                                dbBE_Redis_sr_buffer_t *buf,
+                                char *user_match,
+                                dbBE_sge_t *keysge )
+{
+  char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
+  char *namespace = dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)(request->_user->_ns_hdl) );
+
+  char *match_all = "*";
+  char *match = user_match;
+  if(( user_match == NULL ) || ( user_match[0] == '\0'))
+    match = match_all;
+  int keylen = strnlen( namespace,
+                        DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( match, DBBE_REDIS_MAX_KEY_LEN );
+  if( keylen > dbBE_Transport_sr_buffer_remaining( buf ) )
+    return -ENOMEM;
+
+  int len = snprintf( key,
+                      DBBE_REDIS_MAX_KEY_LEN,
+                      "$%d\r\n%s%s%s\r\n",
+                      keylen,
+                      namespace,
+                      DBBE_REDIS_NAMESPACE_SEPARATOR,
+                      match );
+  if( len < 0 )
+    return -EPROTO;
+  dbBE_Transport_sr_buffer_add_data( buf, len, 1 );
+
+  keysge->iov_base = key;
+  keysge->iov_len = len;
+  return 0;
+}
+
 int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
                                    dbBE_Redis_sr_buffer_t *buf,
                                    dbBE_sge_t *cmd )
@@ -290,23 +323,10 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
           break;
         case DBBE_REDIS_DIRECTORY_STAGE_SCAN:
         {
-          char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
-          char *namespace = dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)(request->_user->_ns_hdl) );
-          int keylen = strnlen( namespace, DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( request->_user->_match, DBBE_REDIS_MAX_KEY_LEN );
-          int len = snprintf( key,
-                              DBBE_REDIS_MAX_KEY_LEN,
-                    "$%d\r\n%s%s%s\r\n",
-                    keylen,
-                    namespace,
-                    DBBE_REDIS_NAMESPACE_SEPARATOR,
-                    request->_user->_match );
-          if( len < 0 )
-            return -EPROTO;
-          dbBE_Transport_sr_buffer_add_data( buf, len, 1 );
-
           dbBE_sge_t keysge;
-          keysge.iov_base = key;
-          keysge.iov_len = len;
+          if( ( rc = dbBE_Redis_create_scan_key( request, buf, request->_user->_match, &keysge )) != 0 )
+            break;
+
           rc = dbBE_Redis_command_scan_create( request,
                                                buf,
                                                cmd,
@@ -374,23 +394,10 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
 
         case DBBE_REDIS_NSDETACH_STAGE_SCAN: // SCAN 0 MATCH ns_name%sep;*
         {
-          char *key = dbBE_Transport_sr_buffer_get_available_position( buf );
-          char *namespace = dbBE_Redis_namespace_get_name( (dbBE_Redis_namespace_t*)(request->_user->_ns_hdl) );
-          int keylen = strnlen( namespace,
-                                DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + 1; // +1 for "*"
-          int len = snprintf( key,
-                              DBBE_REDIS_MAX_KEY_LEN,
-                    "$%d\r\n%s%s*\r\n",
-                    keylen,
-                    namespace,
-                    DBBE_REDIS_NAMESPACE_SEPARATOR );
-          if( len < 0 )
-            return -EPROTO;
-          dbBE_Transport_sr_buffer_add_data( buf, len, 1 );
-
           dbBE_sge_t keysge;
-          keysge.iov_base = key;
-          keysge.iov_len = len;
+          if( ( rc = dbBE_Redis_create_scan_key( request, buf, "*", &keysge )) != 0 )
+            break;
+
           rc = dbBE_Redis_command_scan_create( request,
                                                buf,
                                                cmd,
