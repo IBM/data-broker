@@ -1671,22 +1671,8 @@ int dbBE_Redis_process_iterator( dbBE_Redis_request_t **in_out_request,
       if( subresult->_data._array._data[ n ]._data._string._data == NULL )
         continue;
 
-      char *key = strstr( subresult->_data._array._data[ n ]._data._string._data, DBBE_REDIS_NAMESPACE_SEPARATOR );
-      if( key == NULL )
-      {
-        LOG( DBG_ERR, stderr, "no separator in this key, So it's not a proper DBR Key\n" );
+      if( dbBE_Redis_iterator_cache_key( it, subresult->_data._array._data[ n ]._data._string._data ) != 0 )
         return return_error_clean_result( -EILSEQ, result );
-      }
-      key += DBBE_REDIS_NAMESPACE_SEPARATOR_LEN;
-
-      // cache the key
-      char *startloc = &(it->_cached_keys[ it->_cache_tail * DBR_MAX_KEY_LEN ]);
-      snprintf( startloc,
-                DBR_MAX_KEY_LEN, "%s", key );
-      startloc[ DBR_MAX_KEY_LEN - 1 ] = '\0';
-
-      it->_cache_tail = ( it->_cache_tail + 1 ) % DBBE_REDIS_ITERATOR_CACHE_ENTRIES;
-      ++it->_cache_count;
     }
 
     // if new cursor is "0", then bump up to next connection index
@@ -1707,8 +1693,18 @@ int dbBE_Redis_process_iterator( dbBE_Redis_request_t **in_out_request,
         }
       }
       it->_connection = conn; // if this is MAX_CONNECTIONS then the cursor is remote-complete
+
+      // append an EOF key to terminate the iteration
+      if( conn == NULL )
+      {
+        char eof_key[5];
+        snprintf( eof_key, 5, "x%s%c", DBBE_REDIS_NAMESPACE_SEPARATOR, EOF );
+        if( dbBE_Redis_iterator_cache_key( it, eof_key ) != 0 )
+          return return_error_clean_result( -EILSEQ, result );
+      }
     }
 
+    // if we got anything in the cache, then we're done for this request and respond to the user
     if( it->_cache_count > 0 )
     {
       // complete this request with a proper response and don't create a new request

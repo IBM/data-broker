@@ -18,6 +18,7 @@
 #ifndef BACKEND_REDIS_ITERATOR_H_
 #define BACKEND_REDIS_ITERATOR_H_
 
+#include "logutil.h"
 #include "definitions.h"
 
 
@@ -119,8 +120,30 @@ void dbBE_Redis_iterator_copy_key( dbBE_sge_t *sge, char* key )
   memcpy( sge->iov_base,
           key,
           copylen);
+  ((char*)sge->iov_base)[copylen] = '\0'; // terminate
 }
 
+static inline
+int dbBE_Redis_iterator_cache_key( dbBE_Redis_iterator_t *it, const char *raw_key )
+{
+  char *key = strstr( raw_key, DBBE_REDIS_NAMESPACE_SEPARATOR );
+  if( key == NULL )
+  {
+    LOG( DBG_ERR, stderr, "no separator in this key, So it's not a proper DBR Key\n" );
+    return -EILSEQ;
+  }
+  key += DBBE_REDIS_NAMESPACE_SEPARATOR_LEN;
+
+  // cache the key
+  char *startloc = &(it->_cached_keys[ it->_cache_tail * DBR_MAX_KEY_LEN ]);
+  snprintf( startloc,
+            DBR_MAX_KEY_LEN, "%s", key );
+  startloc[ DBR_MAX_KEY_LEN - 1 ] = '\0';
+
+  it->_cache_tail = ( it->_cache_tail + 1 ) % DBBE_REDIS_ITERATOR_CACHE_ENTRIES;
+  ++it->_cache_count;
+  return 0;
+}
 
 
 
