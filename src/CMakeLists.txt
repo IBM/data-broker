@@ -38,6 +38,7 @@ set( LIBDBINT_FILES
 	api/dbrMove.c
 	api/dbrRemove.c
 	api/dbrDirectory.c
+	api/dbrIterator.c
 )
 
 include_directories(./)

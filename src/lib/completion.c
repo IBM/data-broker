@@ -121,6 +121,9 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
         if(( rsize < cpl->_rc ) || ( cpl->_rc == 0 ))
           rc = DBR_ERR_UBUFFER;
         break;
+      case DBBE_OPCODE_ITERATOR:
+        *chain->_rc = cpl->_rc; // set the returned iterator
+        break;
       default:
         return DBR_ERR_INVALIDOP;
     }

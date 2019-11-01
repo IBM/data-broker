@@ -169,6 +169,8 @@ int main( int argc, char ** argv )
   dbBE_Redis_command_stage_spec_t *stage_specs = NULL;
   rc += TEST_NOT_RC( dbBE_Redis_command_stages_spec_init(), NULL, stage_specs );
 
+  TEST_BREAK( rc, "Namespace creation failed. Aborting test\n" );
+
   ureq->_sge_count = 2;
   ureq->_sge[ 0 ].iov_base = strdup("Hello World!");
   ureq->_sge[ 0 ].iov_len = 12;
@@ -570,9 +572,47 @@ int main( int argc, char ** argv )
   if( req->_status.move.dumped_value != NULL )
     free( req->_status.move.dumped_value );
   req->_status.move.dumped_value = NULL;
-  if( ureq->_sge[0].iov_base != NULL )
-    free( ureq->_sge[0].iov_base );
   ureq->_sge[0].iov_base = NULL;
+  ureq->_sge[0].iov_len = 0;
+  dbBE_Redis_request_destroy( req );
+
+  // create an iterator command
+  ureq->_opcode = DBBE_OPCODE_ITERATOR;
+  ureq->_key = "TestTup";
+  ureq->_ns_hdl = ns;
+  ureq->_sge_count = 1;
+  ureq->_sge[0].iov_base = ureq->_key;
+  ureq->_sge[0].iov_len = 7;
+
+  req = dbBE_Redis_request_allocate( ureq );
+  rc += TEST_NOT( req, NULL );
+
+  rc += TEST( req->_step->_stage, 0 );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 5, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
+  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$1\r\n0\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$2\r\n10\r\n",
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
+
+  // iterator based on an existing cursor
+  dbBE_Redis_iterator_t iterator;
+  sprintf( iterator._cursor, "3654" );
+  req->_status.iterator._it = &iterator;
+  dbBE_Transport_sr_buffer_reset( sr_buf );
+  rc += TEST_RC( dbBE_Redis_create_command_sge( req,
+                                                sr_buf,
+                                                cmd ), 5, cmdlen );
+  rc += TEST( Flatten_cmd( cmd, cmdlen, data_buf ), 0 );
+  rc += TEST( strcmp( "*6\r\n$4\r\nSCAN\r\n$4\r\n3654\r\n$5\r\nMATCH\r\n$9\r\nTestNS::*\r\n$5\r\nCOUNT\r\n$2\r\n10\r\n",
+                      dbBE_Transport_sr_buffer_get_start( data_buf ) ),
+              0 );
+  TEST_LOG( rc, dbBE_Transport_sr_buffer_get_start( data_buf ) );
+
+
   dbBE_Redis_request_destroy( req );
 
 

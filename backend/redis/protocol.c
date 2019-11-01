@@ -361,6 +361,21 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
   strcpy( s->_command, "*2\r\n$3\r\nDEL\r\n%0" );
   s->_stage = stage;
 
+  /*
+   * ITERATOR command
+   * for each connection: SCAN <iterator> MATCH <match_template> COUNT 10
+   */
+  op = DBBE_OPCODE_ITERATOR;
+  stage = 0;
+  index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
+  s = &specs[ index ];
+  s->_array_len = 2;
+  s->_resp_cnt = 1;
+  s->_final = 1;
+  s->_result = 1;
+  s->_expect = dbBE_REDIS_TYPE_ARRAY;
+  strcpy( s->_command, "*6\r\n$4\r\nSCAN\r\n%0$5\r\nMATCH\r\n%1$5\r\nCOUNT\r\n$2\r\n10\r\n" );
+  s->_stage = stage;
 
   gRedis_command_spec = specs;
 

@@ -31,6 +31,7 @@
 #include "conn_mgr.h"
 #include "cluster_info.h"
 #include "namespacelist.h"
+#include "iterator.h"
 
 typedef struct
 {
@@ -46,6 +47,7 @@ typedef struct
   dbBE_Redis_sr_buffer_t *_sender_buffer;
   dbBE_Redis_namespace_list_t *_namespaces;
   int *_sender_connections;
+  dbBE_Redis_iterator_list_t _iterators;
   // sender/receiver threads
 
 } dbBE_Redis_context_t;

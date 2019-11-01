@@ -33,6 +33,7 @@ set(DBR_TEST_SOURCES
 	test_errorcodes.c
 	test_dbrUtils.c
 	test_dbrDirectory.c
+	test_dbrIterator.c
 )
 
 foreach(_test ${DBR_TEST_SOURCES})

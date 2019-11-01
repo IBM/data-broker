@@ -57,17 +57,26 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
   if( op >= DBBE_OPCODE_MAX )
     return NULL;
 
-  dbBE_sge_t move_sge[2];
+  DBR_Tuple_name_t key = tuple_name;
+
+  dbBE_sge_t temp_sge[2];
   switch( op )
   {
     case DBBE_OPCODE_MOVE:
       // for the move cmd, we'll put the destination cs and group into the SGE/value
       sge_count = 2;
-      move_sge[0].iov_base = dst_cs->_be_ns_hdl;
-      move_sge[0].iov_len = sizeof( dst_cs->_be_ns_hdl );
-      move_sge[1].iov_base = dst_group;
-      move_sge[1].iov_len = sizeof( DBR_Group_t );
-      sge = move_sge;
+      temp_sge[0].iov_base = dst_cs->_be_ns_hdl;
+      temp_sge[0].iov_len = sizeof( dst_cs->_be_ns_hdl );
+      temp_sge[1].iov_base = dst_group;
+      temp_sge[1].iov_len = sizeof( DBR_Group_t );
+      sge = temp_sge;
+      break;
+    case DBBE_OPCODE_ITERATOR:
+      sge_count = 1;
+      temp_sge[0].iov_base = tuple_name; // returned key
+      temp_sge[0].iov_len = DBR_MAX_KEY_LEN;
+      key = (char*)(*rc);  // the key becomes the iterator ptr
+      sge = temp_sge;
       break;
     default:
       break;
@@ -79,7 +88,7 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
 
   req->_req._ns_hdl = cs->_be_ns_hdl;
   req->_req._group = group;
-  req->_req._key = tuple_name;
+  req->_req._key = key;
   req->_req._match = match_template;
   req->_req._sge_count = sge_count;
   req->_req._opcode = op;

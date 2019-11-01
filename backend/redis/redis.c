@@ -167,6 +167,15 @@ dbBE_Handle_t Redis_initialize(void)
   // initialize an empty list of namespaces
   context->_namespaces = NULL;
 
+  dbBE_Redis_iterator_list_t iterators = dbBE_Redis_iterator_list_allocate();
+  if( iterators == NULL )
+  {
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to initialize iterators\n" );
+    Redis_exit( context );
+    return NULL;
+  }
+  context->_iterators = iterators;
+
   if( dbBE_Redis_connect_initial( context ) != 0 )
   {
     LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to connect to Redis.\n" );
@@ -188,23 +197,25 @@ int Redis_exit( dbBE_Handle_t be )
   {
     dbBE_Redis_context_t *context = (dbBE_Redis_context_t*)be;
     dbBE_Redis_connection_mgr_exit( context->_conn_mgr );
+    temp = dbBE_Redis_iterator_list_destroy( context->_iterators );
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Redis_locator_destroy( context->_locator );
-    if( temp != 0 ) rc = temp;
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Request_set_destroy( context->_cancellations );
-    if( temp != 0 ) rc = temp;
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Redis_cluster_info_destroy( context->_cluster_info );
-    if( temp != 0 ) rc = temp;
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Redis_namespace_list_clean( context->_namespaces );
-    if( temp != 0 ) rc = temp;
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     if( context->_sender_connections != NULL )
       free( context->_sender_connections );
     dbBE_Transport_sr_buffer_free( context->_sender_buffer );
     temp = dbBE_Redis_s2r_queue_destroy( context->_retry_q );
-    if( temp != 0 ) rc = temp;
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Completion_queue_destroy( context->_compl_q );
-    if( temp != 0 ) rc = temp;
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Request_queue_destroy( context->_work_q );
-    if( temp != 0 ) rc = temp;
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     dbBE_Redis_command_stages_spec_destroy( context->_spec );
     memset( context, 0, sizeof( dbBE_Redis_context_t ) );
     free( context );
@@ -246,6 +257,10 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
         rc = ENOTSUP;
       if(( request->_sge[0].iov_base == NULL ) || ( request->_sge[0].iov_len < 1 ) ||
           ( request->_sge[1].iov_base != NULL ) || ( request->_sge[1].iov_len < 1 ))
+        rc = EINVAL;
+      break;
+    case DBBE_OPCODE_ITERATOR:
+      if(( request->_sge_count != 1 ) && ( request->_sge[0].iov_base != request->_key ))
         rc = EINVAL;
       break;
     case DBBE_OPCODE_UNSPEC:

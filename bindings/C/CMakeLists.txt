@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018, 2019 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ set( LIBDB_FILES
 	src/dbrMove.c
 	src/dbrRemove.c
 	src/dbrTestKey.c
+	src/dbrIterator.c
 )
 
 include_directories(../../src)

@@ -130,6 +130,13 @@ libdbrDirectory( DBR_Handle_t cs_handle,
                  const size_t size,
                  int64_t *ret_size );
 
+DBR_Iterator_t
+libdbrIterator( DBR_Handle_t cs_handle,
+                DBR_Iterator_t iterator,
+                DBR_Group_t group,
+                DBR_Tuple_template_t match_template,
+                DBR_Tuple_name_t tuple_name );
+
 /*
  * data broker request handling functions
  * to test for completion or cancel non-blocking requests

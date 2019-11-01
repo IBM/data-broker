@@ -98,6 +98,7 @@ int dbBE_Redis_create_key_cmd( dbBE_Redis_request_t *request, char *keybuf, uint
     }
     case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_NSQUERY:
+    case DBBE_OPCODE_ITERATOR: // iterator should never get here to build a key (SCAN <cursor> MATCH ....) has no 'key'
     {
       int keylen = strnlen( dbBE_Redis_namespace_get_name( ns ), size );
       len = snprintf( keybuf, size, "$%d\r\n%s\r\n",
