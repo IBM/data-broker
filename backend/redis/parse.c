@@ -1691,6 +1691,7 @@ int dbBE_Redis_process_iterator( dbBE_Redis_request_t **in_out_request,
 
     // if new cursor is "0", then bump up to next connection index
     memcpy( it->_cursor, result->_data._array._data[0]._data._string._data, result->_data._array._data[0]._data._string._size );
+    it->_cursor[ result->_data._array._data[0]._data._string._size ] = '\0';  // make sure the string is terminated
     if( it->_cursor[0] == '0' )
     {
       // find the next connection
