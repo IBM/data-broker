@@ -167,6 +167,15 @@ dbBE_Handle_t Redis_initialize(void)
   // initialize an empty list of namespaces
   context->_namespaces = NULL;
 
+  dbBE_Redis_iterator_list_t iterators = dbBE_Redis_iterator_list_allocate();
+  if( iterators == NULL )
+  {
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to initialize iterators\n" );
+    Redis_exit( context );
+    return NULL;
+  }
+  context->_iterators = iterators;
+
   if( dbBE_Redis_connect_initial( context ) != 0 )
   {
     LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to connect to Redis.\n" );
@@ -188,6 +197,8 @@ int Redis_exit( dbBE_Handle_t be )
   {
     dbBE_Redis_context_t *context = (dbBE_Redis_context_t*)be;
     dbBE_Redis_connection_mgr_exit( context->_conn_mgr );
+    temp = dbBE_Redis_iterator_list_destroy( context->_iterators );
+    if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Redis_locator_destroy( context->_locator );
     if(( temp != 0 ) && ( rc == 0 )) rc = temp;
     temp = dbBE_Request_set_destroy( context->_cancellations );
