@@ -19,7 +19,6 @@ import sys
 from _dbr_interface import ffi
 from dbr_module import dbr
 
-
 dbr_name = "DBRtestname"
 level = dbr.DBR_PERST_VOLATILE_SIMPLE
 group_list = ffi.new('DBR_GroupList_t')
@@ -31,24 +30,24 @@ group = dbr.DBR_GROUP_EMPTY
 dbr_state = ffi.new('DBR_State_t*')
 res = dbr.query(dbr_hdl, dbr_state, dbr.DBR_STATE_MASK_ALL)
 
-test_in = "Hello World!"
-res = dbr.put(dbr_hdl, test_in, "testHello", group)
-res = dbr.put(dbr_hdl, "Goodbye!", "testGoodbye", group)
+# put a set of keys
+for i in range(10):
+    key = "simple_key_"+str(i)
+    print('Putting key: ' + key)
+    res = dbr.put(dbr_hdl, "test-value-"+str(i), key,  dbr.DBR_GROUP_EMPTY)
 
-print('Put ' + test_in + ' and Goodbye!') 
-group_t = 0
-iterator = ffi.new('DBR_Iterator_t*')
+#res = dbr.put(dbr_hdl, "Hello!", "testHello", group)
+#res = dbr.put(dbr_hdl, "Goodbye!", "testGoodbye", group)
+#print('Put ' + test_in + ' and Goodbye!') 
+
 iterator = dbr.DBR_ITERATOR_NEW
-key, iterator = dbr.iterator(dbr_hdl, iterator, group, "")
+key, iterator = dbr.iterator(dbr_hdl, iterator, dbr.DBR_GROUP_EMPTY, "")
 
-print('Key ' + key)
-value, res = dbr.get(dbr_hdl, key, "", group, dbr.DBR_FLAGS_NONE)
-print('Get returned: ' + value + " - status: ", dbr.getErrorMessage(res))
+while iterator != dbr.DBR_ITERATOR_DONE:
+    value, res = dbr.get(dbr_hdl, key, "", dbr.DBR_GROUP_EMPTY, dbr.DBR_FLAGS_NONE)
+    print('On key ' + key + ' Get returned: ' + value)
+    key, iterator = dbr.iterator(dbr_hdl, iterator, dbr.DBR_GROUP_EMPTY, "")
 
-key, iterator = dbr.iterator(dbr_hdl, iterator, group, "")
-print('Key ' + key)
-value, res = dbr.get(dbr_hdl, key, "", group, dbr.DBR_FLAGS_NONE)
-print('Get returned: ' + value + " - status: ", dbr.getErrorMessage(res))
 
 print('Delete Data Broker')
 res = dbr.delete(dbr_name)
