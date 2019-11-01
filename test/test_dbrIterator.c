@@ -42,7 +42,7 @@ int main( int argc, char **argv )
     keybuf[ n + 100 ] = tmp;
   }
 
-  DBR_Iterator_t iterator = NULL;
+  DBR_Iterator_t iterator = DBR_ITERATOR_NEW;
   char covered[ DBR_TEST_KEY_COUNT ];
   memset( covered, 0, DBR_TEST_KEY_COUNT );
   int it_count = 0;
@@ -51,7 +51,7 @@ int main( int argc, char **argv )
     if( ++it_count < DBR_TEST_KEY_COUNT )
       rc += TEST_NOT_RC( dbrIterator( hdl, iterator, DBR_GROUP_EMPTY, "", key ), NULL, iterator );
     else
-      rc += TEST_RC( dbrIterator( hdl, iterator, DBR_GROUP_EMPTY, "", key ), NULL, iterator );
+      rc += TEST_RC( dbrIterator( hdl, iterator, DBR_GROUP_EMPTY, "", key ), DBR_ITERATOR_DONE, iterator );
 
     char *keyref = keybuf;
     rc += TEST_NOT_RC( strstr( keybuf, key ), NULL, keyref );
@@ -60,7 +60,7 @@ int main( int argc, char **argv )
     rc += TEST_NOT( offset < DBR_TEST_KEY_COUNT, 0 );
     if( rc == 0 )
       covered[ offset ] = 1;
-  } while(( iterator != NULL ) && ( rc == 0 ));
+  } while(( iterator != DBR_ITERATOR_DONE ) && ( rc == 0 ));
 
   int cover_total = 0;
   for( n=0; n<DBR_TEST_KEY_COUNT; ++n )

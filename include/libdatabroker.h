@@ -281,6 +281,15 @@ typedef void* DBR_Iterator_t;
  */
 #define DBR_STATE_MASK_ALL ( 0xFFFFFFFFFFFFFFFFull )
 
+/**
+ * @brief Initializer for new iterators
+ */
+#define DBR_ITERATOR_NEW ( NULL )
+
+/**
+ * @brief Termination indicator for finished iterators
+ */
+#define DBR_ITERATOR_DONE ( NULL )
 
 /* data broker management functions
  * to create/query/delete name spaces and/or attach
