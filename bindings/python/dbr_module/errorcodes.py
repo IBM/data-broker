@@ -42,6 +42,8 @@ typedef enum {
   DBR_ERR_INVALIDOP, // invalid operation
   DBR_ERR_BE_POST, // posting request to back-end failed
   DBR_ERR_BE_GENERAL, // Unspecified back-end error
+  DBR_ERR_ITERATOR,
+  DBR_ERR_PLUGIN,
   DBR_ERR_MAXERROR
 } DBR_Errorcode_t;
 
@@ -103,7 +105,9 @@ typedef enum {
   DBR_ERR_INVALIDOP, // invalid operation
   DBR_ERR_BE_POST, // posting request to back-end failed
   DBR_ERR_BE_GENERAL, // Unspecified back-end error
-  DBR_ERR_MAXERROR
+  DBR_ERR_ITERATOR,
+  DBR_ERR_PLUGIN,
+  DBR_ERR_MAXERROR,
 } DBR_Errorcode_t;
 
 
@@ -129,7 +133,10 @@ char *dbrError_table[ DBR_ERR_MAXERROR ] = {
    [ DBR_ERR_NOTIMPL ] = "Operation not implemented",
    [ DBR_ERR_INVALIDOP ] = "Invalid operation",
    [ DBR_ERR_BE_POST ] = "Failed to post request to back-end",
-   [ DBR_ERR_BE_GENERAL ] = "Unspecified back-end error"
+   [ DBR_ERR_BE_GENERAL ] = "Unspecified back-end error",
+   [ DBR_ERR_ITERATOR ] = "Iterator error",
+   [ DBR_ERR_PLUGIN ] = "Plugin error"
+
 };
 
     """)

@@ -45,6 +45,8 @@ DBR_ERR_NOTIMPL = ERRORTABLE.DBR_ERR_NOTIMPL # operation not implemented
 DBR_ERR_INVALIDOP = ERRORTABLE.DBR_ERR_INVALIDOP # invalid operation
 DBR_ERR_BE_POST = ERRORTABLE.DBR_ERR_BE_POST #  posting request to back-end failed
 DBR_ERR_BE_GENERAL = ERRORTABLE.DBR_ERR_BE_GENERAL # Unspecified back-end error
+DBR_ERR_ITERATOR = ERRORTABLE.DBR_ERR_ITERATOR
+DBR_ERR_PLUGIN = ERRORTABLE.DBR_ERR_PLUGIN
 DBR_ERR_MAXERROR = ERRORTABLE.DBR_ERR_MAXERROR
 
 # Tuple persist level
@@ -62,6 +64,8 @@ DBR_FLAGS_MAX = libdatabroker.DBR_FLAGS_MAX
 
 DBR_GROUP_LIST_EMPTY = '0' #libdatabroker.DBR_GROUP_LIST_EMPTY
 DBR_GROUP_EMPTY = '0'      #libdatabroker.DBR_GROUP_EMPTY
+DBR_ITERATOR_NEW = ffi.NULL 
+DBR_ITERATOR_DONE = ffi.NULL
 
 # Mask
 DBR_STATE_MASK_ALL = libdatabroker.DBR_STATE_MASK_ALL
@@ -220,6 +224,15 @@ def test(tag):
 def cancel(tag):
     retval = libdatabroker.dbrCancel(tag)
     return retval
+
+def iterator(dbr_hdl, iterator, group, match_template):
+    out_buffer = createBuf('char[]', libdatabroker.DBR_MAX_KEY_LEN)
+    retval = libdatabroker.dbrIterator(dbr_hdl, iterator, group.encode(), match_template.encode(), ffi.from_buffer(out_buffer))
+    
+    result = out_buffer[:].decode()
+    return result, retval    
+    
+
 
 def eval(dbr_hdl, tuple_val, tuple_name, size, group, fn_ptr):
     retval = libdatabroker.dbrEval(dbr_hdl, tuple_val.encode(), size, tuple_name.encode(), group.encode(), fn_ptr)

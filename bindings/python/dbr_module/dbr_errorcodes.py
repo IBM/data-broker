@@ -39,6 +39,8 @@ class DBR_Result(Enum):
     DBR_ERR_INVALIDOP = lib.DBR_ERR_INVALIDOP # invalid operation
     DBR_ERR_BE_POST = lib.DBR_ERR_BE_POST #  posting request to back-end failed
     DBR_ERR_BE_GENERAL = lib.DBR_ERR_BE_GENERAL # Unspecified back-end error
+    DBR_ERR_ITERATOR = lib.DBR_ERR_ITERATOR # Invalid iterator or error iterating the namespace
+    DBR_ERR_PLUGIN = lib.DBR_ERR_PLUGIN # Data adapter error
     DBR_ERR_MAXERROR = lib.DBR_ERR_MAXERROR
 
 class Errors(object):
@@ -65,6 +67,8 @@ class Errors(object):
         self.DBR_ERR_INVALIDOP = lib.DBR_ERR_INVALIDOP # invalid operation
         self.DBR_ERR_BE_POST = lib.DBR_ERR_BE_POST #  posting request to back-end failed
         self.DBR_ERR_BE_GENERAL = lib.DBR_ERR_BE_GENERAL # Unspecified back-end error
+        self.DBR_ERR_ITERATOR = lib.DBR_ERR_ITERATOR # Invalid iterator or error iterating the namespace
+        self.DBR_ERR_PLUGIN = lib.DBR_ERR_PLUGIN # Data adapter error
         self.DBR_ERR_MAXERROR = lib.DBR_ERR_MAXERROR
 
     def print_table(self):

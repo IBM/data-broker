@@ -19,7 +19,6 @@
 # example, but call the result 'ffibuilder' now instead of 'ffi';
 # this is to avoid confusion with the other 'ffi' object you get below
 
-#from cffi import FFI
 import cffi
 
 ffibuilder = cffi.FFI()
@@ -42,6 +41,8 @@ ffibuilder.cdef("""
 #define DBR_GROUP_EMPTY 0
 #define DBR_UNIT_LIST_EMPTY 0 
 #define DBR_STATE_MASK_ALL  0xFFFFFFFFFFFFFFFFull
+#define DBR_ITERATOR_NEW 0
+#define DBR_ITERATOR_DONE 0
 
 typedef enum {
   DBR_PERST_VOLATILE_SIMPLE,
@@ -81,6 +82,8 @@ typedef enum {
   DBR_ERR_INVALIDOP, // invalid operation
   DBR_ERR_BE_POST, // posting request to back-end failed
   DBR_ERR_BE_GENERAL, // Unspecified back-end error
+  DBR_ERR_ITERATOR,
+  DBR_ERR_PLUGIN,
   DBR_ERR_MAXERROR
 } DBR_Errorcode_t;
 
@@ -96,6 +99,7 @@ typedef char *DBR_Unit_t;
 typedef DBR_Unit_t *DBR_UnitList_t;
 typedef char *DBR_Tuple_name_t;
 typedef char *DBR_Tuple_template_t;
+typedef void* DBR_Iterator_t;
 //typedef DBR_Errorcode_t (*FunctPtr_t)(void*);
 
 
@@ -191,6 +195,11 @@ DBR_Errorcode_t dbrTest( DBR_Tag_t req_tag );
 
 DBR_Errorcode_t dbrCancel( DBR_Tag_t req_tag );
 
+DBR_Iterator_t dbrIterator( DBR_Handle_t dbr_handle,
+                            DBR_Iterator_t it,
+                            DBR_Group_t group,
+                            DBR_Tuple_template_t match_template,
+                            DBR_Tuple_name_t tuple_name );
 
 /*
 DBR_Tag_t dbrEval( DBR_Handle_t cs_handle,
