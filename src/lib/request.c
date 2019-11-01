@@ -72,6 +72,11 @@ dbrRequestContext_t* dbrCreate_request_ctx(dbBE_Opcode op,
       sge = temp_sge;
       break;
     case DBBE_OPCODE_ITERATOR:
+      sge_count = 1;
+      temp_sge[0].iov_base = tuple_name; // returned key
+      temp_sge[0].iov_len = DBR_MAX_KEY_LEN;
+      key = (char*)(*rc);  // the key becomes the iterator ptr
+      sge = temp_sge;
       break;
     default:
       break;
