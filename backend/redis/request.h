@@ -23,6 +23,7 @@
 #include "protocol.h"
 #include "refcounter.h"
 #include "locator.h"
+#include "iterator.h"
 
 typedef struct dbBE_Redis_intern_detach_data
 {
@@ -44,11 +45,17 @@ typedef struct dbBE_Redis_intern_move_data
   size_t len;
 } dbBE_Redis_intern_move_data_t;
 
+typedef struct dbBE_Redis_intern_iterator_data
+{
+  dbBE_Redis_iterator_t *_it;
+} dbBE_Redis_intern_iterator_data_t;
+
 typedef union dbBE_Redis_intern_data
 {
   dbBE_Redis_intern_detach_data_t  nsdetach;
   dbBE_Redis_intern_directory_data_t directory;
   dbBE_Redis_intern_move_data_t move;
+  dbBE_Redis_intern_iterator_data_t iterator;
 } dbBE_Redis_intern_data_t;
 
 typedef enum

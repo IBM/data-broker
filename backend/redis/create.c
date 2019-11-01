@@ -472,6 +472,18 @@ int dbBE_Redis_create_command_sge( dbBE_Redis_request_t *request,
     }
 
     case DBBE_OPCODE_ITERATOR:
+    {
+      dbBE_sge_t keysge;
+      if( ( rc = dbBE_Redis_create_scan_key( request, buf, request->_user->_match, &keysge )) != 0 )
+        break;
+
+      rc = dbBE_Redis_command_scan_create( request,
+                                           buf,
+                                           cmd,
+                                           &keysge,
+                                           request->_status.iterator._it->_cursor );
+      break;
+    }
     default:
       return -ENOSYS;
   }
