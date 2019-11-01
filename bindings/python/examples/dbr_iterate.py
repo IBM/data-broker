@@ -36,10 +36,6 @@ for i in range(10):
     print('Putting key: ' + key)
     res = dbr.put(dbr_hdl, "test-value-"+str(i), key,  dbr.DBR_GROUP_EMPTY)
 
-#res = dbr.put(dbr_hdl, "Hello!", "testHello", group)
-#res = dbr.put(dbr_hdl, "Goodbye!", "testGoodbye", group)
-#print('Put ' + test_in + ' and Goodbye!') 
-
 iterator = dbr.DBR_ITERATOR_NEW
 key, iterator = dbr.iterator(dbr_hdl, iterator, dbr.DBR_GROUP_EMPTY, "")
 
