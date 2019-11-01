@@ -29,7 +29,7 @@
 #include "redis.h"
 #include "create.h"
 #include "complete.h"
-
+#include "iterator.h"
 
 typedef struct dbBE_Redis_sender_args
 {
@@ -64,13 +64,123 @@ static inline
 int dbBE_Redis_cmd_stage_needs_rekeying( dbBE_Redis_request_t *request )
 {
   int check = 0;
-  check += ( request->_step->_stage == 0 ); // all first-stage requests need to get checked
+  check += (( request->_step->_stage == 0 ) && ( request->_user->_opcode != DBBE_OPCODE_ITERATOR )); // all first-stage requests need to get checked (except iterators)
   check += ( request->_user->_opcode == DBBE_OPCODE_MOVE ); // MOVE cmd needs re-keying for each stage
   check += (( request->_user->_opcode == DBBE_OPCODE_NSDETACH ) && ( request->_step->_stage == DBBE_REDIS_NSDETACH_STAGE_DELNS ) );
-
   return check;
 }
 
+static
+dbBE_Redis_request_t* dbBE_Redis_request_preprocess( dbBE_Redis_context_t *backend, dbBE_Redis_request_t *request )
+{
+  if(( request == NULL ) || ( backend == NULL ))
+    return request;
+  if( request->_user->_opcode == DBBE_OPCODE_ITERATOR )
+  {
+    dbBE_Redis_iterator_t *it = request->_status.iterator._it;
+
+    // if we don't have a status cursor, we assume this is the first call/cursor creation
+    if( it == NULL )
+      it = (dbBE_Redis_iterator_t*)request->_user->_key;
+    // iterator with no data but end-of cycle is invalid
+    if(( it != NULL ) && ( it->_cache_count == 0 ) && ( it->_connection == NULL ))
+    {
+      dbBE_Redis_create_send_error( backend->_compl_q, request, DBR_ERR_ITERATOR );
+      return NULL;
+    }
+
+    // new iterator
+    if( it == NULL )
+    {
+      int i;
+      it = dbBE_Redis_iterator_new( backend->_iterators );
+      if( it == NULL )
+      {
+        dbBE_Redis_create_send_error( backend->_compl_q, request, DBR_ERR_ITERATOR );
+        return NULL;
+      }
+      request->_status.iterator._it = it;
+
+      // set the first connection index since this is a fresh iterator
+      dbBE_Redis_connection_t *conn = NULL;
+      for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS); ++i )
+      {
+        if(( backend->_conn_mgr->_connections[ i ] != NULL ) &&
+            (dbBE_Redis_connection_RTR( backend->_conn_mgr->_connections[ i ] ) ))
+        {
+          conn = backend->_conn_mgr->_connections[ i ];
+          break;
+        }
+      }
+      if( i == DBBE_REDIS_MAX_CONNECTIONS )
+      {
+        dbBE_Redis_create_send_error( backend->_compl_q, request, DBR_ERR_NOCONNECT );
+        return NULL;
+      }
+      request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_CONNECTION;
+      request->_location._data._connection = conn;
+      it->_connection = conn;
+    }
+    else
+    {
+      request->_status.iterator._it = it;
+      request->_location._type = DBBE_REDIS_REQUEST_LOCATION_TYPE_CONNECTION;
+      request->_location._data._connection = it->_connection;
+    }
+
+    // check cache status and maybe create a request
+    // needs prefetch or is complete
+    int needs_prefetch = (( it->_cache_count < (DBBE_REDIS_ITERATOR_CACHE_ENTRIES >> 1 )) && ( dbBE_Redis_iterator_remote_complete( it ) == 0 ));
+    if( needs_prefetch != 0 )
+    {
+      // nothing to do with the request the above init-code or
+      // the response parser prepares connections and therefore everything should be ready now
+    }
+    else
+    {
+      // if no prefetch is needed, the request must be completed
+      if( it->_cache_count > 0 )
+      {
+        char *key = dbBE_Redis_iterator_pop_cached_key( it );
+        dbBE_Redis_iterator_copy_key( request->_user->_sge, key );
+
+        if( dbBE_Redis_iterator_complete( it ) )
+        {
+          dbBE_Redis_iterator_reset( it );
+          it = NULL;
+        }
+
+        dbBE_Redis_result_t result;
+        result._type = dbBE_REDIS_TYPE_INT;
+        result._data._integer = (int64_t)it;
+        dbBE_Completion_t *completion = dbBE_Redis_complete_command(
+            request,
+            &result, DBR_SUCCESS );
+
+        if( completion == NULL )
+        {
+          dbBE_Redis_create_send_error( backend->_compl_q, request, DBR_ERR_BE_GENERAL );
+          return NULL;
+        }
+        if( dbBE_Completion_queue_push( backend->_compl_q, completion ) != 0 )
+        {
+          free( completion );
+          dbBE_Redis_request_destroy( request );
+          fprintf( stderr, "RedisBE: Failed to queue completion.\n" );
+          return NULL;
+        }
+      }
+      else // iterator is complete/empty/invalid
+      {
+        dbBE_Redis_create_send_error( backend->_compl_q, request, DBR_ERR_ITERATOR );
+        return NULL;
+      }
+      dbBE_Redis_request_destroy( request );
+      request = NULL;
+    }
+  }
+  return request;
+}
 
 static
 dbBE_Redis_request_t* dbBE_Redis_sender_acquire_request( dbBE_Redis_context_t *backend )
@@ -119,7 +229,11 @@ dbBE_Redis_request_t* dbBE_Redis_sender_acquire_request( dbBE_Redis_context_t *b
       dbBE_Redis_request_destroy( request );
       request = NULL;
     }
+
+    // preprocess (mainly for iterators where immediate completion is possible)
+    request = dbBE_Redis_request_preprocess( backend, request );
   } while( request == NULL ); // repeat in case there was a cancellation
+
   return request;
 }
 
