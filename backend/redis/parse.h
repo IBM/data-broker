@@ -98,7 +98,8 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
  * process the response data of a move request and its stages
  */
 int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
-                             dbBE_Redis_result_t *result );
+                             dbBE_Redis_result_t *result,
+                             dbBE_Redis_connection_t *conn );
 
 /*
  * process the response data of a remove request

@@ -148,8 +148,11 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, "Delete" );
 
+  free( tbuf );
 exit:
   free( name );
+  free( key_data );
+  free( val_data );
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

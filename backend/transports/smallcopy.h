@@ -23,6 +23,7 @@
 #include "../common/dbbe_api.h"
 #include "../common/data_transport.h"
 
+extern char* gScrapSpace;
 extern dbBE_Data_transport_t dbBE_Smallcopy_transport;
 
 int64_t dbBE_Transport_scopy_gather( dbBE_Data_transport_endpoint_t* dev,

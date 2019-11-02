@@ -609,6 +609,9 @@ int TestMove( const char *namespace,
   int rc = 0;
   int len = 0;
 
+  dbBE_Redis_connection_t *connection = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_connection_create(1024), NULL, connection );
+
   dbBE_Redis_result_t result;
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
 
@@ -623,7 +626,7 @@ int TestMove( const char *namespace,
   rc += TEST( dbBE_Transport_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_move( req, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_move( req, &result, connection ), 0 );
 
   rc += TEST( strncmp( (char*)result._data._string._data, "DumpedData", 10 ), 0 );
   rc += TEST( result._data._string._size, 10 );
@@ -643,7 +646,7 @@ int TestMove( const char *namespace,
   rc += TEST( dbBE_Transport_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_move( req, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_move( req, &result, connection ), 0 );
 
   rc += TEST( strncmp( (char*)result._data._string._data, "OK", 2 ), 0 );
   rc += TEST( result._data._string._size, 2 );
@@ -664,12 +667,13 @@ int TestMove( const char *namespace,
   rc += TEST( dbBE_Transport_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_move( req, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_move( req, &result, connection ), 0 );
 
   rc += TEST( result._data._integer, 1 );
   rc += TEST( req->_status.move.dumped_value, NULL );
   rc += TEST( req->_status.move.len, 0 );
 
+  dbBE_Redis_connection_destroy( connection );
   return rc;
 }
 

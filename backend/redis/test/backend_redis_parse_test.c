@@ -823,6 +823,8 @@ int TestSGEAssemble()
   }
 
 
+  free( overflow.iov_base );
+  free( compbuf );
   free( rbuf );
   free( flat );
   dbBE_Transport_sr_buffer_free( sr_buf );

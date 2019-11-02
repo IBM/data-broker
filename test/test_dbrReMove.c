@@ -220,6 +220,18 @@ int main( int argc, char ** argv )
   // try to remove twice/an unavailable tuple
   rc += TEST_RC( dbrRemove( cs_hdl, DBR_GROUP_EMPTY, "testTup", "" ), DBR_ERR_UNAVAIL, ret );
 
+  // largeMove test
+  unsigned msglen = 32 * 1024 * 1024;
+  char *in_buf = generateLongMsg( msglen );
+
+  rc += PutTest( cs_hdl, "longtuple", in_buf, msglen );
+  rc += ReadTest( cs_hdl, "longtuple", in_buf, msglen );
+  rc += MoveTest( cs_hdl, new_cs_hdl, "longtuple" );
+  rc += ReadTest( new_cs_hdl, "longtuple", in_buf, msglen );
+  rc += GetTest( new_cs_hdl, "longtuple", in_buf, msglen );
+
+  free( in_buf );
+
   // delete the name space
   ret = dbrDelete( name );
   rc += TEST( DBR_SUCCESS, ret );

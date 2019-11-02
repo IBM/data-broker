@@ -118,7 +118,9 @@ int namespacelisttest()
   for( i=0; i<DBBE_TEST_NAMESPACE_COUNT; ++i )
   {
     int nlen = (random() % (17-1)) + 1;
-    rc += TEST_NOT_RC( dbBE_Redis_namespace_create( generateLongMsg(nlen) ), NULL, many[i] );
+    char *ns_name = generateLongMsg(nlen);
+    rc += TEST_NOT_RC( dbBE_Redis_namespace_create( ns_name ), NULL, many[i] );
+    free( ns_name );
     TEST_BREAK( rc, "Unable to create another namespace before insert. Cannot continue." );
     rc += TEST_NOT_RC( dbBE_Redis_namespace_list_insert( list, many[i] ), NULL, tmp );
     if( tmp == NULL ) // in case that entry already existed
@@ -172,7 +174,11 @@ int namespacelisttest()
   // needs to return list ptr, because namespace refcnt is > 1
   rc += TEST( dbBE_Redis_namespace_list_remove( list, ns ), list );
 
-  rc += TEST( dbBE_Redis_namespace_destroy( ns ), 0 );
+  // now it's detached once more and should be cleaned up from the list
+  rc += TEST( dbBE_Redis_namespace_list_remove( list, ns ), NULL );
+
+  // no destruction should be happening as this already is done by list_remove()
+  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADFD );
   return rc;
 }
 

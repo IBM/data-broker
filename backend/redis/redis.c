@@ -28,7 +28,7 @@
 #include <stdlib.h>
 
 #include "logutil.h"
-#include "../transports/memcopy.h"
+#include "../common/data_transport.h"
 
 #include "parse.h"
 
@@ -219,6 +219,11 @@ int Redis_exit( dbBE_Handle_t be )
     dbBE_Redis_command_stages_spec_destroy( context->_spec );
     memset( context, 0, sizeof( dbBE_Redis_context_t ) );
     free( context );
+    if( gScrapSpace != NULL )
+    {
+      free( gScrapSpace );
+      gScrapSpace = NULL;
+    }
     context = NULL;
   }
 

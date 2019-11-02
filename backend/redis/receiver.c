@@ -319,7 +319,7 @@ process_next_item:
             break;
 
           case DBBE_OPCODE_MOVE:
-            rc = dbBE_Redis_process_move( request, &result );
+            rc = dbBE_Redis_process_move( request, &result, conn );
             break;
 
           case DBBE_OPCODE_DIRECTORY:
