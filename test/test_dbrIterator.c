@@ -18,7 +18,7 @@
 #include "test_utils.h"
 
 
-#define DBR_TEST_KEY_COUNT ( 3000 )
+#define DBR_TEST_KEY_COUNT ( 10 )
 #define DBR_TEST_VAL_LEN ( 128 )
 
 int main( int argc, char **argv )
@@ -48,10 +48,15 @@ int main( int argc, char **argv )
   int it_count = 0;
   do
   {
-    if( ++it_count < DBR_TEST_KEY_COUNT )
+    if( ++it_count < DBR_TEST_KEY_COUNT + 1 )
       rc += TEST_NOT_RC( dbrIterator( hdl, iterator, DBR_GROUP_EMPTY, "", key ), NULL, iterator );
     else
+    {
       rc += TEST_RC( dbrIterator( hdl, iterator, DBR_GROUP_EMPTY, "", key ), DBR_ITERATOR_DONE, iterator );
+      rc += TEST( key[0], EOF );
+      rc += TEST( key[1], '\0' );
+      break;
+    }
 
     char *keyref = keybuf;
     rc += TEST_NOT_RC( strstr( keybuf, key ), NULL, keyref );
