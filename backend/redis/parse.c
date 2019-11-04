@@ -818,7 +818,7 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
           dbBE_sge_t pstring;
           pstring.iov_base = result->_data._pstring._data;
           pstring.iov_len = result->_data._pstring._size;
-          size_t transferred = conn->_sr_dev->scatter( (dbBE_Data_transport_endpoint_t*)conn,
+          ssize_t transferred = conn->_sr_dev->scatter( (dbBE_Data_transport_endpoint_t*)conn,
                                                    dbBE_Redis_connection_recv_sge_w,
                                                    &pstring,
                                                    result->_data._pstring._total_size + 2, // terminator
