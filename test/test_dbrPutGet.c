@@ -223,6 +223,27 @@ int main( int argc, char ** argv )
 
   TEST_LOG( rc, "Long Put/Get" );
 
+  // very long msg test (larger than earlier 128MB data buffer)
+  longLen = 256 * 1024 * 1024;
+  longRet = longLen + 16;
+  longIn = generateLongMsg( longLen );
+  longOut = (char*)calloc( 1, longRet );
+
+  rc += TEST( DBR_SUCCESS, dbrPut( cs_hdl, longIn, longLen, "testTup", 0 ));
+  rc += TEST( DBR_SUCCESS, dbrRead( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NONE ));
+  rc += TEST( longRet, longLen );
+  rc += TEST( strncmp( longOut, longIn, (longRet<longLen ? longRet : longLen) ), 0 );
+
+  longRet = longLen + 1;
+  memset( longOut, 0, longRet );
+  rc += TEST( DBR_SUCCESS, dbrGet( cs_hdl, longOut, &longRet, "testTup", "", 0, DBR_FLAGS_NONE ));
+  rc += TEST( longRet, longLen );
+  rc += TEST( strncmp( longOut, longIn, (longRet<longLen ? longRet : longLen) ), 0 );
+
+  free( longIn );
+  free( longOut );
+
+
   // zero-length data test
   rc += PutTest( cs_hdl, "zerolen", "", 0 );
   rc += ReadTest( cs_hdl, "zerolen", "", 0 );
