@@ -228,8 +228,11 @@ def cancel(tag):
 def iterator(dbr_hdl, iterator, group, match_template):
     out_buffer = createBuf('char[]', libdatabroker.DBR_MAX_KEY_LEN)
     retval = libdatabroker.dbrIterator(dbr_hdl, iterator, group.encode(), match_template.encode(), ffi.from_buffer(out_buffer))
-    
-    result = out_buffer[:].decode()
+    result = None
+    try:
+        result = out_buffer[:].decode()
+    except:
+        result = DBR_ITERATOR_DONE 
     return result, retval    
     
 
