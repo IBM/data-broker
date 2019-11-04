@@ -53,7 +53,7 @@ int main( int argc, char **argv )
     else
     {
       rc += TEST_RC( dbrIterator( hdl, iterator, DBR_GROUP_EMPTY, "", key ), DBR_ITERATOR_DONE, iterator );
-      rc += TEST( key[0], EOF );
+      rc += TEST( key[0], (char)EOF );
       rc += TEST( key[1], '\0' );
       break;
     }
