@@ -4,7 +4,7 @@
 # pull requests for that part
 
 # anything unspecified
-* @lasch @cmisale @damora @chcost
+* @lasch @cmisale @damora
 
 # everything python
 /bindings/python    @cmisale
