@@ -37,6 +37,7 @@ c) run cmake:
      - `-DWITH_DATA_ADAPTERS=1` to enable data adapter libraries to be loaded
      - `-DDEVMODE=1` add extra compiler flags for more strict checking and some DEVMODE
         macros to make some debugging easier
+     - `-DPYDBR=1` enable build of python bindings (note that the setup process is not 100% automated)
 
    - example:
      when run from the created 'build' dir and to prepare installation in `/opt/databroker`:
@@ -134,11 +135,9 @@ library and it comes with many limitations that will be improved over
 time. Here's a brief list of current limits. For a more complete list,
 see the issue tracking.
 
-- Each Redis connection uses a fixed limited size data buffer for
-  receiving. It is currently limited to 128 MB. This means,
-  a tuple plus associated data, cannot exceed the size of 128 MB.  (it's
-  a little less than that because there's a small protocol overhead) A
-  non-buffering receive protocol is in the plan, but not yet implemented.
+- A small-buffer receive mechanism has been implemented and this removes
+  the value size limitation. The limit is now whatever Redis' limit is.
+  As of now that seems to be 512MB.
 
 - The persistence levels and group (location) settings have no effect yet.
   Subject to future work.

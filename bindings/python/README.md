@@ -92,6 +92,7 @@ sys.path.insert(0, os.path.abspath('path/to/dbr_module'))
 | move(src_DBRHandle, src_group, tuple_name, match_template, dest_DBRHandle, dest_group):exitstatus     | Move a tuple from a source namespace to a destination namespace|
 | testKey(dbr_hdl, tuple_name):exitstatus | Checks if a tuple, identified by its name/key, exists in the namespace|
 | directory(dbr_hdl, match_template, group, count, size):(keyslist, size, exitstatus)| Get a list of available tuple names of a namespace filtered by the user-provided pattern|
+| iterator(dbr_hdl, iterator, match_template, group):(key, iterator)| Iterate over the available tuple names filtered by the user-provided pattern|
 
 **Data Broker and CFFI**
 

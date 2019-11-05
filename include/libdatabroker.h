@@ -52,8 +52,8 @@ extern "C"
  *@}
  */
 #define DBR_MAJOR_VERSION ( 0 )
-#define DBR_MINOR_VERSION ( 6 )
-#define DBR_PATCH_VERSION ( 1 )
+#define DBR_MINOR_VERSION ( 7 )
+#define DBR_PATCH_VERSION ( 0 )
 
 /**
  * @addtogroup api
