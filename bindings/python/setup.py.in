@@ -17,7 +17,7 @@ from setuptools import setup, find_packages
 import os, sys
 
 setup(name='PyDBR',
-      version='0.6.1',
+      version='0.7.0',
       description='Python wrapper to the Data Broker C API',
       author='Claudia Misale',
       author_email='c.misale@ibm.com',

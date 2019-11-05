@@ -1,3 +1,11 @@
+version 0.7.0
+ * iterator API implementation including binding for C and python
+ * removing the 128MB limit for value size
+ * small-copy data retrieval using sge+recvmsg to avoid data copies
+ * directory API implementation fix
+ * namespace handling in backend by passing handle through BE-API
+ * request coalescing for better pipelining and reduced amount of syscalls
+
 version 0.6.1
  * data adapters implementation allows dyn loaded lib to manipulate data or requests on the way in/out
  * cluster/server info to enable replica handling
