@@ -1,66 +1,89 @@
 \input{conf}
 \newcommand{\ilist}[1]{\lstinline[style=myinlinestyle,basicstyle=\ttfamily,]{#1}}
 
-\title{Databroker User Guide}
-\date{v0.4.1}
+\title{\databroker User Guide}
+\date{v0.7.0\footnote{Please refer to Doxygen documentation for most
+    up-to-date API descriptions. A doxygen config file is provided in
+    the doc directory.}}
 
 \begin{document}
 \maketitle
-\section{Databroker}
+\section{\databroker}
 \label{sec:interface}
 
-The Data Broker (DBR) is a distributed, in-memory container of key-value stores enabling applications in a workflow to exchange data through one or more shared namespaces.
-Thanks to a small set of primitives, applications in a workflow deployed in a (possibly) shared nothing distributed cluster, can easily share and exchange data and messages with a minimum effort. Inspired by the Linda coordination and communication model, the Data Broker provides a unified shared namespace to applications, which is independent from applications' programming and communication model.
+The \databroker (DBR) is a distributed, container of key-value stores
+enabling applications in a workflow to exchange data through one or
+more shared namespaces.  Thanks to a small set of primitives,
+applications in a workflow deployed in a (possibly) shared nothing
+distributed cluster, can easily share and exchange data and messages
+with a minimum effort. Inspired by the Linda coordination and
+communication model, the \databroker provides a unified shared
+namespace to applications, which is independent from applications'
+programming and communication model.
 
 
 
-The DBR is in charge of creating  and managing  the underlying namespaces and providing access to them from the user applications.
-Basically, the DBR  acts as a middleware between the effective instantiation of each namespace and the applications at the user level (i.e., applications in the workflow).
-The instantiation of the namespace is done at the backend level and it depends on the runtime chosen for that purpose. It can be any key-value store as well as software-based global address space (see \ref{sec:arch}). This implementation provides Redis\footnote{https://redis.io/} as backend.
+The \databroker is in charge of creating and managing the underlying
+namespaces and providing access to them from the user applications.
+Basically, the DBR acts as a middleware between the effective
+instantiation of each namespace and the applications at the user level
+(i.e., applications in the workflow).  The instantiation of the
+namespace is done at the backend level and it depends on the runtime
+chosen for that purpose. It can be any key-value store as well as
+software-based global address space (see \ref{sec:arch}). This
+implementation provides Redis\footnote{https://redis.io/} as backend.
 
 \subsection{Architecture}
 \label{sec:arch}
 \begin{figure}[!htb]
 	\centering
 	\includegraphics[width=0.7\linewidth]{fig/architecture}
-	\caption{Architecture stack of the Data Broker.}
+	\caption{Architecture stack of the \databroker.}
 	\label{fig:architecture}
 \end{figure}
 
 
-Figure~\ref{fig:architecture} shows a representation of the DBR architecture stack.
-We can identify three main layers acting:  application, middleware and runtime.
-At the higher level, the application represents the software or workflow that will use the DBR to communicate with other applications or the ones within the workflow itself. 
-The middleware layer is composed by two parts: the User Library and the System Library.
-Both are exposed to the user for different purposes. The User Library provides primitives for accessing the Data Broker and, hence, the namespaces. The System Library can be used as an interface to implement a new backend.
+Figure~\ref{fig:architecture} shows a representation of the DBR
+architecture stack.  We can identify three main layers acting:
+application, middleware and runtime.  At the higher level, the
+application represents the software or workflow that will use the DBR
+to communicate with other applications or the ones within the workflow
+itself.  The middleware layer is composed by two parts: the User
+Library and the System Library.  Both are exposed to the user for
+different purposes. The User Library provides primitives for accessing
+the \databroker and, hence, the namespaces. The System Library can be
+used as an interface to implement a new backend.
 
 
-\section{Databroker API Overview}
+\section{\databroker API Overview}
 
-A data item that is stored in the Databroker, is called a \emph{tuple}.
-A tuple has a name or a key and the tuple data\footnote{currently the
- tuple data is limited to a single contiguous region of memory}.
+A data item that is stored in the \databroker, is called a \emph{tuple}.
+A tuple has a name or a key and the tuple data.
 Data is organized in so called \emph{namespaces}. That means the same
 tuple can be added to different name spaces without any interference.
 
 \begin{figure}[!htb]
 	\centering
 	\includegraphics[width=\linewidth]{fig/dbrworkflow}
-	\caption{Communication pattern with the Data Broker.}
+	\caption{Communication pattern with the \databroker.}
 	\label{fig:dbrworkflow}
 \end{figure}
 
-Figure~\ref{fig:dbrworkflow} shows the communication pattern among the three players described: a set of applications send data to the Data Broker, which is in charge of storing such data into the namespace associated with requests done by applications.
+Figure~\ref{fig:dbrworkflow} shows the communication pattern among the
+three players described: a set of applications send data to the
+\databroker, which is in charge of storing such data into the
+namespace associated with requests done by applications.
 
 
 The same tuple (name) can also be added to the same namespace multiple
-times, either with the same data or with different data. 
-In this case, tuples are pushed into a queue and the insertion order depends on tuples arrival to the Redis server.
-Hence, there is no guarantee about the insertion order, which might be different with respect to the order tuples are sent if two different processes are pushing data to the same queue. The only ordering guarantee is on the tuples within the queue.
-The effect of this is that retrieval functions will return any of the stored
-tuples. There is no guarantee of the retrieval order\footnote{The Redis
-  back-end returns the tuples in the order they were stored, however,
-  a portable application should not rely on this behavior.}.
+times, either with the same data or with different data.  In this
+case, tuples are pushed into a queue and the insertion order depends
+on tuples arrival to the actual storage space (e.\,g.\@ a Redis
+server).  Hence, there is no guarantee about the insertion order if
+more than one process sends tuples to the same key.  Retrieval of
+tuples happens in the order they were stored.  However, again if there
+are multiple processes consuming elements from the same queue, it's up
+to the processes' coordination to ensure the desired order.
 
 
 
@@ -69,8 +92,9 @@ tuples. There is no guarantee of the retrieval order\footnote{The Redis
 \label{sec:interface:access}
 \paragraph{Namespace creation} Every access (read or write) to a tuple
 requires a valid namespace.  A valid namespace can be either created
-(\texttt{dbrCreate()}, code listing~\ref{code:create}) or a process can attach (\texttt{dbrAttach()}, code listing~\ref{code:attach}) to an
-existing namespace.  Namespaces have to be unique, i.\,e.\@ a
+(\texttt{dbrCreate()}, code listing~\ref{code:create}) or a process
+can attach (\texttt{dbrAttach()}, code listing~\ref{code:attach}) to
+an existing namespace.  Namespaces have to be unique, i.\,e.\@ a
 namespace creation will fail if there's already an existing namespace
 with the same name.
 
@@ -165,7 +189,7 @@ int main( int argc, char ** argv )
     
     DBR_Tag_t tag = dbrPutA(ns_hdl, in, in_size, "tuple_key", group);
     if(tag != DBR_TAG_ERROR)
-		dbrTest(tag);
+      while ( dbrTest(tag) == DBR_ERR_INPROGRESS );
 		
 	// ...
 }
@@ -181,7 +205,7 @@ int main( int argc, char ** argv )
   The blocking read \texttt{dbrRead} can be customized with two different flags based on the behavior the user prefers:
   \begin{itemize}
   	\item \texttt{DBR\_FLAGS\_NONE}: the call blocks until a certain timeout is reached;
-  	\item \texttt{DBR\_FLAGS\_NOWAIT}: the call checks wheter the tuple exists or not and returns immediately if the tuple is not in the namespace.
+    \item \texttt{DBR\_FLAGS\_NOWAIT}: the call checks whether the tuple exists or not and returns immediately if the tuple is not in the namespace.
   \end{itemize}
 
 Return values are the following  for \texttt{dbrRead} and \texttt{dbrReadA} respectively:
@@ -249,11 +273,9 @@ int main( int argc, char ** argv )
 	DBR_Tuple_name_t tuple_key = "some_key";
 	DBR_Tag_t tag = dbrReadA(ns_hdl, recv_buffer, &buf_size, tuple_key, match_template, group);
 	DBR_Errorcode_t state = 0;
-	if( tag != DBR_ERR_TAGERROR) {
-		do {
-			state = dbrTest( tag );
-		} while(state ==  DBR_ERR_INPROGRESS);
-	}
+	if( tag != DBR_ERR_TAGERROR)
+      while ( dbrTest(tag) == DBR_ERR_INPROGRESS );
+
 	
 	// ...
 }
@@ -277,9 +299,9 @@ Return values are the following  for \texttt{dbrGet} and \texttt{dbrGetA} respec
 	\item \texttt{DBR\_Tag\_t}: an id of the asynchronous call. It is used to check its completion via \texttt{dbrTest(DBR\_Tag\_t tag)}
 \end{itemize}
 
-Furthermore, given the possibility to define the flag to just check wether a tuple exists or not, there will be the possible error codes:
+Furthermore, given the possibility to define the flag to just check whether a tuple exists or not, there will be the possible error codes:
 \begin{itemize}
-	\item[-] \texttt{DBR\_ERR\_TIMEOUT} if the tuple does not exist \textbf{and} the flag is set to \texttt{DBR\_FLAGS\_NONE} (hence, blocking behaviour);
+	\item[-] \texttt{DBR\_ERR\_TIMEOUT} if the tuple does not exist \textbf{and} the flag is set to \texttt{DBR\_FLAGS\_NONE} (hence, blocking behavior);
 	\item [-] \texttt{DBR\_ERR\_UNAVAIL} if the tuple does not exist \textbf{and} the flag is set to \texttt{DBR\_FLAGS\_NOWAIT} (hence, immediate return in any case)
 \end{itemize}
 
@@ -338,13 +360,8 @@ int main( int argc, char ** argv )
 	DBR_Tag_t tag = dbrReadA( ns_hdl, recv_buffer, &buf_size, tuple_key, match_template, group);
 	DBR_Errorcode_t state = 0; 
 
-	if(tag != DBR_ERR_TAGERROR) {
-		do {
-			state = dbrTest(tag);
-			if(state == DBR_ERR_INPROGRESS )
-				usleep( 100000 );
-		} while(state ==  DBR_ERR_INPROGRESS);
-	}
+	if(tag != DBR_ERR_TAGERROR)
+      while ( dbrTest(tag) == DBR_ERR_INPROGRESS );
 	
 	// ...
 }
@@ -358,7 +375,7 @@ requested name available in the namespace, read (\texttt{dbrRead}) and get (\tex
 
 \paragraph{Check existence of a tuple} It is possible to check whether a tuple is present in a namespace or not with the \texttt{dbrTestKey} function (listing~\ref{code:testKey}). It will not return any tuple and does not modify the namespace.
 
-\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Check for the existence of a tuple in the Data Broker, label=code:testKey]
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=Check for the existence of a tuple in the \databroker, label=code:testKey]
 int main( int argc, char ** argv )
 {
 // create or attach to a namespace
@@ -383,14 +400,109 @@ The function will return:
 
 
 
+
+\paragraph{Inventory of keys} is available through the
+\texttt{dbrDirectory} API (listing~\ref{code:dbrDirectory}. It
+requires a sufficiently sized amount of memory to hold the list of
+keys up to an optional limit. The returned list is a comma-separated
+sequence of strings representing the available keys. If group is set
+to \texttt{DBR\_GROUP\_LOCAL}, the list will only contain tuple names
+from a local storage backend.  The determination of what is
+\emph{local} depends on the type of backend implementation. For
+example the Redis backend would only retrieve data from servers that
+run on the same host as the calling process.
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=List
+  the currently available tuples., label=code:dbrDirectory]
+int main( int argc, char ** argv )
+{
+// create or attach to a namespace
+// ...
+// Function signature
+// DBR_Errorcode_t
+// dbrDirectory( DBR_Handle_t cs_handle : handle to the namespace
+//               DBR_Tuple_template_t match_template : filter to select only a subset of tuples
+//               DBR_Group_t group : storage group to retrieve the keys from
+//               const unsigned count : maximum number of entries to retrieve
+//               char *result_buffer : memory to hold the list
+//               const size_t size : amount of space in that memory
+//               int64_t *ret_size : returned number of bytes
+// );
+
+	DBR_Errorcode_t ret = dbrDirectory( cs_hdl, "*", DBR_GROUP_EMPTY,
+                                        1000, keyspace, keyspace_size,
+                                        *nbytes );
+// ...
+}
+\end{lstlisting}
+
+
+The function will return:
+\begin{itemize}
+	\item[-] DBR\_SUCCESS if the tuple is present;
+	\item[-] An error code identifying the issue, otherwise
+\end{itemize}
+
+
+
+\paragraph{Iterator} allows to iterate over all or a subset of the
+tuples and retrieve the keys one by one.  In comparison to the
+inventory, this only requires a small buffer to hold a single key
+(which can have a max size of 1024 bytes).
+
+\begin{lstlisting}[style=mystyle,basicstyle=\scriptsize\ttfamily,caption=List
+  the currently available tuples., label=code:dbrIterator]
+int main( int argc, char ** argv )
+{
+// create or attach to a namespace
+// ...
+// Function signature
+// DBR_Iterator_t
+// dbrIterator( DBR_Handle_t dbr_handle : handle to namespace
+//              DBR_Iterator_t it : iterator handle
+//              DBR_Group_t group : storage group to iterate
+//              DBR_Tuple_template_t match_template : filter to select only a subset of tuples
+//              DBR_Tuple_name_t tuple_name : key buffer for returned key
+// );
+
+// first call to create iterator:
+	DBR_Iterator_t it = dbrIterator( cs_hdl, DBR_ITERATOR_NEW, DBR_GROUP_EMPTY, "*", keypsace );
+
+// subsequent calls:
+   while( it != DBR_ITERATOR_DONE )
+   {
+     it = dbrIterator( cs_hdl, it, DBR_GROUP_EMPTY, "*", keyspace );
+     // do something with the key if it != DBR_ITERATOR_DONE
+   }
+// ...
+}
+\end{lstlisting}
+
+The function will return:
+\begin{itemize}
+\item [-] An iterator handle which equals \texttt{DBR\_ITERATOR\_DONE}
+  if the iterator hits the end of the list of available tuples. If
+  this is the case, then the returned key will be \texttt{EOF} or any
+  other invalid key.
+\end{itemize}
+
+
 \paragraph{Namespace deletion} Any process that is attached to a
-namespace needs to detach \texttt{dbrDetach} (\ilist{dbrDetach(ns\_hdl);}). The databroker uses a
+namespace needs to detach \texttt{dbrDetach}
+(\ilist{dbrDetach(ns\_hdl);}). The \databroker uses a
 reference counter to check how many processes are attached to a
 namespace.  Calling \texttt{dbrDelete} (\ilist{dbrDelete(name);}), will check this reference counter
 and if it's 0, then the deletion will proceed and clean up all
 remaining data of that namespace.
 
 
+
+\subsection{Interface Extensions}
+\databroker provides a few extensions to the main interface. The main
+extension to note here is the ability to work with non-contiguous
+tuple data.  \texttt{libdatabroker\_ext.h} needs to be included to
+access functions that provide a scatter-gather mechanism for
+non-contiguous memory.
 
 
 \subsection{Example Sequence}
@@ -409,14 +521,14 @@ If no namespace exists, then:
 \begin{enumerate}
 \item A process would \texttt{dbrAttach} to an existing namespace.
 \item Then the process can put and get data to and from that namespace.
-\item At the end, it would call \texttt{dbrDetach} to tell the databroker
+\item At the end, it would call \texttt{dbrDetach} to tell the \databroker
   that no more access to that namespace will occur.
 \end{enumerate}
 
 Please see \ref{sec:interface:limits} for current limitations and
 problems.
 
-\subsection{Building an Application with the Data Broker}
+\subsection{Building an Application with the \databroker}
 \begin{lstlisting}[basicstyle=\scriptsize\ttfamily,backgroundcolor=\color{backcolour},caption=Example Makefile,captionpos=b,label=code:Makefile]
 # Build Environment
 CC            = gcc
@@ -456,43 +568,51 @@ clean:
     $(RM)  $(OBJECTS) $(DESTDIR)/$(TARGET)
 \end{lstlisting}
 
+%$
 \subsection{Configuration}
 \label{sec:interface:config}
 There are a few environment variables that can be set by the user to
-adjust the behavior of the databroker library.
+adjust the behavior of the \databroker library.
 \begin{itemize}
-\item \texttt{DBR\_SERVER} points to one Redis server of the Redis
-  cluster. The coordinates of the other servers will be automatically
-  obtained when the library initializes.
-\item \texttt{DBR\_PORT} points to the port of the Redis server identified
-  by \texttt{DBR\_SERVER}.
+\item \texttt{DBR\_SERVER} Points to one of the backend storage
+  services in a URL-kind of way. Users specify
+  \texttt{<protocol>://<destination>} to select a lookup- and
+  connection protocol and a destination.  Currently the only protocol
+  is \texttt{sock} and the destination should consist of
+  \texttt{<host>:<port>}. If not set, it defaults to
+  \texttt{sock://localhost:6379}.  If the backend requires connections
+  to multiple servers (for example if Redis runs as a cluster), the
+  library will automatically figure out about the locations of the
+  other services and restores connections in case of service
+  failures+restarts.
+
+
 \item \texttt{DBR\_AUTHFILE} points to a file that contains the Redis
   authentication password.  The password needs to be in the first line
   of that file. Any further content of that file is ignored. It is
   recommended to use the absolute path when referencing the filename:\\
   \centerline{ \tt export DBR\_AUTHFILE=/path/to/the/authfile.txt}
+
 \item \texttt{DBR\_TIMEOUT} determines the approximate time to wait in
   read or get calls before they fail with a timeout error.
+
+\item \texttt{DBR\_PLUGIN} enables the use of data adapters. The
+  variable should point to a shared library file that will be loaded
+  by the \databroker library.
+
 \end{itemize}
-
-
 
 \subsection{Current Limitations and Problems}
 \label{sec:interface:limits}
 \begin{enumerate}
-\item Delete and detach reference counting of the Redis back-end, is
-  not fully implemented.  That means that any application has to make
-  sure that all processes have been detached before attempting to
-  delete a namespace. Otherwise, the delete will not perform proper
-  cleanup of the name space data.
-\item The reference counting is currently not tracked on a per-client
-  basis. That means, a misbehaving process can repeatedly detach and
-  decrease the reference count.
-\item The max size of the tuple data can be 128MB with the Redis
-  back-end. The limitation is caused by a shortcut in the
-  implementation and will be fixed soon. The Redis servers themselves
-  have a limit of 512MB per data item. So with this back-end there's a
-  hard limit on the data size.
+\item The namespace reference counting is currently not tracked on a
+  per-client basis. That means, a misbehaving process can repeatedly
+  detach and decrease the reference count.  Although, that requires a
+  modified client library component since the client library also
+  checks a process-local reference count.
+\item Depending on the backend, there might be a limit on the max size
+  of the tuple data.  For example, Redis has a limit of 512MB per data
+  item.
 \end{enumerate}
 
 
@@ -504,9 +624,9 @@ adjust the behavior of the databroker library.
 In case things go wrong, Redis comes with a command line client {\tt
   redis-cli}. It's a powerful tool to check the Redis server is
 running as expected and also allows to browse and change the content
-of the databroker storage.
+of the \databroker storage.
 
-The following output is generated by running the commandline client
+The following output is generated by running the command line client
 connecting to a Redis server on localhost, then authorizing the access
 using the {\tt AUTH} command, and then listing all existing keys on
 that server using {\tt KEYS} (showing that there are no keys stored yet:
@@ -527,13 +647,13 @@ If you enter the wrong password (or the password in the config file
 contains unsupported characters like quotes), you'll get an error too.
 
 In case you skip the {\tt AUTH} command and go straight to {\tt KEYS},
-you should get an error msg similar to: {\tt (error) NOAUTH
+you should get an error message similar to: {\tt (error) NOAUTH
   Authentication required}.
 
 \subsection{Cleaning Up}
-In case data got stuck in Redis, the commandline client {\tt
+In case data got stuck in Redis, the command line client {\tt
   redis-cli} can be used to clean up the data. Before doing that, make
-sure all clients that use the databroker library are detached from any
+sure all clients that use the \databroker library are detached from any
 namespace. Otherwise, it might cause inconsistencies between the lib
 and the Redis storage.
 Start the {\tt redis-cli} and authorize the access (see
@@ -550,7 +670,10 @@ libdatabroker: failed to create/connect backend.
 
 
 \section{Appendix}
+\newpage
+\subsection{Error Code Table}
 \begin {table}[h]
+    \scriptsize
 \begin{tabular}{l|p{10cm}}
 	\toprule
 	\textbf{Error Code} & \textbf{Detailed Message} \\
@@ -587,7 +710,7 @@ libdatabroker: failed to create/connect backend.
 	\midrule
 	DBR\_ERR\_NOCONNECT & Connection to a storage backend failed  \\ 
 	\midrule
-	DBR\_ERR\_CANCELLED & Operation was cancelled  \\ 
+	DBR\_ERR\_CANCELLED & Operation was canceled  \\
 	\midrule
 	DBR\_ERR\_NOTIMPL & Operation not implemented \\ 
 	\midrule
@@ -596,10 +719,43 @@ libdatabroker: failed to create/connect backend.
 	 DBR\_ERR\_BE\_POST & Posting request to back-end failed  \\ 
 	\midrule
 	DBR\_ERR\_BE\_GENERAL & Unspecified back-end error \\ 
-	\bottomrule
+    \midrule
+    DBR\_ERR\_ITERATOR & Invalid iterator or error iterating the namespace \\
+    \midrule
+    DBR\_ERR\_PLUGIN & Data adapter error \\
+    \bottomrule
 \end{tabular} 
 \caption {List of error codes} 
 \label{table:errorcodes} 
 \end{table}
+
+\newpage
+\subsection{Redis Specifics}
+
+\subsubsection{Connection Management}
+The Redis backend maintains connections to a cluster including systems
+with Master-Replica configurations.  Connections are not established
+to replicas until the corresponding master connection fails. Once that
+happens, the library makes an attempt to reconnect to the master and
+if that fails, establishes a connection to the replica.  However, if
+that replica keeps running as a replica, the library will disconnect
+again and try to find the master because only master instances are
+allowed to modify data.
+
+\subsubsection{Iterator}
+The implementation of the Redis iterator is done in a way to prevent
+going to the server for each step of the iteration.  The backend
+library caches a number of keys and most requests are served directly
+from that cache with immediate completion.  Only if the number of
+cached keys drops below a threshold, a new set of keys is retrieved
+from Redis.
+
+In case a Redis cluster is used, the list of keys is retrieved from
+one server at a time until all keys of that server have been
+listed. There's no ordering of keys or servers available. If the set
+of keys changes while the iteration is done, there's no guarantee that
+a key is still in storage at the time it is returned to the user
+because of the cache and because of the way the Redis SCAN command
+works.
 
 \end{document}
