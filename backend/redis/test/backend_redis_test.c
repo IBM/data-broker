@@ -382,7 +382,7 @@ int main( int argc, char ** argv )
   rc += TEST( dbBE_Redis_namespace_destroy( sns ), 0 );
 
   // intentionnally will cause 'use-after-free' warning when running with something like valgrind
-  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADFD );
+  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADF );
   g_dbBE.exit( BE );
 
   printf( "Test exiting with rc=%d\n", rc );

@@ -74,18 +74,32 @@ int namespacetest()
   // break the validity and test
   ++ns->_refcnt;
   rc += TEST( dbBE_Redis_namespace_get_refcnt( ns ), 2 );
-  rc += TEST_INFO( dbBE_Redis_namespace_attach( ns ), -EBADFD, "Attach with broken checksum/refcnt" );
-  rc += TEST_INFO( dbBE_Redis_namespace_destroy( ns ), -EBADFD, "Destroy with broken checksum/refcnt" );
-  rc += TEST_INFO( dbBE_Redis_namespace_detach( ns ), -EBADFD, "Detach with broken checksum/refcnt" );
+  rc += TEST_INFO( dbBE_Redis_namespace_attach( ns ), -EBADF, "Attach with broken checksum/refcnt" );
+  rc += TEST_INFO( dbBE_Redis_namespace_destroy( ns ), -EBADF, "Destroy with broken checksum/refcnt" );
+  rc += TEST_INFO( dbBE_Redis_namespace_detach( ns ), -EBADF, "Detach with broken checksum/refcnt" );
+
+#define DBBE_REDIS_NAMESPACE_REFCNT_MASK ( 0xFFFFFFFFFFFF0000ll )
+#define dbBE_Redis_namespace_chksum_refup( ns ) ( (ns)->_chksum & DBBE_REDIS_NAMESPACE_REFCNT_MASK ) + ( (ns)->_refcnt)
 
   // restore validity
   --ns->_refcnt;
   rc += TEST( dbBE_Redis_namespace_get_refcnt( ns ), 1 );
 
+
+  // set up namespace for too-many users
+  ns->_refcnt = 0xFFFE;
+  ns->_chksum = dbBE_Redis_namespace_chksum_refup( ns );
+  rc += TEST( dbBE_Redis_namespace_attach( ns ), -EMLINK );
+  rc += TEST( dbBE_Redis_namespace_validate( ns ), EMLINK );
+
+  // back to normal
+  ns->_refcnt = 1;
+  ns->_chksum = dbBE_Redis_namespace_chksum_refup( ns );
+
   // detach too often -> autodestroys the namespace
   rc += TEST( dbBE_Redis_namespace_detach( ns ), 0 );
-  rc += TEST( dbBE_Redis_namespace_attach( ns ), -EBADFD );
-  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADFD );
+  rc += TEST( dbBE_Redis_namespace_attach( ns ), -EBADF );
+  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADF );
 
   free( toolong );
   return rc;
@@ -178,7 +192,7 @@ int namespacelisttest()
   rc += TEST( dbBE_Redis_namespace_list_remove( list, ns ), NULL );
 
   // no destruction should be happening as this already is done by list_remove()
-  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADFD );
+  rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADF );
   return rc;
 }
 

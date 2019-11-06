@@ -37,7 +37,7 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
     dbBE_Request_t *req = &chain->_req;
     dbBE_Completion_t *cpl = &chain->_cpl;
 
-    int64_t rsize = dbrSGE_extract_size( req );
+    int64_t rsize = 0;
 
     if(( req->_opcode != DBBE_OPCODE_READ )&&( cpl->_rc < 0 ))
       return cpl->_status;
@@ -58,6 +58,7 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
         // no break on purpose
       case DBBE_OPCODE_GET:
         // good if the completion rc bytes is less or equal the size in SGEs
+        rsize = dbrSGE_extract_size( req );
         if( rsize < cpl->_rc )
           rc = DBR_ERR_UBUFFER;
         // operation in progress if the returned data size is NULL buy completion says: success
@@ -74,7 +75,7 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
 
       case DBBE_OPCODE_DIRECTORY:
         // good if the completion rc bytes is less or equal the size in SGE[0] because other parts of the sge contain the count
-        if( req->_sge[0].iov_len < cpl->_rc )
+        if( req->_sge[0].iov_len < (size_t)cpl->_rc )
           rc = DBR_ERR_UBUFFER;
         if( cpl->_status == DBR_SUCCESS )
         {
@@ -118,6 +119,7 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
         break;
       case DBBE_OPCODE_NSQUERY:
         // good if the completion rc is > 0 with the sge locations containing the name space meta data
+        rsize = dbrSGE_extract_size( req );
         if(( rsize < cpl->_rc ) || ( cpl->_rc == 0 ))
           rc = DBR_ERR_UBUFFER;
         break;

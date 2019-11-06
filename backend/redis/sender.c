@@ -92,7 +92,7 @@ dbBE_Redis_request_t* dbBE_Redis_request_preprocess( dbBE_Redis_context_t *backe
     // new iterator
     if( it == NULL )
     {
-      int i;
+      unsigned i;
       it = dbBE_Redis_iterator_new( backend->_iterators );
       if( it == NULL )
       {
@@ -252,7 +252,7 @@ dbBE_Redis_connection_t* dbBE_Redis_sender_find_connection( dbBE_Redis_context_t
     char keybuffer[ DBBE_REDIS_MAX_KEY_LEN ];
     if( dbBE_Redis_create_key( request, keybuffer, DBBE_REDIS_MAX_KEY_LEN ) < 0 )
     {
-      dbBE_Redis_create_send_error( backend->_compl_q, request, -EINVAL );
+      dbBE_Redis_create_send_error( backend->_compl_q, request, DBR_ERR_INVALID );
       return NULL;
     }
 
@@ -273,7 +273,7 @@ dbBE_Redis_connection_t* dbBE_Redis_sender_find_connection( dbBE_Redis_context_t
 
     if( request->_location._type == DBBE_REDIS_REQUEST_LOCATION_TYPE_UNKNOWN )
     {
-      dbBE_Redis_create_send_error( backend->_compl_q, request, -ENOTCONN );
+      dbBE_Redis_create_send_error( backend->_compl_q, request, DBR_ERR_NOCONNECT );
       return NULL;
     }
   }
@@ -337,7 +337,7 @@ void* dbBE_Redis_sender( void *args )
         // flush queues
         dbBE_Redis_request_t *request;
         while( ( request = dbBE_Redis_s2r_queue_pop( input->_backend->_retry_q )) != NULL )
-          dbBE_Redis_create_send_error( input->_backend->_compl_q, request, -ENOTCONN );
+          dbBE_Redis_create_send_error( input->_backend->_compl_q, request, DBR_ERR_NOCONNECT );
         return NULL;
         break;
       }

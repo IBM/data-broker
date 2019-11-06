@@ -48,13 +48,14 @@ int dbBE_Redis_namespace_validate( const dbBE_Redis_namespace_t *ns )
     return EINVAL;
 
   if( ns->_chksum != dbBE_Redis_namespace_checksum( ns ) )
-    return EBADFD;
+    return EBADF;
 
   if( ns->_refcnt == 0 )
-    return EBADFD;
+    return EBADF;
 
-  if( ns->_refcnt == 0xFFFF )
-    return EUSERS;
+
+  if( ns->_refcnt > 0xFFFE )
+    return EMLINK;
 
   return 0;
 }
@@ -97,7 +98,7 @@ int dbBE_Redis_namespace_destroy( dbBE_Redis_namespace_t *ns )
 
   // prevent destruction of invalid namespace (user might have modified or use-after-free)
   if( dbBE_Redis_namespace_validate( ns ) != 0 )
-    return -EBADFD;
+    return -EBADF;
 
   if( dbBE_Redis_namespace_get_refcnt( ns ) > 1 )
     return -EBUSY;
@@ -115,7 +116,11 @@ int dbBE_Redis_namespace_attach( dbBE_Redis_namespace_t *ns )
     return -rc;
 
   if( ++(ns->_refcnt) > 0xFFFE )
-    return -EUSERS;
+  {
+    ns->_refcnt = 0xFFFF;
+    ns->_chksum = dbBE_Redis_namespace_chksum_refup( ns );
+    return -EMLINK;
+  }
   ns->_chksum = dbBE_Redis_namespace_chksum_refup( ns );
   return ns->_refcnt;
 }

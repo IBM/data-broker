@@ -373,7 +373,7 @@ process_next_item:
 
         }
 
-        // there are cases where requests are just complete without causing completions or
+        // there are cases where requests get modified and re-queued or completed in a request-specific way
         if( request == NULL )
           break;
 
