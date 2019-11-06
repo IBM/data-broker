@@ -246,16 +246,16 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
     case DBBE_OPCODE_PUT:
       if( request->_key == NULL )
         rc = EINVAL;
-      if( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 )
-        rc = EINVAL;
+      else
+        rc = dbBE_Redis_namespace_validate( request->_ns_hdl );
       break;
     case DBBE_OPCODE_MOVE:
       if( request->_sge_count != 2 )
         rc = EINVAL;
-      if( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 )
-        rc = EINVAL;
-      if( dbBE_Redis_namespace_validate( request->_sge[0].iov_base ) != 0 )
-        rc = EINVAL;
+      if( rc == 0 )
+        rc = dbBE_Redis_namespace_validate( request->_ns_hdl );
+      if( rc == 0 )
+        rc = dbBE_Redis_namespace_validate( request->_sge[0].iov_base );
       break;
     case DBBE_OPCODE_DIRECTORY: // only single-SGE request supported by the RedisBE
       if( request->_sge_count != 2 )
