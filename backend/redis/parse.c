@@ -199,12 +199,12 @@ int64_t dbBE_Redis_extract_bulk_string( char **p, size_t *parsed, const int64_t 
 
   if( exp_len < 0 )
   {
-    fprintf( stderr, "Error: Redis protocol parsing error. String len set to %"PRId64"\n", exp_len );
+    LOG( DBG_ERR, stderr, "Error: Redis protocol parsing error. String len set to %"PRId64"\n", exp_len );
     *parsed = limit;
     return -EPROTO;
   }
 
-  LOG( DBG_TRACE, stderr, "Parsing p/string length: %ld; avail: %ld\n", exp_len, limit );
+  LOG( DBG_TRACE, stderr, "Parsing p/string length: %"PRId64"; avail: %"PRId64"\n", exp_len, limit );
 
   char *string = ( *p + processed );
 
@@ -669,7 +669,7 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
       int64_t data_len = 0;
       if( result->_type == dbBE_REDIS_TYPE_STRING_PART )
       {
-        LOG( DBG_TRACE, stderr, "PARTIAL STRING: %ld/%ld\n", result->_data._pstring._size, result->_data._pstring._total_size );
+        LOG( DBG_TRACE, stderr, "PARTIAL STRING: %"PRId64"/%"PRId64"\n", result->_data._pstring._size, result->_data._pstring._total_size );
 
         // prepare sge for another receive call
         if( gScrapSpace == NULL )
