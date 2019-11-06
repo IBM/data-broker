@@ -265,14 +265,14 @@ int dbBE_Redis_create_scan_key( dbBE_Redis_request_t *request,
   char *match = user_match;
   if(( user_match == NULL ) || ( user_match[0] == '\0'))
     match = match_all;
-  int keylen = strnlen( namespace,
+  size_t keylen = strnlen( namespace,
                         DBBE_REDIS_MAX_KEY_LEN ) + DBBE_REDIS_NAMESPACE_SEPARATOR_LEN + strnlen( match, DBBE_REDIS_MAX_KEY_LEN );
   if( keylen > dbBE_Transport_sr_buffer_remaining( buf ) )
     return -ENOMEM;
 
   int len = snprintf( key,
                       DBBE_REDIS_MAX_KEY_LEN,
-                      "$%d\r\n%s%s%s\r\n",
+                      "$%ld\r\n%s%s%s\r\n",
                       keylen,
                       namespace,
                       DBBE_REDIS_NAMESPACE_SEPARATOR,

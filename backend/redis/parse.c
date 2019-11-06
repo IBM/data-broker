@@ -615,7 +615,7 @@ dbBE_Transport_sge_buffer_t* dbBE_Redis_parse_copy_assemble_sge( dbBE_Request_t 
   // if the remaining expected data is too big for the user buffer, we need to point to the overflow buffer
   if( usize > (ssize_t)dbBE_Transport_sr_buffer_get_size( sr_buf ) - 2 ) // -2 because of termination
   {
-    if( overflow.iov_len < usize ) // does the data fit into the provided overflow buffer?
+    if( (ssize_t)overflow.iov_len < usize ) // does the data fit into the provided overflow buffer?
     {
       errno = E2BIG;
       return NULL;
@@ -1723,7 +1723,7 @@ int dbBE_Redis_process_iterator( dbBE_Redis_request_t **in_out_request,
     if( it->_cursor[0] == '0' )
     {
       // find the next connection
-      int i;
+      unsigned i;
       dbBE_Redis_connection_t *conn = NULL;
       for( i = it->_connection->_index + 1; (i < DBBE_REDIS_MAX_CONNECTIONS); ++i )
       {

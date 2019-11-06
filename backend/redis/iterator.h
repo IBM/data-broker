@@ -113,7 +113,7 @@ char *dbBE_Redis_iterator_pop_cached_key( dbBE_Redis_iterator_t *it )
 static inline
 void dbBE_Redis_iterator_copy_key( dbBE_sge_t *sge, char* key )
 {
-  int copylen = strnlen( key, DBR_MAX_KEY_LEN );
+  size_t copylen = strnlen( key, DBR_MAX_KEY_LEN );
   if( copylen > sge->iov_len )
     copylen = sge->iov_len;
 

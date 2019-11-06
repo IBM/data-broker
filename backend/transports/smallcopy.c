@@ -96,12 +96,12 @@ int64_t dbBE_Transport_scopy_scatter( dbBE_Data_transport_endpoint_t* dev,
         LOG( DBG_TRACE, stderr, "after  device.recv( %ld/%ld ) = %ld\n", rsize, total, rc );
 
       if( rc < 0 ) break;
-      if(( rc > 0 ) && ( rc + rsize < total - partial->iov_len ))
+      if(( rc > 0 ) && ( rc + (size_t)rsize < total - partial->iov_len ))
       {
         ssize_t offset = rc;
         while(( sge_buf->_index > 0 ) && ( offset > 0 ))
         {
-          if( offset < sge_buf->_cmd[0].iov_len )
+          if( (size_t)offset < sge_buf->_cmd[0].iov_len )
           {
             LOG( DBG_TRACE, stderr, "SGE[0] reduce by %ld from %ld to %ld\n", offset, sge_buf->_cmd[0].iov_len, sge_buf->_cmd[0].iov_len - offset );
             sge_buf->_cmd[0].iov_base = (char*)sge_buf->_cmd[0].iov_base + offset;
@@ -119,7 +119,7 @@ int64_t dbBE_Transport_scopy_scatter( dbBE_Data_transport_endpoint_t* dev,
         }
       }
       rsize += rc;
-    } while (( rc >= 0 ) && ( rsize < total - partial->iov_len ));
+    } while (( rc >= 0 ) && ( (size_t)rsize < total - partial->iov_len ));
 
     if( rc <= 0 )
     {

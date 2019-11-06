@@ -60,7 +60,7 @@ int main( int argc, char **argv )
 
     char *keyref = keybuf;
     rc += TEST_NOT_RC( strstr( keybuf, key ), NULL, keyref );
-    uintptr_t offset = (uintptr_t)keyref - (uintptr_t)keybuf;
+    intptr_t offset = (intptr_t)keyref - (intptr_t)keybuf;
     rc += TEST_NOT( offset >= 0, 0 );
     rc += TEST_NOT( offset < DBR_TEST_KEY_COUNT, 0 );
     if( rc == 0 )

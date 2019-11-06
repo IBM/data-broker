@@ -779,15 +779,15 @@ int TestSGEAssemble()
 
         // number of sges depends on the amount of received vs. expected data (if too much, it needs to go to an extra dump buffer
         if( oversize > DBBE_TEST_BUFFER_LEN - 2) // -2 because of termination
-          rc += TEST( r_sge_b->_index, (p_recv_len > u_recv_len ? 0 : req->_sge_count - first_sge_idx)+2 );
+          rc += TEST( (int)r_sge_b->_index, (p_recv_len > u_recv_len ? 0 : req->_sge_count - first_sge_idx)+2 );
         else
-          rc += TEST( r_sge_b->_index, (p_recv_len > u_recv_len ? 0 : req->_sge_count - first_sge_idx)+1 );
+          rc += TEST( (int)r_sge_b->_index, (p_recv_len > u_recv_len ? 0 : req->_sge_count - first_sge_idx)+1 );
 
         int last = r_sge_b->_index - 1;
         if( p_recv_len <= u_recv_len )
         {
           // the first index in request sge where additional data will be received plus the r_sge_b count should match the user sge count (or +1 for overlapped SGE caused by partial fill
-          rc += TEST( ((first_sge_idx + r_sge_b->_index - 1 == req->_sge_count ) || (first_sge_idx + r_sge_b->_index - 1 == req->_sge_count + 1)), 1 );
+          rc += TEST( ((first_sge_idx + r_sge_b->_index - 1 == (unsigned)req->_sge_count ) || (first_sge_idx + r_sge_b->_index - 1 == (unsigned)req->_sge_count + 1)), 1 );
           rc += TEST( r_sge_b->_cmd[ 0 ].iov_base, rbuf + copylen );
           if( u_sge_c == 1 )
             rc += TEST( r_sge_b->_cmd[ 0 ].iov_len, MAX( (ssize_t)u_recv_len - (ssize_t)p_recv_len, 0) );
@@ -795,7 +795,7 @@ int TestSGEAssemble()
         if( oversize > DBBE_TEST_BUFFER_LEN - 2)
         {
           rc += TEST( r_sge_b->_cmd[ last-1 ].iov_base, overflow.iov_base );
-          rc += TEST( r_sge_b->_cmd[ last-1 ].iov_len, oversize + 2 );
+          rc += TEST( r_sge_b->_cmd[ last-1 ].iov_len, (size_t)oversize + 2 );
         }
         rc += TEST( r_sge_b->_cmd[last].iov_base, dbBE_Transport_sr_buffer_get_start( sr_buf ) );
         rc += TEST( r_sge_b->_cmd[last].iov_len, DBBE_TEST_BUFFER_LEN - (DBBE_TEST_BUFFER_LEN >> 3) );
