@@ -18,7 +18,7 @@
 #include "test_utils.h"
 
 
-#define DBR_TEST_KEY_COUNT ( 10 )
+#define DBR_TEST_KEY_COUNT ( 1234 )
 #define DBR_TEST_VAL_LEN ( 128 )
 
 int main( int argc, char **argv )
