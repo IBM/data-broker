@@ -62,7 +62,8 @@ char* generateLongMsg( const uint64_t size )
   char *msg = (char*)calloc( 1, size+1 ); // +1 for terminating 0
   uint64_t i;
   for( i = 0; i < size; ++i )
-    msg[ i ] = (char)( random() % 26 + 97);
+    msg[ i ] = (char)( (random() % 26) + 97);
+  msg[size] = '\0';
 
   LOG( DBG_TRACE, stdout, "%s\n", msg );
   return msg;
