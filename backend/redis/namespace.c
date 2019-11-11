@@ -15,6 +15,8 @@
  *
  */
 
+#include "logutil.h"
+#include "memutil.h"
 #include "namespace.h"
 #include "namespacelist.h"
 
@@ -32,12 +34,16 @@ int64_t dbBE_Redis_namespace_checksum( const dbBE_Redis_namespace_t *ns )
 {
   int64_t nchk = 0;
   uint32_t i;
-  for( i=0; i<ns->_len; i+=4 )
-    nchk ^= (
-        ns->_name[i] +
-        ns->_name[ (i+1) % ns->_len ] +
-        ns->_name[ (i+2) % ns->_len ] +
-        ns->_name[ (i+3) % ns->_len ] );
+  if( ns->_len < 4 )
+    for( i=0; i<ns->_len; ++i )
+      nchk += ns->_name[i];
+  else
+    for( i=0; i<ns->_len; i+=4 )
+      nchk ^= (
+          ns->_name[i] +
+          ns->_name[ (i+1) % ns->_len ] +
+          ns->_name[ (i+2) % ns->_len ] +
+          ns->_name[ (i+3) % ns->_len ] );
 
   return ( (((int64_t)ns->_len << 32) + nchk ) << 16 ) + (int64_t)ns->_refcnt;
 }
@@ -104,7 +110,8 @@ int dbBE_Redis_namespace_destroy( dbBE_Redis_namespace_t *ns )
     return -EBUSY;
 
   ns->_chksum = 0;
-  memset( ns, 0, sizeof( dbBE_Redis_namespace_t ) + dbBE_Redis_namespace_get_len( ns ) );
+  if( memzero( ns, 0, sizeof( ns ) ) == NULL )
+    LOG( DBG_ERR, stderr, "namespace reset got optimized away by compiler.\n" );
   free( ns );
   return 0;
 }
@@ -297,10 +304,10 @@ dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_remove( dbBE_Redis_namesp
       t = NULL;
     r->_p->_n = r->_n;
     r->_n->_p = r->_p;
-    r->_p = NULL;
-    r->_n = NULL;
-    r->_ns = NULL;
-    free( r );
+    if( memzero( r, 0, sizeof( r ) ) == NULL )
+      free( r );
+    else
+      free( r );
   }
   return t;
 }
@@ -321,4 +328,17 @@ int dbBE_Redis_namespace_list_clean( dbBE_Redis_namespace_list_t *s )
     s = t;
   }
   return 0;
+}
+
+
+volatile int*
+memzero( void *buf, int val, size_t s )
+{
+  volatile int *rc = (int*)buf;
+  unsigned char *b = (unsigned char*)buf;
+  memset( b, val, s );
+
+  if( memsum( b, s) != 0 )
+    return NULL;
+  return rc;
 }
