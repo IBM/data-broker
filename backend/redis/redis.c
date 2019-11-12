@@ -237,8 +237,10 @@ int dbBE_Redis_request_sanity_check( dbBE_Request_t *request )
   {
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
-      if(( request->_key != NULL ) || ( dbBE_Redis_namespace_validate( request->_ns_hdl ) != 0 ))
+      if( request->_key != NULL )
         rc = EINVAL;
+      else
+        rc = dbBE_Redis_namespace_validate( request->_ns_hdl );
       break;
     case DBBE_OPCODE_REMOVE:
     case DBBE_OPCODE_GET:
