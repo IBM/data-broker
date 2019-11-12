@@ -262,8 +262,8 @@ process_next_item:
               // unable to recreate connection, failing the request
               dbBE_Completion_t *completion = dbBE_Redis_complete_error(
                   request,
-                  &result,
-                  -ENOTCONN );
+                  DBR_ERR_NOCONNECT,
+                  0 );
               dbBE_Redis_request_destroy( request );
               if( completion == NULL )
               {
@@ -450,7 +450,7 @@ process_next_item:
           }
 
           completion = dbBE_Redis_complete_error( request,
-                                                  &result,
+                                                  DBR_ERR_BE_GENERAL,
                                                   rc );
           dbBE_Redis_request_destroy( request );
           if( completion == NULL )

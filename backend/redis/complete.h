@@ -36,13 +36,12 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
  * create a completion that signals an error
  */
 dbBE_Completion_t* dbBE_Redis_complete_error( dbBE_Redis_request_t *request,
-                                             dbBE_Redis_result_t *result,
-                                             int64_t error_code );
+                                              DBR_Errorcode_t error,
+                                              int64_t retval );
 
 /*
  * create a completion that signals a cancelled request
  */
-dbBE_Completion_t* dbBE_Redis_complete_cancel( dbBE_Redis_request_t *request,
-                                               int64_t error_code );
+dbBE_Completion_t* dbBE_Redis_complete_cancel( dbBE_Redis_request_t *request );
 
 #endif /* BACKEND_REDIS_COMPLETE_H_ */

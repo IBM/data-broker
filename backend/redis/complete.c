@@ -15,6 +15,7 @@
  *
  */
 
+#include "common/completion.h"
 #include "complete.h"
 #include "namespace.h"
 
@@ -30,7 +31,6 @@
 /*
  * convert a redis request in result stage into a completion
  * returns NULL on error and pointer to completion on success
- * will also perform the data transport if needed by the request type
  */
 dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
                                                 dbBE_Redis_result_t *result,
@@ -186,46 +186,13 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
 }
 
 dbBE_Completion_t* dbBE_Redis_complete_error( dbBE_Redis_request_t *request,
-                                             dbBE_Redis_result_t *result,
-                                             int64_t error_code )
+                                              DBR_Errorcode_t error,
+                                              int64_t retval )
 {
-  if(( request == NULL ) || ( result == NULL ))
-  {
-    errno = EINVAL;
-    return NULL;
-  }
-
-  dbBE_Completion_t *completion = NULL;
-
-  completion = (dbBE_Completion_t*)malloc( sizeof( dbBE_Completion_t) );
-  if( completion == NULL )
-    return NULL;
-  completion->_next = NULL;
-  completion->_rc = error_code;
-  completion->_user = request->_user->_user;
-  completion->_status = DBR_ERR_BE_GENERAL;
-
-  return completion;
+  return dbBE_Completion_create( request->_user, error, retval );
 }
 
-dbBE_Completion_t* dbBE_Redis_complete_cancel( dbBE_Redis_request_t *request,
-                                               int64_t error_code )
+dbBE_Completion_t* dbBE_Redis_complete_cancel( dbBE_Redis_request_t *request )
 {
-  if( request == NULL )
-  {
-    errno = EINVAL;
-    return NULL;
-  }
-
-  dbBE_Completion_t *completion = NULL;
-
-  completion = (dbBE_Completion_t*)malloc( sizeof( dbBE_Completion_t) );
-  if( completion == NULL )
-    return NULL;
-  completion->_next = NULL;
-  completion->_rc = error_code;
-  completion->_user = request->_user->_user;
-  completion->_status = DBR_ERR_CANCELLED;
-
-  return completion;
+  return dbBE_Completion_create( request->_user, DBR_ERR_CANCELLED, 0 );
 }
