@@ -49,15 +49,19 @@ int dbBE_Redis_namespace_validate( const dbBE_Redis_namespace_t *ns )
   if( ns == NULL )
     return EINVAL;
 
-  if( ns->_chksum != dbBE_Redis_namespace_checksum( ns ) )
-    return EBADF;
-
   if( ns->_refcnt == 0 )
     return EBADF;
 
-
   if( ns->_refcnt > 0xFFFE )
     return EMLINK;
+
+  int64_t chklen = ns->_chksum >> (32 + 16);
+  int64_t chkref = ns->_chksum & 0xFFFFull;
+  if(( ns->_len != chklen ) || ( ns->_refcnt != chkref ))
+    return EBADF;
+
+  if( ns->_chksum != dbBE_Redis_namespace_checksum( ns ) )
+    return EBADF;
 
   return 0;
 }
