@@ -28,23 +28,28 @@
 #include "test_utils.h"
 #include "logutil.h"
 
-int PutTest( DBR_Handle_t cs_hdl,
-             DBR_Tuple_name_t tupname,
-             char *instr,
-             const size_t len )
+int PutTest_e( DBR_Handle_t cs_hdl,
+               DBR_Tuple_name_t tupname,
+               char *instr,
+               const size_t len,
+               DBR_Errorcode_t expect )
 {
   int rc = 0;
-
-  rc += TEST( DBR_SUCCESS, dbrPut( cs_hdl, instr, len, tupname, 0 ) );
+  DBR_Errorcode_t err;
+  rc += TEST_RC( dbrPut( cs_hdl, instr, len, tupname, 0 ), expect, err );
+  if( err != expect )
+    LOG( DBG_ERR, stderr, "Response mismatch: expected %s - actual %s\n", dbrGet_error( expect ), dbrGet_error( err ) );
 
   return rc;
 }
 
+#define PutTest( a, b, c, d ) PutTest_e( a, b, c, d, DBR_SUCCESS )
 
-int ReadTest( DBR_Handle_t cs_hdl,
-              DBR_Tuple_name_t tupname,
-              const char *instr,
-              const size_t len)
+int ReadTest_e( DBR_Handle_t cs_hdl,
+                DBR_Tuple_name_t tupname,
+                const char *instr,
+                const size_t len,
+                DBR_Errorcode_t expect )
 {
   int rc = 0;
   DBR_Errorcode_t ret = DBR_SUCCESS;
@@ -54,15 +59,19 @@ int ReadTest( DBR_Handle_t cs_hdl,
 
   memset( out, 0, out_size );
 
-  rc += TEST_RC( dbrTestKey( cs_hdl, tupname ), DBR_SUCCESS, ret );
-  rc += TEST_RC( dbrRead( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NONE ), DBR_SUCCESS, ret );
-  rc += TEST( out_size, (int64_t)len );
-  rc += TEST( memcmp( instr, out, len ), 0 );
-
+  rc += TEST_RC( dbrTestKey( cs_hdl, tupname ), expect, ret );
+  rc += TEST_RC( dbrRead( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NONE ), expect, ret );
+  if( expect == DBR_SUCCESS )
+  {
+    rc += TEST( out_size, (int64_t)len );
+    rc += TEST( memcmp( instr, out, len ), 0 );
+  }
   free( out );
 
   return rc;
 }
+
+#define ReadTest( a, b, c, d ) ReadTest_e( a, b, c, d, DBR_SUCCESS )
 
 int KeyTest( DBR_Handle_t cs_hdl,
              DBR_Tuple_name_t tupname,
@@ -75,10 +84,11 @@ int KeyTest( DBR_Handle_t cs_hdl,
   return rc;
 }
 
-int GetTest( DBR_Handle_t cs_hdl,
-             DBR_Tuple_name_t tupname,
-             const char *instr,
-             const size_t len )
+int GetTest_e( DBR_Handle_t cs_hdl,
+               DBR_Tuple_name_t tupname,
+               const char *instr,
+               const size_t len,
+               DBR_Errorcode_t expect )
 {
   int rc = 0;
   DBR_Errorcode_t ret = DBR_SUCCESS;
@@ -88,18 +98,24 @@ int GetTest( DBR_Handle_t cs_hdl,
 
   memset( out, 0, out_size );
 
-  rc += TEST_RC( dbrGet( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NONE ), DBR_SUCCESS, ret );
-  rc += TEST( out_size, (int64_t)len );
-  rc += TEST( memcmp( instr, out, len ), 0 );
+  rc += TEST_RC( dbrGet( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NONE ), expect, ret );
+  if( expect == DBR_SUCCESS )
+  {
+    rc += TEST( out_size, (int64_t)len );
+    rc += TEST( memcmp( instr, out, len ), 0 );
+  }
 
   free( out );
 
   return rc;
 }
 
+#define GetTest( a, b, c, d ) GetTest_e( a, b, c, d, DBR_SUCCESS )
+
 int main( int argc, char ** argv )
 {
   int rc = 0;
+  unsigned n = 0;
 
   DBR_Name_t name = strdup("cstestname");
   DBR_Tuple_persist_level_t level = DBR_PERST_VOLATILE_SIMPLE;
@@ -118,7 +134,6 @@ int main( int argc, char ** argv )
   rc += TEST( DBR_SUCCESS, ret );
 
   TEST_BREAK( rc, "Create/Query")
-
 
   rc += KeyTest( cs_hdl, "testTup", DBR_ERR_UNAVAIL );
 
@@ -167,7 +182,7 @@ int main( int argc, char ** argv )
   rc += ReadTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
   rc += GetTest( cs_hdl, "testTup", (void*)val, 3*sizeof(double) );
 
-  unsigned n, c;
+  unsigned c;
   char *keystr = (char*)malloc( DBR_MAX_KEY_LEN + 16);
   rc += TEST_NOT( keystr, NULL );
   TEST_BREAK( rc, "Allocate keystring" );
@@ -275,9 +290,9 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, "Intentionally failing attach" );
 
   // try to access a deleted namespace
-  rc += TEST_NOT( PutTest( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
-  rc += TEST_NOT( ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
-  rc += TEST_NOT( GetTest( cs_hdl, "testTup", "HelloWorld1", 11 ), 0 );
+  rc += TEST( PutTest_e( cs_hdl, "testTup", "HelloWorld1", 11, DBR_ERR_INVALID ), 0 );
+  rc += TEST( ReadTest_e( cs_hdl, "testTup", "HelloWorld1", 11, DBR_ERR_INVALID ), 0 );
+  rc += TEST( GetTest_e( cs_hdl, "testTup", "HelloWorld1", 11, DBR_ERR_INVALID ), 0 );
 
   TEST_LOG( rc, " error case put/read/get tests" );
 

@@ -113,8 +113,9 @@ int MoveTest( DBR_Handle_t src_cs,
               DBR_Tuple_name_t tupname )
 {
   int rc = 0;
+  DBR_Errorcode_t ret;
 
-  rc += TEST( dbrMove( src_cs, DBR_GROUP_EMPTY, tupname, "", dst_cs, DBR_GROUP_EMPTY ), DBR_SUCCESS );
+  rc += TEST_RC( dbrMove( src_cs, DBR_GROUP_EMPTY, tupname, "", dst_cs, DBR_GROUP_EMPTY ), DBR_SUCCESS, ret );
 
   return rc;
 }
@@ -145,7 +146,6 @@ int main( int argc, char ** argv )
   rc += TEST( DBR_SUCCESS, ret );
 
   TEST_BREAK( rc, "Create/Query")
-
 
   rc += KeyTest( cs_hdl, "testTup", DBR_ERR_UNAVAIL );
 
@@ -222,7 +222,8 @@ int main( int argc, char ** argv )
 
   // largeMove test
   unsigned msglen = 32 * 1024 * 1024;
-  char *in_buf = generateLongMsg( msglen );
+  char *in_buf = NULL;
+  rc += TEST_NOT_RC( generateLongMsg( msglen ), NULL, in_buf );
 
   rc += PutTest( cs_hdl, "longtuple", in_buf, msglen );
   rc += ReadTest( cs_hdl, "longtuple", in_buf, msglen );
