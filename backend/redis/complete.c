@@ -58,6 +58,24 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
     return NULL;
   }
 
+  // opcode-independent mappings of rc/errno to dbr error:
+  switch( rc )
+  {
+    case 0: break;
+    case -ENOENT: status = DBR_ERR_UNAVAIL; break;
+    case -EEXIST: status = DBR_ERR_EXISTS; break;
+    case -EPROTO: status = DBR_ERR_BE_GENERAL; break;
+    case -ENOMEM: status = DBR_ERR_NOMEMORY; break;
+    case -EBADMSG:
+    case -EINVAL: status = DBR_ERR_INVALID; break;
+    case -EAGAIN: status = DBR_ERR_INPROGRESS; break;
+    default:
+      status = DBR_ERR_BE_GENERAL;
+      localrc = -rc;
+      break;
+  }
+
+
   switch( request->_user->_opcode )
   {
     case DBBE_OPCODE_PUT:
@@ -66,12 +84,8 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
         case 0:
           localrc = 1;
           break;
-        case -ENOMEM: status = DBR_ERR_NOMEMORY; break;
-        case -EBADMSG:
-        case -EINVAL: status = DBR_ERR_INVALID; break;
-        case -EPROTO:
         default:
-          status = DBR_ERR_BE_GENERAL;
+          break;
       }
       break;
     case DBBE_OPCODE_GET:
@@ -87,13 +101,11 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
             localrc = result->_data._integer;
           }
           break;
-        case -ENOENT:
-          status = DBR_ERR_UNAVAIL;
-          localrc = 0;
+        case -ENOSPC:
+          status = DBR_ERR_UBUFFER;
+          localrc = result->_data._integer;
           break;
         default:
-          status = DBR_ERR_BE_GENERAL;
-          localrc = result->_data._integer;
           break;
       }
       break;
@@ -111,13 +123,7 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
               localrc = result->_data._integer;
             }
             break;
-          case -ENOENT:
-            status = DBR_ERR_UNAVAIL;
-            localrc = 0;
-            break;
           default:
-            status = DBR_ERR_BE_GENERAL;
-            localrc = result->_data._integer;
             break;
         }
       }
@@ -167,6 +173,8 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
         localrc = result->_data._integer;  // int64 value contains the iterator pointer
       break;
+    case DBBE_OPCODE_MOVE:
+    case DBBE_OPCODE_REMOVE:
     default:
       break;
   }

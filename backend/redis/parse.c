@@ -750,10 +750,13 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
       }
       else
       {
-        rc = -EBADMSG;
+        if( transferred < 0 )
+          rc = transferred;
+        else
+          rc = -EBADMSG;
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
         result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = rc;
+        result->_data._integer = 0;
       }
     }
   }

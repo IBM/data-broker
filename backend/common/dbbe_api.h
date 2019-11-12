@@ -102,8 +102,54 @@ typedef enum
    * *  param[out] _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_PUT,
-  DBBE_OPCODE_GET, /**< GET operation to retrieve and delete data from the back-end  */
-  DBBE_OPCODE_READ,  /**< READ operation to retrieve data and keep it in the back-end  */
+
+  /** @brief Retrieve and consume first tuple data available under tuple name (destructive read)
+   *
+   * The specs of the request are:
+   * *  param[in] _opcode = DBBE_OPCODE_GET
+   * *  param[in] _ns_handle = a valid handle to an attached namespace
+   * *  param[in] _user = pointer to anything, will be returned with completion without change
+   * *  param[in] _next = NULL unless this is a chained request
+   * *  param[in] _group = pointer or definition of storage group
+   * *  param[in] _key = pointer to string with tuple name
+   * *  param[in] _match = pattern to match when searching for a key
+   * *  param[in] _flags behavior control
+   *      DBR_FLAGS_NONE   : nothing
+   *      DBR_FLAGS_NOWAIT : immediately return DBR_ERR_UNAVAIL if the tuple does not exist
+   *      DBR_FLAGS_PARTIAL: no error if available data is larger than user buffer (available size is returned)
+   *
+   * *  param[in] _sge_count = number of SGEs in _sge
+   * *  param[in] _sge[] = SGE list pointing to (potentially non-contiguous value data)
+   *
+   * The specs for the completion are:
+   * *  param[out] _status = DBR_SUCCESS or error code indicating issues
+   *    * DBR_ERR_INPROGRESS: request not complete; potential timeout
+   *    * DBR_ERR_CANCELLED: request canceled
+   *    * DBR_ERR_INVALID: invalid arguments
+   *    * DBR_ERR_TIMEOUT: unable to complete operation within set timeout
+   *    * DBR_ERR_UBUFFER: user-provided buffer was too small (returned size contains available bytes)
+   *    * DBR_ERR_UNAVAIL: requested tuple is not available
+   *    * DBR_ERR_HANDLE: invalid namespace hdl, or namespace not attached/exists
+   *    * DBR_ERR_NOMEMORY: insufficient amount of memory somewhere in the BE stack
+   *    * DBR_ERR_NOAUTH: not authorized to retrieve data from this namespace
+   *    * DBR_ERR_NOCONNECT: backend is not connected to storage service
+   *    * DBR_ERR_NOIMPL: the requested backend has no GET operation implemented
+   *    * DBR_ERR_BE_POST: failed to post the request at some stage in the BE stack
+   *    * DBR_ERR_BE_GENERAL: general error in backend
+   * *  param[out] _user = unmodified ptr provided in request
+   * *  param[out] _rc = size of returned (or available) value
+   * *  param[out] _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_GET,
+
+  /** @brief Retrieve first tuple data available under tuple name (non-destructive read)
+   *
+   * The specs of the request are:
+   * *  param[in] _opcode = DBBE_OPCODE_READ
+   *
+   * @see DBBE_OPCODE_GET
+   */
+  DBBE_OPCODE_READ,
   DBBE_OPCODE_MOVE,  /**< MOVE operation to migrate data from one namespace to another  */
   DBBE_OPCODE_REMOVE,  /**< REMOVE operation to delete data from the back-end  */
   DBBE_OPCODE_CANCEL,  /**< CANCEL operation to interrupt/stop cancel an pending or incomplete request  */
