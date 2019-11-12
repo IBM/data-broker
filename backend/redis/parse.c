@@ -49,6 +49,7 @@ int return_error_clean_result( int rc, dbBE_Redis_result_t *result )
   dbBE_Redis_result_cleanup( result, 0 );
   result->_type = dbBE_REDIS_TYPE_INT;
   result->_data._integer = rc;
+
   return rc;
 }
 
@@ -506,14 +507,15 @@ int dbBE_Redis_process_put( dbBE_Redis_request_t *request,
 
   rc = dbBE_Redis_process_general( request, result );
 
-  if( rc == 0 )
+  switch( rc )
   {
-    if( result->_data._integer != 1 )
-    {
-      result->_data._integer = -ENOMEM;
-    }
+    case 0:
+      if( result->_data._integer < 1 )  // rpush returns new length of list
+        rc = -ENOMEM;
+      break;
+    default:
+      break;
   }
-  // todo: process and generate any error cases since there's not much else to do for a put
 
   return rc;
 }

@@ -70,7 +70,38 @@ typedef struct iovec dbBE_sge_t;
 typedef enum
 {
   DBBE_OPCODE_UNSPEC, /**< Unspecified opcode, represents an uninitialized value  */
-  DBBE_OPCODE_PUT, /**< PUT operation to write data into the back-end  */
+
+  /** @brief PUT operation to write data into the back-end
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_PUT
+   * *  param[in] _ns_handle = a valid handle to an attached namespace
+   * *  param[in] _user = pointer to anything, will be returned with completion without change
+   * *  param[in] _next = NULL unless this is a chained request
+   * *  param[in] _group = pointer or definition of storage group
+   * *  param[in] _key = pointer to string with tuple name
+   * *  param[in] _match = ignored
+   * *  param[in] _flags = ignored
+   * *  param[in] _sge_count = number of SGEs in _sge
+   * *  param[in] _sge[] = SGE list pointing to (potentially non-contiguous value data)
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = DBR_SUCCESS or error code indicating issues:
+   *    * DBR_ERR_INPROGRESS: request not complete; potential timeout
+   *    * DBR_ERR_CANCELLED: request canceled
+   *    * DBR_ERR_INVALID: invalid arguments
+   *    * DBR_ERR_HANDLE: invalid namespace hdl, or namespace not attached/exists
+   *    * DBR_ERR_NOMEMORY: insufficient amount of memory somewhere in the BE stack
+   *    * DBR_ERR_NOAUTH: not authorized to use put on this namespace
+   *    * DBR_ERR_NOCONNECT: backend is not connected to storage service
+   *    * DBR_ERR_NOIMPL: the requested backend has no PUT operation implemented
+   *    * DBR_ERR_BE_POST: failed to post the request at some stage in the BE stack
+   *    * DBR_ERR_BE_GENERAL: general error in backend
+   * *  param[out] _user = unmodified ptr provided in request
+   * *  param[out] _rc = number of inserted elements (i.e. 1 per request)
+   * *  param[out] _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_PUT,
   DBBE_OPCODE_GET, /**< GET operation to retrieve and delete data from the back-end  */
   DBBE_OPCODE_READ,  /**< READ operation to retrieve data and keep it in the back-end  */
   DBBE_OPCODE_MOVE,  /**< MOVE operation to migrate data from one namespace to another  */
