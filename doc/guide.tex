@@ -465,16 +465,18 @@ int main( int argc, char ** argv )
 //              DBR_Tuple_name_t tuple_name : key buffer for returned key
 // );
 
-// first call to create iterator:
-	DBR_Iterator_t it = dbrIterator( cs_hdl, DBR_ITERATOR_NEW, DBR_GROUP_EMPTY, "*", keypsace );
+// using iterator input DBR_ITERATOR_NEW to create iterator and return
+// first key
+// subsequent calls until DBR_ITERATOR_DONE is returned together with
+// EOF as the key:
 
-// subsequent calls:
-   while( it != DBR_ITERATOR_DONE )
-   {
+   DBR_Iterator_t it = DBR_ITERATOR_NEW;
+
+   do {
      it = dbrIterator( cs_hdl, it, DBR_GROUP_EMPTY, "*", keyspace );
-     // do something with the key if it != DBR_ITERATOR_DONE
-   }
-// ...
+     if( it != DBR_ITERATOR_DONE )
+        // ... do something with the key
+   } while( it != DBR_ITERATOR_DONE );
 }
 \end{lstlisting}
 

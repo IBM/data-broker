@@ -15,6 +15,8 @@
  *
  */
 
+#include "logutil.h"
+#include "memutil.h"
 #include "namespace.h"
 #include "namespacelist.h"
 
@@ -47,15 +49,19 @@ int dbBE_Redis_namespace_validate( const dbBE_Redis_namespace_t *ns )
   if( ns == NULL )
     return EINVAL;
 
-  if( ns->_chksum != dbBE_Redis_namespace_checksum( ns ) )
-    return EBADF;
-
   if( ns->_refcnt == 0 )
     return EBADF;
 
-
   if( ns->_refcnt > 0xFFFE )
     return EMLINK;
+
+  int64_t chklen = ns->_chksum >> (32 + 16);
+  int64_t chkref = ns->_chksum & 0xFFFFull;
+  if(( ns->_len != chklen ) || ( ns->_refcnt != chkref ))
+    return EBADF;
+
+  if( ns->_chksum != dbBE_Redis_namespace_checksum( ns ) )
+    return EBADF;
 
   return 0;
 }
@@ -75,7 +81,7 @@ dbBE_Redis_namespace_t* dbBE_Redis_namespace_create( const char *name )
     return NULL;
   }
 
-  dbBE_Redis_namespace_t *ns = (dbBE_Redis_namespace_t*)calloc( 1, sizeof( dbBE_Redis_namespace_t ) + len + 1 ); // +1 for trailling \0
+  dbBE_Redis_namespace_t *ns = (dbBE_Redis_namespace_t*)calloc( 1, sizeof( dbBE_Redis_namespace_t ) + len + 4 ); // +4 for trailling \0 and checksum calc
   if( ns == NULL )
   {
     errno = ENOMEM;
@@ -104,7 +110,8 @@ int dbBE_Redis_namespace_destroy( dbBE_Redis_namespace_t *ns )
     return -EBUSY;
 
   ns->_chksum = 0;
-  memset( ns, 0, sizeof( dbBE_Redis_namespace_t ) + dbBE_Redis_namespace_get_len( ns ) );
+  if( memzero( ns, 0, sizeof( ns ) ) == NULL )
+    LOG( DBG_ERR, stderr, "namespace reset got optimized away by compiler.\n" );
   free( ns );
   return 0;
 }
@@ -297,10 +304,10 @@ dbBE_Redis_namespace_list_t* dbBE_Redis_namespace_list_remove( dbBE_Redis_namesp
       t = NULL;
     r->_p->_n = r->_n;
     r->_n->_p = r->_p;
-    r->_p = NULL;
-    r->_n = NULL;
-    r->_ns = NULL;
-    free( r );
+    if( memzero( r, 0, sizeof( r ) ) == NULL )
+      free( r );
+    else
+      free( r );
   }
   return t;
 }
@@ -321,4 +328,17 @@ int dbBE_Redis_namespace_list_clean( dbBE_Redis_namespace_list_t *s )
     s = t;
   }
   return 0;
+}
+
+
+volatile int*
+memzero( void *buf, int val, size_t s )
+{
+  volatile int *rc = (int*)buf;
+  unsigned char *b = (unsigned char*)buf;
+  memset( b, val, s );
+
+  if( memsum( b, s) != 0 )
+    return NULL;
+  return rc;
 }

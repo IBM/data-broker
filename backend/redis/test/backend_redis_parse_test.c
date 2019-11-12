@@ -819,7 +819,7 @@ int TestSGEAssemble()
   if( casecover != DBBE_TEST_ALL )
   {
     rc += 1;
-    LOG( DBG_ERR, stderr, "Fuzzing/random SGE test did not cover all cases: %lx/%x\n", casecover, DBBE_TEST_ALL );
+    LOG( DBG_ERR, stderr, "Fuzzing/random SGE test did not cover all cases: %x/%x\n", (unsigned)casecover, DBBE_TEST_ALL );
   }
 
 

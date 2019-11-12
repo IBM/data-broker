@@ -136,11 +136,11 @@ int namespacelisttest()
     rc += TEST_NOT_RC( dbBE_Redis_namespace_create( ns_name ), NULL, many[i] );
     free( ns_name );
     TEST_BREAK( rc, "Unable to create another namespace before insert. Cannot continue." );
-    rc += TEST_NOT_RC( dbBE_Redis_namespace_list_insert( list, many[i] ), NULL, tmp );
+    // not testing because it might be NULL because of duplicates
+    tmp = dbBE_Redis_namespace_list_insert( list, many[i] );
     if( tmp == NULL ) // in case that entry already existed
     {
       ++doubles;
-      --rc;
       rc += TEST_NOT_RC( dbBE_Redis_namespace_list_get( list, many[i]->_name ), NULL, tmp );
       rc += TEST_NOT( tmp , NULL );
       TEST_BREAK( rc, "Inconsistent namespace list entry." );

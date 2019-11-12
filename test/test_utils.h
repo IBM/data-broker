@@ -28,14 +28,16 @@
 
 
 static inline
-int dbrTest_util_print( const char* textA, const char *textB, const char *op, const int rc )
+int dbrTest_util_print_line( const char* textA, const char *textB, const char *op, const int rc, const int line )
 {
   if( rc == 0 )
-    printf( "PASS:  %s %s %s\n", textA, op, textB );
+    fprintf( stderr, "PASS:  %s %s %s\n", textA, op, textB );
   else
-    printf( "FAIL:  %s %s %s\n", textA, op, textB );
+    fprintf( stderr, "FAIL:  %s %s %s | line:%d\n", textA, op, textB, line );
   return rc;
 }
+
+#define dbrTest_util_print( A, B, op, rc ) dbrTest_util_print_line( A, B, op, rc, __LINE__ )
 
 // test macros that print/log the input function
 #define TEST( function, expect ) ( (function)==(expect)? dbrTest_util_print( #function, #expect, "==", 0 ) : dbrTest_util_print( #function, #expect, "==", 1 ) )
@@ -60,7 +62,8 @@ char* generateLongMsg( const uint64_t size )
   char *msg = (char*)calloc( 1, size+1 ); // +1 for terminating 0
   uint64_t i;
   for( i = 0; i < size; ++i )
-    msg[ i ] = (char)( random() % 26 + 97);
+    msg[ i ] = (char)( (random() % 26) + 97);
+  msg[size] = '\0';
 
   LOG( DBG_TRACE, stdout, "%s\n", msg );
   return msg;
