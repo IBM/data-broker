@@ -214,6 +214,7 @@ int dbBE_Redis_iterator_list_destroy( dbBE_Redis_iterator_list_t it_list )
       it->_cached_keys = NULL;
     }
   }
+  free( it_list );
   return 0;
 }
 

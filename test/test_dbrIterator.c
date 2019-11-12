@@ -74,6 +74,10 @@ int main( int argc, char **argv )
 
   rc += TEST( dbrDelete( "itertest" ), DBR_SUCCESS );
 
+  free( key );
+  free( data );
+  free( keybuf );
+
   printf( "Test exiting with rc=%d\n", rc );
   return rc;
 }
