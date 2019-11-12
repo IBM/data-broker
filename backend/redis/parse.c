@@ -809,7 +809,8 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
             break;
           }
 
-          memcpy( request->_status.move.dumped_value, result->_data._pstring._data, result->_data._pstring._size );
+          if( result->_data._pstring._size > 0 )
+            memcpy( request->_status.move.dumped_value, result->_data._pstring._data, result->_data._pstring._size );
 
           dbBE_sge_t sge;
           sge.iov_base = request->_status.move.dumped_value + result->_data._pstring._size;
@@ -831,6 +832,7 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
             rc = return_error_clean_result( -EPROTO, result );
             break;
           }
+          transferred += pstring.iov_len;
           if( transferred < result->_data._pstring._total_size )
           {
             free( request->_status.move.dumped_value );
