@@ -34,16 +34,12 @@ int64_t dbBE_Redis_namespace_checksum( const dbBE_Redis_namespace_t *ns )
 {
   int64_t nchk = 0;
   uint32_t i;
-  if( ns->_len < 4 )
-    for( i=0; i<ns->_len; ++i )
-      nchk += ns->_name[i];
-  else
-    for( i=0; i<ns->_len; i+=4 )
-      nchk ^= (
-          ns->_name[i] +
-          ns->_name[ (i+1) % ns->_len ] +
-          ns->_name[ (i+2) % ns->_len ] +
-          ns->_name[ (i+3) % ns->_len ] );
+  for( i=0; i<ns->_len; i+=4 )
+    nchk ^= (
+        ns->_name[i] +
+        ns->_name[ (i+1) % ns->_len ] +
+        ns->_name[ (i+2) % ns->_len ] +
+        ns->_name[ (i+3) % ns->_len ] );
 
   return ( (((int64_t)ns->_len << 32) + nchk ) << 16 ) + (int64_t)ns->_refcnt;
 }
@@ -81,7 +77,7 @@ dbBE_Redis_namespace_t* dbBE_Redis_namespace_create( const char *name )
     return NULL;
   }
 
-  dbBE_Redis_namespace_t *ns = (dbBE_Redis_namespace_t*)calloc( 1, sizeof( dbBE_Redis_namespace_t ) + len + 1 ); // +1 for trailling \0
+  dbBE_Redis_namespace_t *ns = (dbBE_Redis_namespace_t*)calloc( 1, sizeof( dbBE_Redis_namespace_t ) + len + 4 ); // +4 for trailling \0 and checksum calc
   if( ns == NULL )
   {
     errno = ENOMEM;
