@@ -42,103 +42,92 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
     return NULL;
   }
 
-  dbBE_Completion_t *completion = NULL;
+  DBR_Errorcode_t status = DBR_SUCCESS; // optimistic approach ;-)
+  int64_t localrc = rc > 0 ? rc : 0;
+  dbBE_Completion_t *completion = request->_completion;
 
-  if( request->_step->_result != 0 )
-  {
-    completion = (dbBE_Completion_t*)malloc( sizeof( dbBE_Completion_t) );
-    if( completion == NULL )
-      return NULL;
-    completion->_next = NULL;
-    completion->_rc = rc;
-    completion->_user = request->_user->_user;
-    completion->_status = DBR_SUCCESS;
-  }
-  // this is not the result stage, can't create completion
-  else {}
-
+  // if this is a request that had the completion created in an earlier stage
+  // need to grab the latest status from there.
+  if( completion != NULL )
+    return completion;
 
   dbBE_Redis_command_stage_spec_t *spec = request->_step;
   if( spec == NULL )
   {
     errno = EPROTO;
-    free( completion );
     return NULL;
   }
 
   switch( request->_user->_opcode )
   {
     case DBBE_OPCODE_PUT:
-      if( request->_step->_result != 0 )
+      switch( rc )
       {
-        if( completion->_status == DBR_SUCCESS )
-          completion->_rc = result->_data._integer;
+        case 0:
+          localrc = 1;
+          break;
+        case -ENOMEM: status = DBR_ERR_NOMEMORY; break;
+        case -EBADMSG:
+        case -EINVAL: status = DBR_ERR_INVALID; break;
+        case -EPROTO:
+        default:
+          status = DBR_ERR_BE_GENERAL;
       }
       break;
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
-      if( spec->_result != 0 )
+      switch( rc )
       {
-        switch( completion->_rc )
-        {
-          case 0:
-            if( result->_data._integer < 0 )
-              completion->_status = DBR_ERR_INPROGRESS;
-            else
-            {
-              completion->_status = DBR_SUCCESS;
-              completion->_rc = result->_data._integer;
-            }
-            break;
-          case -ENOENT:
-            completion->_status = DBR_ERR_UNAVAIL;
-            completion->_rc = 0;
-            break;
-          default:
-            completion->_status = DBR_ERR_BE_GENERAL;
-            completion->_rc = result->_data._integer;
-            break;
-        }
-      }
-      else if( completion->_status == DBR_ERR_INPROGRESS )
-      {
-        if( result->_data._integer >= 0 )
-        {
-          completion->_status = DBR_SUCCESS;
-          completion->_rc = result->_data._integer;
-        }
+        case 0:
+          if( result->_data._integer < 0 )
+            status = DBR_ERR_INPROGRESS;
+          else
+          {
+            status = DBR_SUCCESS;
+            localrc = result->_data._integer;
+          }
+          break;
+        case -ENOENT:
+          status = DBR_ERR_UNAVAIL;
+          localrc = 0;
+          break;
+        default:
+          status = DBR_ERR_BE_GENERAL;
+          localrc = result->_data._integer;
+          break;
       }
       break;
     case DBBE_OPCODE_DIRECTORY:
       if( spec->_result != 0 )
       {
-        switch( completion->_rc )
+        switch( rc )
         {
           case 0:
             if( ! result->_data._integer ) // ToDo: check for < 0 instead of !0
-              completion->_status = DBR_ERR_INPROGRESS;
+              status = DBR_ERR_INPROGRESS;
             else
             {
-              completion->_status = DBR_SUCCESS;
-              completion->_rc = result->_data._integer;
+              status = DBR_SUCCESS;
+              localrc = result->_data._integer;
             }
             break;
           case -ENOENT:
-            completion->_status = DBR_ERR_UNAVAIL;
-            completion->_rc = 0;
+            status = DBR_ERR_UNAVAIL;
+            localrc = 0;
             break;
           default:
-            completion->_status = DBR_ERR_BE_GENERAL;
-            completion->_rc = result->_data._integer;
+            status = DBR_ERR_BE_GENERAL;
+            localrc = result->_data._integer;
             break;
         }
       }
-      else if( completion->_status == DBR_ERR_INPROGRESS )
+      else if( status == DBR_ERR_INPROGRESS )
       {
+        LOG( DBG_ERR, stderr, "completion directory REACHED SUSPECTED DEAD CODE\n" );
         if( result->_data._integer ) // ToDo: check for < 0 instead of 0 <
         {
-          completion->_status = DBR_SUCCESS;
-          completion->_rc = result->_data._integer;
+          status = DBR_SUCCESS;
+          localrc = result->_data._integer;
         }
       }
       break;
@@ -146,12 +135,12 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_NSATTACH:
       if( rc == 0 )
       {
-        completion->_rc = result->_data._integer;
+        localrc = result->_data._integer;
       }
       else
       {
-        completion->_rc = 0;
-        completion->_status = (request->_user->_opcode == DBBE_OPCODE_NSATTACH) ? DBR_ERR_NSINVAL : DBR_ERR_EXISTS;
+        localrc = 0;
+        status = (request->_user->_opcode == DBBE_OPCODE_NSATTACH) ? DBR_ERR_NSINVAL : DBR_ERR_EXISTS;
       }
       break;
     case DBBE_OPCODE_NSDETACH:
@@ -160,10 +149,10 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       {
         if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
         {
-          completion->_rc = result->_data._integer; // will be mapped by client lib // todo: error exchange between client lib and backend!!
+          localrc = result->_data._integer; // will be mapped by client lib // todo: error exchange between client lib and backend!!
         }
         else
-          completion->_status = DBR_ERR_BE_GENERAL;
+          status = DBR_ERR_BE_GENERAL;
 
       }
       break;
@@ -171,18 +160,18 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       if( request->_step->_result != 0 )
       {
         if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
-          completion->_rc = result->_data._integer;
+          localrc = result->_data._integer;
       }
       break;
     case DBBE_OPCODE_ITERATOR:
       if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
-        completion->_rc = result->_data._integer;  // int64 value contains the iterator pointer
+        localrc = result->_data._integer;  // int64 value contains the iterator pointer
       break;
     default:
       break;
   }
 
-  return completion;
+  return dbBE_Completion_create( request->_user, status, localrc );
 }
 
 dbBE_Completion_t* dbBE_Redis_complete_error( dbBE_Redis_request_t *request,
