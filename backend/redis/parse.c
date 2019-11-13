@@ -660,7 +660,7 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
       {
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
         result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = -ENOENT;
+        result->_data._integer = 0;
         if( request->_user->_flags & DBBE_OPCODE_FLAGS_IMMEDIATE )
           return -ENOENT;
         else
