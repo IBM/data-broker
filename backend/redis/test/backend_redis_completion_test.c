@@ -86,6 +86,9 @@ int test_put( dbBE_Redis_command_stage_spec_t *stage_specs,
   memset( &result, 0, sizeof( result ) );
   memset( &completion, 0, sizeof( completion ) );
 
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = 0;
+
   usr->_opcode = DBBE_OPCODE_PUT;
 
   // a regular successful put
@@ -180,6 +183,9 @@ int test_get( dbBE_Redis_command_stage_spec_t *stage_specs,
   memset( &result, 0, sizeof( result ) );
   memset( &completion, 0, sizeof( completion ) );
 
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = 0;
+
   usr->_opcode = DBBE_OPCODE_GET;
 
   TEST_BREAK( rc, "mem-allocation failed" );
@@ -187,9 +193,8 @@ int test_get( dbBE_Redis_command_stage_spec_t *stage_specs,
   rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
 
   // a regular successful get
-  result._type = dbBE_REDIS_TYPE_CHAR;
-  result._data._string._data = data;
-  result._data._string._size = datalen;
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = datalen;
 
   rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, 0 ), NULL, cmp );
   if( cmp )

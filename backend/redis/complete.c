@@ -70,11 +70,19 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
     case -EINVAL: status = DBR_ERR_INVALID; break;
     case -EAGAIN: status = DBR_ERR_INPROGRESS; break;
     default:
-      status = DBR_ERR_BE_GENERAL;
-      localrc = -rc;
+      if( rc < 0 )
+      {
+        status = DBR_ERR_BE_GENERAL;
+        localrc = -rc;
+      }
       break;
   }
 
+  if( result->_type != dbBE_REDIS_TYPE_INT )
+  {
+    LOG( DBG_ERR, stderr, "Invalid result type while creating completion: %d; request opcode %d, rc=%ld\n", result->_type, request->_user->_opcode, rc );
+    exit(1);
+  }
 
   switch( request->_user->_opcode )
   {
@@ -104,6 +112,21 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
         case -ENOSPC:
           status = DBR_ERR_UBUFFER;
           localrc = result->_data._integer;
+          break;
+        default:
+          break;
+      }
+      break;
+    case DBBE_OPCODE_MOVE:
+      switch( rc )
+      {
+        case -ENODATA: // if a transfer couldn't receive/send the full dump of an entry
+          status = DBR_ERR_BE_GENERAL;
+          localrc = 0;
+          break;
+        case -ESTALE: // happens when delete phase hits an unexpected error
+          status = DBR_ERR_NOFILE;
+          localrc = 0;
           break;
         default:
           break;
@@ -151,15 +174,19 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       break;
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
-      if( spec->_result != 0 )
+      if( spec->_result != 0 ) // important check because DELETE creates completion in non-final stage
       {
-        if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
+        switch( rc )
         {
-          localrc = result->_data._integer; // will be mapped by client lib // todo: error exchange between client lib and backend!!
+          case 0:
+            break;
+          case EBUSY:
+            status = DBR_ERR_NSBUSY;
+            localrc = result->_data._integer;
+            break;
+          default:
+            break;
         }
-        else
-          status = DBR_ERR_BE_GENERAL;
-
       }
       break;
     case DBBE_OPCODE_NSQUERY:
@@ -173,7 +200,6 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
         localrc = result->_data._integer;  // int64 value contains the iterator pointer
       break;
-    case DBBE_OPCODE_MOVE:
     case DBBE_OPCODE_REMOVE:
     default:
       break;

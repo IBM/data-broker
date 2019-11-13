@@ -351,9 +351,9 @@ int TestNSDelete( const char *namespace,
   rc += TEST( dbBE_Transport_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
 
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
-  rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), EBUSY );
   rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
-  rc += TEST( result._data._integer, -EBUSY );
+  rc += TEST( result._data._integer, 1 );
 
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Transport_sr_buffer_reset( sr_buf );
@@ -404,7 +404,7 @@ int TestNSDelete( const char *namespace,
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
   rc += TEST( dbBE_Redis_process_nsdelete( req, &result ), -ENOENT );
   rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
-  rc += TEST( result._data._integer, -ENOENT );
+  rc += TEST( result._data._integer, 0 );
 
   return rc;
 }

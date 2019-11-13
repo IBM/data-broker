@@ -48,7 +48,7 @@ int return_error_clean_result( int rc, dbBE_Redis_result_t *result )
 {
   dbBE_Redis_result_cleanup( result, 0 );
   result->_type = dbBE_REDIS_TYPE_INT;
-  result->_data._integer = rc;
+  result->_data._integer = 0;
 
   return rc;
 }
@@ -910,7 +910,7 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
 
     default:
       LOG( DBG_ERR, stderr, "Invalid request stage (%d) while processing move cmd.\n", (int)request->_step->_stage );
-      rc = return_error_clean_result( rc, result );
+      rc = return_error_clean_result( -EPROTO, result );
       break;
   }
   return rc;
@@ -1664,17 +1664,15 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request,
 //        result->_data._integer = 0;
 //        break;
 //      }
+      dbBE_Redis_result_cleanup( result, 0 );
+      result->_type = dbBE_REDIS_TYPE_INT;
       if( refcnt > 1 )
       {
-        return_error_clean_result( -EBUSY, result );
-        rc = 0; // this error just needs to be in the result
+        rc = EBUSY; // positive result because this is not an actual request error/problem
+        result->_data._integer = refcnt - 1;
       }
       else
-      {
-        dbBE_Redis_result_cleanup( result, 0 );
-        result->_type = dbBE_REDIS_TYPE_INT;
         result->_data._integer = 0;
-      }
 
       break;
     }
