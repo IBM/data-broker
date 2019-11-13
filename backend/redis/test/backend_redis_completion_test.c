@@ -71,6 +71,26 @@ int initialize_usr( dbBE_Request_t *usr,
   return 0;
 }
 
+static inline
+int test_completion( dbBE_Redis_request_t *request,
+                     dbBE_Redis_result_t *result,
+                     const int in_rc,
+                     const DBR_Errorcode_t exp_err,
+                     const int exp_rc)
+{
+  int rc = 0;
+  dbBE_Completion_t *cmp = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, result, in_rc ), NULL, cmp );
+  if( cmp )
+  {
+    rc += TEST( cmp->_rc, exp_rc );
+    rc += TEST( cmp->_status, exp_err );
+    rc += TEST( cmp->_user, request->_user->_user );
+    free( cmp );
+  }
+  return rc;
+}
+
 int test_put( dbBE_Redis_command_stage_spec_t *stage_specs,
               char *data,
               size_t datalen,
@@ -91,60 +111,24 @@ int test_put( dbBE_Redis_command_stage_spec_t *stage_specs,
 
   usr->_opcode = DBBE_OPCODE_PUT;
 
-  // a regular successful put
   rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
 
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, 0 ), NULL, cmp );
-  if( cmp )
-  {
-    rc += TEST( cmp->_rc, 1 );
-    rc += TEST( cmp->_status, DBR_SUCCESS );
-    rc += TEST( cmp->_user, usr->_user );
-    free( cmp );
-  }
+  // a regular successful put
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, 1 ), 0 );
 
   // a protocol failure: DBR_ERR_BE_GENERAL: general error in backend
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, -EPROTO ), NULL, cmp );
-  if( cmp )
-  {
-    rc += TEST( cmp->_rc, 0 );
-    rc += TEST( cmp->_status, DBR_ERR_BE_GENERAL );
-    rc += TEST( cmp->_user, usr->_user );
-    free( cmp );
-  }
+  rc += TEST( test_completion( request, &result, -EPROTO, DBR_ERR_BE_GENERAL, 0 ), 0 );
 
   // an invalid parameter occurred: DBR_ERR_INVALID
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, -EINVAL ), NULL, cmp );
-  if( cmp )
-  {
-    rc += TEST( cmp->_rc, 0 );
-    rc += TEST( cmp->_status, DBR_ERR_INVALID );
-    rc += TEST( cmp->_user, usr->_user );
-    free( cmp );
-  }
+  rc += TEST( test_completion( request, &result, -EINVAL, DBR_ERR_INVALID, 0 ), 0 );
 
   // an unexpected result type got returned: DBR_ERR_INVALID
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, -EBADMSG ), NULL, cmp );
-  if( cmp )
-  {
-    rc += TEST( cmp->_rc, 0 );
-    rc += TEST( cmp->_status, DBR_ERR_INVALID );
-    rc += TEST( cmp->_user, usr->_user );
-    free( cmp );
-  }
+  rc += TEST( test_completion( request, &result, -EBADMSG, DBR_ERR_INVALID, 0 ), 0 );
 
   // somewhere running out of memory: DBR_ERR_NOMEMORY
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, -ENOMEM ), NULL, cmp );
-  if( cmp )
-  {
-    rc += TEST( cmp->_rc, 0 );
-    rc += TEST( cmp->_status, DBR_ERR_NOMEMORY );
-    rc += TEST( cmp->_user, usr->_user );
-    free( cmp );
-  }
+  rc += TEST( test_completion( request, &result, -ENOMEM, DBR_ERR_NOMEMORY, 0 ), 0 );
 
-
-  // somewhere running out of memory: DBR_ERR_NOMEMORY
+  // cancelled request
   rc += TEST_NOT_RC( dbBE_Redis_complete_cancel( request ), NULL, cmp );
   if( cmp )
   {
@@ -192,44 +176,45 @@ int test_get( dbBE_Redis_command_stage_spec_t *stage_specs,
 
   rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
 
-  // a regular successful get
   result._type = dbBE_REDIS_TYPE_INT;
   result._data._integer = datalen;
 
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, 0 ), NULL, cmp );
-  if( cmp )
-  {
-    rc += TEST( cmp->_rc, datalen );
-    rc += TEST( cmp->_status, DBR_SUCCESS );
-    rc += TEST( cmp->_user, usr->_user );
-    free( cmp );
-  }
+  // a regular successful get
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, datalen ), 0);
+
+  // a protocol failure: DBR_ERR_BE_GENERAL: general error in backend
+  rc += TEST( test_completion( request, &result, -EPROTO, DBR_ERR_BE_GENERAL, 0 ), 0);
+
+  // invalid arguments detected
+  rc += TEST( test_completion( request, &result, -EINVAL, DBR_ERR_INVALID, 0 ), 0);
+
+  // Malformed message or data integrity issue
+  rc += TEST( test_completion( request, &result, -EBADMSG, DBR_ERR_INVALID, 0 ), 0);
+
+  // somewhere running out of memory: DBR_ERR_NOMEMORY
+  rc += TEST( test_completion( request, &result, -ENOMEM, DBR_ERR_NOMEMORY, 0 ), 0);
+
+  // access to unavailable tuple
+  rc += TEST( test_completion( request, &result, -ENOENT, DBR_ERR_UNAVAIL, 0 ), 0);
 
   // user buffer too small without requesting partial data
   result._type = dbBE_REDIS_TYPE_INT;
   result._data._integer = datalen * 2;
-
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, -ENOSPC ), NULL, cmp );
-  if( cmp )
-  {
-    rc += TEST( cmp->_rc, datalen * 2 );
-    rc += TEST( cmp->_status, DBR_ERR_UBUFFER );
-    rc += TEST( cmp->_user, usr->_user );
-    free( cmp );
-  }
+  rc += TEST( test_completion( request, &result, -ENOSPC, DBR_ERR_UBUFFER, datalen * 2 ), 0);
 
   // user buffer too small AND requesting partial data
   usr->_flags = DBR_FLAGS_PARTIAL;
-  rc += TEST_NOT_RC( dbBE_Redis_complete_command( request, &result, 0 ), NULL, cmp );
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, datalen * 2 ), 0);
+
+  // cancelled request
+  rc += TEST_NOT_RC( dbBE_Redis_complete_cancel( request ), NULL, cmp );
   if( cmp )
   {
-    rc += TEST( cmp->_rc, datalen * 2 );
-    rc += TEST( cmp->_status, DBR_SUCCESS );
+    rc += TEST( cmp->_rc, 0 );
+    rc += TEST( cmp->_status, DBR_ERR_CANCELLED );
     rc += TEST( cmp->_user, usr->_user );
     free( cmp );
   }
-
-
   dbBE_Redis_request_destroy( request );
 
   return rc;
