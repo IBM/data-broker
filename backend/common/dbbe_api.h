@@ -44,6 +44,13 @@
  */
 typedef void* dbBE_Handle_t;
 
+/**
+ * @typedef dbBE_NS_Handle_t
+ * @brief   Handle to a namespace
+ *
+ * Is created and returned by create or attach and required by
+ * subsequent API calls when accessing a namespace.
+ */
 typedef void* dbBE_NS_Handle_t;
 
 /*
@@ -69,37 +76,44 @@ typedef struct iovec dbBE_sge_t;
  */
 typedef enum
 {
-  DBBE_OPCODE_UNSPEC, /**< Unspecified opcode, represents an uninitialized value  */
+  /** @brief Unspecified opcode, represents an uninitialized value
+   *
+   * General specs of parameters for all opcodes:
+   * *  param[out] _status returns
+   *    * @ref DBR_ERR_INVALID invalid arguments
+   *    * @ref DBR_ERR_HANDLE invalid namespace hdl, or namespace not attached/exists
+   *    * @ref DBR_ERR_INPROGRESS request not complete; potential timeout
+   *    * @ref DBR_ERR_TIMEOUT unable to complete operation within set timeout
+   *    * @ref DBR_ERR_NOMEMORY insufficient amount of memory somewhere in the BE stack
+   *    * @ref DBR_ERR_NOAUTH not authorized to perform this operation
+   *    * @ref DBR_ERR_NOCONNECT backend is not connected to storage service
+   *    * @ref DBR_ERR_CANCELLED request canceled
+   *    * @ref DBR_ERR_NOTIMPL the requested backend has no PUT operation implemented
+   *    * @ref DBR_ERR_BE_POST  failed to post the request at some stage in the BE stack
+   *    * @ref DBR_ERR_BE_GENERAL  general error in backend
+   */
+  DBBE_OPCODE_UNSPEC,
 
   /** @brief PUT operation to write data into the back-end
    *
    * The specs of the put-request are:
    * *  param[in] _opcode = DBBE_OPCODE_PUT
-   * *  param[in] _ns_handle = a valid handle to an attached namespace
-   * *  param[in] _user = pointer to anything, will be returned with completion without change
-   * *  param[in] _next = NULL unless this is a chained request
-   * *  param[in] _group = pointer or definition of storage group
-   * *  param[in] _key = pointer to string with tuple name
-   * *  param[in] _match = ignored
-   * *  param[in] _flags = ignored
-   * *  param[in] _sge_count = number of SGEs in _sge
-   * *  param[in] _sge[] = SGE list pointing to (potentially non-contiguous value data)
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = number of SGEs in _sge
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = SGE list pointing to (potentially non-contiguous value data)
    *
    * The specs for the put-completion are:
-   * *  param[out] _status = DBR_SUCCESS or error code indicating issues:
-   *    * DBR_ERR_INPROGRESS: request not complete; potential timeout
-   *    * DBR_ERR_CANCELLED: request canceled
-   *    * DBR_ERR_INVALID: invalid arguments
-   *    * DBR_ERR_HANDLE: invalid namespace hdl, or namespace not attached/exists
-   *    * DBR_ERR_NOMEMORY: insufficient amount of memory somewhere in the BE stack
-   *    * DBR_ERR_NOAUTH: not authorized to use put on this namespace
-   *    * DBR_ERR_NOCONNECT: backend is not connected to storage service
-   *    * DBR_ERR_NOIMPL: the requested backend has no PUT operation implemented
-   *    * DBR_ERR_BE_POST: failed to post the request at some stage in the BE stack
-   *    * DBR_ERR_BE_GENERAL: general error in backend
-   * *  param[out] _user = unmodified ptr provided in request
-   * *  param[out] _rc = number of inserted elements (i.e. 1 per request)
-   * *  param[out] _next = NULL unless multiple completions are created at the same time
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = number of inserted elements (i.e. 1)
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_PUT,
 
@@ -107,38 +121,28 @@ typedef enum
    *
    * The specs of the request are:
    * *  param[in] _opcode = DBBE_OPCODE_GET
-   * *  param[in] _ns_handle = a valid handle to an attached namespace
-   * *  param[in] _user = pointer to anything, will be returned with completion without change
-   * *  param[in] _next = NULL unless this is a chained request
-   * *  param[in] _group = pointer or definition of storage group
-   * *  param[in] _key = pointer to string with tuple name
-   * *  param[in] _match = pattern to match when searching for a key
-   * *  param[in] _flags behavior control
-   *      DBR_FLAGS_NONE   : nothing
-   *      DBR_FLAGS_NOWAIT : immediately return DBR_ERR_UNAVAIL if the tuple does not exist
-   *      DBR_FLAGS_PARTIAL: no error if available data is larger than user buffer (available size is returned)
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags behavior control as follows:
+   *    *  @ref DBR_FLAGS_NONE               nothing
+   *    *  @ref DBR_FLAGS_NOWAIT             immediately return DBR_ERR_UNAVAIL if the tuple does not exist
+   *    *  @ref DBR_FLAGS_PARTIAL            no error if available data is larger than user buffer (available size is returned)
    *
-   * *  param[in] _sge_count = number of SGEs in _sge
-   * *  param[in] _sge[] = SGE list pointing to (potentially non-contiguous value data)
+   * *  param[in]      int                  _sge_count = number of SGEs in _sge
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = SGE list pointing to (potentially non-contiguous value data)
    *
    * The specs for the completion are:
-   * *  param[out] _status = DBR_SUCCESS or error code indicating issues
-   *    * DBR_ERR_INPROGRESS: request not complete; potential timeout
-   *    * DBR_ERR_CANCELLED: request canceled
-   *    * DBR_ERR_INVALID: invalid arguments
-   *    * DBR_ERR_TIMEOUT: unable to complete operation within set timeout
-   *    * DBR_ERR_UBUFFER: user-provided buffer was too small (returned size contains available bytes)
-   *    * DBR_ERR_UNAVAIL: requested tuple is not available
-   *    * DBR_ERR_HANDLE: invalid namespace hdl, or namespace not attached/exists
-   *    * DBR_ERR_NOMEMORY: insufficient amount of memory somewhere in the BE stack
-   *    * DBR_ERR_NOAUTH: not authorized to retrieve data from this namespace
-   *    * DBR_ERR_NOCONNECT: backend is not connected to storage service
-   *    * DBR_ERR_NOIMPL: the requested backend has no GET operation implemented
-   *    * DBR_ERR_BE_POST: failed to post the request at some stage in the BE stack
-   *    * DBR_ERR_BE_GENERAL: general error in backend
-   * *  param[out] _user = unmodified ptr provided in request
-   * *  param[out] _rc = size of returned (or available) value
-   * *  param[out] _next = NULL unless multiple completions are created at the same time
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues
+   *    * @ref DBR_ERR_TIMEOUT  unable to complete operation within set timeout
+   *    * @ref DBR_ERR_UBUFFER  user-provided buffer was too small (returned size contains available bytes)
+   *    * for more status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = size of returned (or available) value
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_GET,
 
@@ -150,7 +154,32 @@ typedef enum
    * @see DBBE_OPCODE_GET
    */
   DBBE_OPCODE_READ,
-  DBBE_OPCODE_MOVE,  /**< MOVE operation to migrate data from one namespace to another  */
+
+  /** @brief MOVE operation to migrate data from one namespace to another
+   *
+   * The specs of the request are:
+   * *  param[in] _opcode = DBBE_OPCODE_MOVE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = a valid handle to the source namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags = ignored
+   * *  param[in]      int                  _sge_count = 2
+   * *  param[in]      dbBE_sge_t           _sge[0] = contains destination storage group
+   * *  param[in]      dbBE_sge_t           _sge[1] = valid @ref dbBE_NS_Handle_t to destination namespace
+   *
+   * The specs for the completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues
+   *    * @ref DBR_ERR_EXISTS requested tuple either does not exist at source or exists at destination
+   *    * @ref DBR_ERR_NOFILE an unexpected backend error while migrating data between namespaces
+   *    * for more status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0; nothing useful will be returned here
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_MOVE,
   DBBE_OPCODE_REMOVE,  /**< REMOVE operation to delete data from the back-end  */
   DBBE_OPCODE_CANCEL,  /**< CANCEL operation to interrupt/stop cancel an pending or incomplete request  */
   DBBE_OPCODE_DIRECTORY, /**< DIRECTORY operation to retrieve a (filtered) list of existing keys */
@@ -174,11 +203,11 @@ enum
 
 
 /**
- * @struct dbBE_Request dbbe_api.h "backend/common/dbbe_api.h"
+ * @struct dbBE_Request_t dbbe_api.h "backend/common/dbbe_api.h"
  *
  * @brief Back-end API request structure
  *
- * Defines a back-end request with operation code as well an input and output parameters
+ * Defines a back-end request with operation code as well as input and output parameters
  */
 typedef struct dbBE_Request
 {
@@ -201,7 +230,7 @@ typedef struct dbBE_Request
 typedef void* dbBE_Request_handle_t;
 
 /**
- * @struct dbBE_Completion dbbe_api.h "backend/common/dbbe_api.h"
+ * @struct dbBE_Completion_t dbbe_api.h "backend/common/dbbe_api.h"
  *
  * @brief Completion data structure
  *
