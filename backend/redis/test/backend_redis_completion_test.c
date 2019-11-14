@@ -220,6 +220,93 @@ int test_get( dbBE_Redis_command_stage_spec_t *stage_specs,
   return rc;
 }
 
+int test_move( dbBE_Redis_command_stage_spec_t *stage_specs,
+               char *data,
+               int64_t datalen,
+               dbBE_Request_t *usr )
+{
+  int rc = 0;
+
+  dbBE_Redis_result_t result;   // result already parsed, so it has no impact on the completion of a put, just needs to be there
+  dbBE_Redis_request_t *request;
+  dbBE_Completion_t completion;
+  dbBE_Completion_t *cmp = NULL;
+
+  memset( &result, 0, sizeof( result ) );
+  memset( &completion, 0, sizeof( completion ) );
+
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = 0;
+
+  dbBE_NS_Handle_t dst_cs = NULL;
+
+  usr->_opcode = DBBE_OPCODE_MOVE;
+
+  usr->_sge_count = 2;
+  usr->_sge[0].iov_base = DBR_GROUP_EMPTY;
+  usr->_sge[0].iov_len = sizeof( DBR_Group_t );
+  usr->_sge[1].iov_base = dst_cs;
+  usr->_sge[1].iov_len = sizeof( dst_cs );
+
+  TEST_BREAK( rc, "mem-allocation failed" );
+
+  rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
+
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = datalen;
+
+  // a regular successful get
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, 0 ), 0);
+
+  // a protocol failure: DBR_ERR_BE_GENERAL: general error in backend
+  rc += TEST( test_completion( request, &result, -EPROTO, DBR_ERR_BE_GENERAL, 0 ), 0);
+
+  // invalid arguments detected
+  rc += TEST( test_completion( request, &result, -EINVAL, DBR_ERR_INVALID, 0 ), 0);
+
+  // Malformed message or data integrity issue
+  rc += TEST( test_completion( request, &result, -EBADMSG, DBR_ERR_INVALID, 0 ), 0);
+
+  // somewhere running out of memory: DBR_ERR_NOMEMORY
+  rc += TEST( test_completion( request, &result, -ENOMEM, DBR_ERR_NOMEMORY, 0 ), 0);
+
+  // access to unavailable tuple
+  rc += TEST( test_completion( request, &result, -ENOENT, DBR_ERR_UNAVAIL, 0 ), 0);
+
+  // non-existing source or existing destination
+  rc += TEST( test_completion( request, &result, -EEXIST, DBR_ERR_EXISTS, 0 ), 0);
+
+  // error while attempting to delete the source
+  rc += TEST( test_completion( request, &result, -ESTALE, DBR_ERR_NOFILE, 0 ), 0);
+
+  // cancelled request
+  rc += TEST_NOT_RC( dbBE_Redis_complete_cancel( request ), NULL, cmp );
+  if( cmp )
+  {
+    rc += TEST( cmp->_rc, 0 );
+    rc += TEST( cmp->_status, DBR_ERR_CANCELLED );
+    rc += TEST( cmp->_user, usr->_user );
+    free( cmp );
+  }
+
+  // next stage:
+  rc += TEST( dbBE_Redis_request_stage_transition( request ), 0 );
+
+  // next stage:
+  rc += TEST( dbBE_Redis_request_stage_transition( request ), 0 );
+
+
+  dbBE_Redis_request_destroy( request );
+
+  usr->_sge_count = 0;
+  usr->_sge[0].iov_base = NULL;
+  usr->_sge[0].iov_len = 0;
+  usr->_sge[1].iov_base = NULL;
+  usr->_sge[1].iov_len = 0;
+
+  return rc;
+}
+
 int main( int argc, char ** argv )
 {
 
@@ -244,6 +331,7 @@ int main( int argc, char ** argv )
   rc += TEST( initialize_usr( usr, DBBE_OPCODE_UNSPEC, strdup("testkey"), &single_sge, 1 ), 0 );
   rc += test_put( stage_specs, data, datalen, usr );
   rc += test_get( stage_specs, data, datalen, usr );
+  rc += test_move( stage_specs, data, datalen, usr );
 
 
   if( data != NULL ) free( data );
