@@ -180,6 +180,30 @@ typedef enum
    * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_MOVE,
+
+  /** @brief REMOVE operation to delete data from the back-end
+   *
+   * Note that this operation will remove all versions of data associated with the tuple
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_REMOVE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = nothing
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0; nothing useful will be returned here
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
   DBBE_OPCODE_REMOVE,  /**< REMOVE operation to delete data from the back-end  */
   DBBE_OPCODE_CANCEL,  /**< CANCEL operation to interrupt/stop cancel an pending or incomplete request  */
   DBBE_OPCODE_DIRECTORY, /**< DIRECTORY operation to retrieve a (filtered) list of existing keys */

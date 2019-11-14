@@ -781,9 +781,6 @@ int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
     switch( result->_data._integer )
     {
       case 0:
-        dbBE_Redis_result_cleanup( result, 0 );
-        result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = -ENOENT;
         rc = -ENOENT;
         break;
 
@@ -792,10 +789,17 @@ int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
         break;
 
       default:
-        LOG( DBG_ERR, stderr, "Remove found duplicate entries for %s\n", request->_user->_key );
+        LOG( DBG_ERR, stderr, "REMOVE: Protocol error or duplicate entries for %s\n", request->_user->_key );
+        rc = -EPROTO;
         break;
     }
   }
+
+  // all result info is in rc, no need to keep result
+  dbBE_Redis_result_cleanup( result, 0 );
+  result->_type = dbBE_REDIS_TYPE_INT;
+  result->_data._integer = 0;
+
   return rc;
 }
 

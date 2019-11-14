@@ -307,6 +307,62 @@ int test_move( dbBE_Redis_command_stage_spec_t *stage_specs,
   return rc;
 }
 
+int test_remove( dbBE_Redis_command_stage_spec_t *stage_specs,
+                 char *data,
+                 size_t datalen,
+                 dbBE_Request_t *usr )
+{
+  int rc = 0;
+
+  dbBE_Redis_result_t result;   // result already parsed, so it has no impact on the completion of a put, just needs to be there
+  dbBE_Redis_request_t *request;
+  dbBE_Completion_t completion;
+  dbBE_Completion_t *cmp = NULL;
+
+  memset( &result, 0, sizeof( result ) );
+  memset( &completion, 0, sizeof( completion ) );
+
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = 0;
+
+  usr->_opcode = DBBE_OPCODE_REMOVE;
+
+  rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
+
+  // a regular successful remove
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, 0 ), 0 );
+
+  // a protocol failure: DBR_ERR_BE_GENERAL: general error in backend
+  rc += TEST( test_completion( request, &result, -EPROTO, DBR_ERR_BE_GENERAL, 0 ), 0 );
+
+  // an invalid parameter occurred: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EINVAL, DBR_ERR_INVALID, 0 ), 0 );
+
+  // an unexpected result type got returned: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EBADMSG, DBR_ERR_INVALID, 0 ), 0 );
+
+  // somewhere running out of memory: DBR_ERR_NOMEMORY
+  rc += TEST( test_completion( request, &result, -ENOMEM, DBR_ERR_NOMEMORY, 0 ), 0 );
+
+  // removed something that doesn't exist
+  rc += TEST( test_completion( request, &result, -ENOENT, DBR_ERR_UNAVAIL, 0 ), 0 );
+
+  // cancelled request
+  rc += TEST_NOT_RC( dbBE_Redis_complete_cancel( request ), NULL, cmp );
+  if( cmp )
+  {
+    rc += TEST( cmp->_rc, 0 );
+    rc += TEST( cmp->_status, DBR_ERR_CANCELLED );
+    rc += TEST( cmp->_user, usr->_user );
+    free( cmp );
+  }
+
+  dbBE_Redis_request_destroy( request );
+
+  return rc;
+}
+
+
 int main( int argc, char ** argv )
 {
 
@@ -332,6 +388,7 @@ int main( int argc, char ** argv )
   rc += test_put( stage_specs, data, datalen, usr );
   rc += test_get( stage_specs, data, datalen, usr );
   rc += test_move( stage_specs, data, datalen, usr );
+  rc += test_remove( stage_specs, data, datalen, usr );
 
 
   if( data != NULL ) free( data );

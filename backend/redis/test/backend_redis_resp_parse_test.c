@@ -568,7 +568,7 @@ int TestRemove( const char *namespace,
   memset( &result, 0, sizeof( dbBE_Redis_result_t ) );
   int len = 0;
 
-  //
+  // successful remove
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
@@ -582,8 +582,25 @@ int TestRemove( const char *namespace,
   rc += TEST( dbBE_Redis_process_remove( req, &result ), 0 );
 
   rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
-  rc += TEST( result._data._integer, 1 );
+  rc += TEST( result._data._integer, 0 );
 
+  // failed remove (not exist)
+  rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
+  dbBE_Transport_sr_buffer_reset( sr_buf );
+
+  len = snprintf( dbBE_Transport_sr_buffer_get_start( sr_buf ),
+                  dbBE_Transport_sr_buffer_get_size( sr_buf ),
+                  ":0\r\n");
+  rc += TEST_NOT( len, -1 );
+  rc += TEST( dbBE_Transport_sr_buffer_add_data( sr_buf, len, 0 ), (size_t)len );
+
+  rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
+  rc += TEST( dbBE_Redis_process_remove( req, &result ), -ENOENT );
+
+  rc += TEST( result._type, dbBE_REDIS_TYPE_INT );
+  rc += TEST( result._data._integer, 0 );
+
+  // protocol error response
   rc += TEST( dbBE_Redis_result_cleanup( &result, 0 ), 0 );
   dbBE_Transport_sr_buffer_reset( sr_buf );
 
@@ -596,7 +613,8 @@ int TestRemove( const char *namespace,
   rc += TEST( dbBE_Redis_parse_sr_buffer( sr_buf, &result ), 0 );
   rc += TEST( dbBE_Redis_process_remove( req, &result ), -EBADMSG );
 
-  rc += TEST( result._type, dbBE_REDIS_TYPE_ERROR );
+  rc += TEST( result._type, dbBE_REDIS_TYPE_INT ); // result still regular int, rc carries error code
+  rc += TEST( result._data._integer, 0 );
 
 
   return rc;

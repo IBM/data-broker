@@ -132,6 +132,8 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
           break;
       }
       break;
+    case DBBE_OPCODE_REMOVE:
+      break;
     case DBBE_OPCODE_DIRECTORY:
       if( spec->_result != 0 )
       {
@@ -200,7 +202,6 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
         localrc = result->_data._integer;  // int64 value contains the iterator pointer
       break;
-    case DBBE_OPCODE_REMOVE:
     default:
       break;
   }
