@@ -598,6 +598,13 @@ int dbBE_Redis_connection_auth( dbBE_Redis_connection_t *conn, const char *authf
   int auth_error = 0;
   struct stat auth_file_stat;
 
+  // skip authentication if authfile name is explicitly set to NONE
+  if( strncmp( authfile_name, "NONE", 5 ) == 0 )
+  {
+    conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
+    return 0;
+  }
+
   const size_t AUTHBUF_SIZE = 16384;
   dbBE_Redis_sr_buffer_t *sbuf = dbBE_Transport_sr_buffer_allocate( AUTHBUF_SIZE );
 

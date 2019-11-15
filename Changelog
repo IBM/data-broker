@@ -1,4 +1,5 @@
 version 0.7.0
+ * allow to disable Redis authentication via DBR_AUTHFILE=NONE
  * iterator API implementation including binding for C and python
  * removing the 128MB limit for value size
  * small-copy data retrieval using sge+recvmsg to avoid data copies
