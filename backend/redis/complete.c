@@ -135,31 +135,23 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
     case DBBE_OPCODE_REMOVE:
       break;
     case DBBE_OPCODE_DIRECTORY:
-      if( spec->_result != 0 )
+      switch( rc )
       {
-        switch( rc )
-        {
-          case 0:
-            if( ! result->_data._integer ) // ToDo: check for < 0 instead of !0
-              status = DBR_ERR_INPROGRESS;
-            else
-            {
-              status = DBR_SUCCESS;
-              localrc = result->_data._integer;
-            }
-            break;
-          default:
-            break;
-        }
-      }
-      else if( status == DBR_ERR_INPROGRESS )
-      {
-        LOG( DBG_ERR, stderr, "completion directory REACHED SUSPECTED DEAD CODE\n" );
-        if( result->_data._integer ) // ToDo: check for < 0 instead of 0 <
-        {
-          status = DBR_SUCCESS;
-          localrc = result->_data._integer;
-        }
+        case 0:
+          if( ! result->_data._integer ) // ToDo: check for < 0 instead of !0
+            status = DBR_ERR_INPROGRESS;
+          else
+          {
+            status = DBR_SUCCESS;
+            localrc = result->_data._integer;
+          }
+          break;
+        case -EILSEQ: // found illegal key without separator
+          status = DBR_ERR_ITERATOR;
+          localrc = 0;
+          break;
+        default:
+          break;
       }
       break;
     case DBBE_OPCODE_NSCREATE:

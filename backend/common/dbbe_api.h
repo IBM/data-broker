@@ -206,7 +206,34 @@ typedef enum
    */
   DBBE_OPCODE_REMOVE,  /**< REMOVE operation to delete data from the back-end  */
   DBBE_OPCODE_CANCEL,  /**< CANCEL operation to interrupt/stop cancel an pending or incomplete request  */
-  DBBE_OPCODE_DIRECTORY, /**< DIRECTORY operation to retrieve a (filtered) list of existing keys */
+
+  /** @brief DIRECTORY operation to retrieve a (filtered) list of existing keys
+   *
+   * Depending on user-provided amount of memory, this operation might not be able to return
+   * the full list of available keys because subsequent calls would start the list from
+   * the beginning again. Think of it like an 'ls -1 | head -n space' on a huge directory
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_DIRECTORY
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 1
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = memory region to receive a comma-separated list of available tuple names
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_ITERATOR              an error occurred while scanning the key space
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = number of bytes placed into request._sge[]
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_DIRECTORY,
   DBBE_OPCODE_NSCREATE,  /**< Namespace creation operation  */
   DBBE_OPCODE_NSATTACH,  /**< Namespace attach operation  */
   DBBE_OPCODE_NSDETACH,  /**< Namespace detach operation  */

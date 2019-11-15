@@ -1054,6 +1054,8 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
       else
       {
         free( request->_status.directory.scankey );
+        request->_status.directory.scankey = NULL;
+
         // if there are other requests in flight, we can drop this one
         if( dbBE_Refcounter_get( request->_status.directory.reference ) > 0 )
         {
@@ -1067,7 +1069,6 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
           dbBE_Refcounter_destroy( request->_status.directory.reference );
           dbBE_Refcounter_destroy( request->_status.directory.keycount );
           request->_status.directory.reference = NULL;
-          request->_status.directory.keycount = NULL;
           result->_type = dbBE_REDIS_TYPE_INT;
           result->_data._integer = strnlen( (char*)request->_user->_sge[0].iov_base, request->_user->_sge[0].iov_len );
           rc = 0;
