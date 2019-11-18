@@ -260,7 +260,33 @@ typedef enum
    * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_NSCREATE,
-  DBBE_OPCODE_NSATTACH,  /**< Namespace attach operation  */
+
+  /** @brief Namespace attach operation
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSATTACH
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl=NULL (will be created)
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of storage group where to look for namespace
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to name of namespace to attach
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_UNAVAIL   namespace does not exist
+   *    * @ref DBR_ERR_INVALIDOP namespace attach overflow: too many attached clients
+   *    * @ref DBR_ERR_NOFILE    corrupted namespace detected while attaching to namespace
+   *    * @ref DBR_ERR_NSINVAL   namespace name exceeds limit or has invalid characters
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = handle of newly attached namespace to be supplied with subsequent requests
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSATTACH,
   DBBE_OPCODE_NSDETACH,  /**< Namespace detach operation  */
   DBBE_OPCODE_NSDELETE,  /**< Namespace delete operation to wipe the name space and its data  */
   DBBE_OPCODE_NSQUERY,  /**< Namespace query operation  */

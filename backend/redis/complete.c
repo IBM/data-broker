@@ -171,8 +171,11 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       switch( rc )
       {
         case 0: localrc = result->_data._integer;  break;
-        case -EEXIST: status = DBR_ERR_NSINVAL;    break;
+
+        // unlikely/strange condition: if namespace is found in local list that was empty when starting to search it; local list corruption
+        case -EEXIST: status = DBR_ERR_NOFILE;     break;
         case -E2BIG:  status = DBR_ERR_NSINVAL;    break;
+        case -EOVERFLOW: status = DBR_ERR_INVALIDOP; break;
         default: break;
       }
       break;
