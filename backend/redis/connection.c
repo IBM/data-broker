@@ -676,6 +676,7 @@ int dbBE_Redis_connection_auth( dbBE_Redis_connection_t *conn, const char *authf
           {
             if( strncmp( authbuf, "+OK\r\n", 5 ) != 0 )
             {
+              LOG( DBG_ERR, stderr, "Redis Authentication error: %s\n", &authbuf[1] );
               conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
               auth_error = EPERM;
             }
@@ -703,6 +704,8 @@ int dbBE_Redis_connection_auth( dbBE_Redis_connection_t *conn, const char *authf
   }
 
   dbBE_Transport_sr_buffer_free( sbuf );
+  if( auth_error != 0 )
+    LOG( DBG_INFO, stderr, "completing authentication rc=%d\n", auth_error );
   return auth_error;
 }
 
