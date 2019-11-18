@@ -176,9 +176,10 @@ dbBE_Handle_t Redis_initialize(void)
   }
   context->_iterators = iterators;
 
-  if( dbBE_Redis_connect_initial( context ) != 0 )
+  int rc;
+  if( ( rc = dbBE_Redis_connect_initial( context )) != 0 )
   {
-    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to connect to Redis.\n" );
+    LOG( DBG_ERR, stderr, "dbBE_Redis_context_t::initialize: Failed to connect to Redis. rc=%d\n", rc );
     Redis_exit( context );
     return NULL;
   }
@@ -396,14 +397,14 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   if( ctx == NULL )
   {
     errno = EINVAL;
-    return -1;
+    return -EINVAL;
   }
 
   char *env_url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
   if( env_url == NULL )
   {
     errno = ENODEV;
-    return -1;
+    return -ENODEV;
   }
 
   LOG(DBG_VERBOSE, stderr, "url=%s\n", env_url );
@@ -419,7 +420,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   int replica_conn = dbBE_Redis_connection_mgr_is_master( ctx->_conn_mgr, initial_conn );
   if( replica_conn < 0 )
   {
-    rc = -ENOTCONN;
+    rc = -EAFNOSUPPORT;
     goto exit_connect;
   }
   replica_conn = 1 - replica_conn; // flip the logic, since so far it contains 1 if it's a master connection
@@ -427,7 +428,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
   dbBE_Redis_cluster_info_t *cl_info = dbBE_Redis_connection_mgr_get_cluster_info( ctx->_conn_mgr );
   if( cl_info == NULL )
   {
-    rc = -ENOTCONN;
+    rc = -ENOMSG;
     goto exit_connect;
   }
 
@@ -479,7 +480,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
 
       if( dest == NULL )
       {
-        rc = -ENOTCONN;
+        rc = -ENOLINK;
         goto exit_connect;
       }
 
