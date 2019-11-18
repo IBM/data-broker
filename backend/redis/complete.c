@@ -59,6 +59,7 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
   }
 
   // opcode-independent mappings of rc/errno to dbr error:
+  // maybe overwritten by specific cases
   switch( rc )
   {
     case 0: break;
@@ -155,15 +156,24 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       }
       break;
     case DBBE_OPCODE_NSCREATE:
-    case DBBE_OPCODE_NSATTACH:
-      if( rc == 0 )
+      localrc = 0;
+      switch( rc )
       {
-        localrc = result->_data._integer;
+        case 0: localrc = result->_data._integer; break;
+        case -ENOENT: status = DBR_ERR_NOFILE;    break;
+        case -EEXIST: status = DBR_ERR_EXISTS;    break;
+        case -E2BIG:  status = DBR_ERR_NSINVAL;   break;
+        default: break;
       }
-      else
+      break;
+    case DBBE_OPCODE_NSATTACH:
+      localrc = 0;
+      switch( rc )
       {
-        localrc = 0;
-        status = (request->_user->_opcode == DBBE_OPCODE_NSATTACH) ? DBR_ERR_NSINVAL : DBR_ERR_EXISTS;
+        case 0: localrc = result->_data._integer;  break;
+        case -EEXIST: status = DBR_ERR_NSINVAL;    break;
+        case -E2BIG:  status = DBR_ERR_NSINVAL;    break;
+        default: break;
       }
       break;
     case DBBE_OPCODE_NSDETACH:

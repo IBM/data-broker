@@ -234,7 +234,32 @@ typedef enum
    * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_DIRECTORY,
-  DBBE_OPCODE_NSCREATE,  /**< Namespace creation operation  */
+
+  /** @brief Namespace creation operation
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSCREATE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl=NULL (will be created)
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to name of new namespace
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0 (potentially used for grouplist spec if more than single storage group used)
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty (potentially used for grouplist spec if more than single storage group used)
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_NOFILE   corrupted namespace detected during creation of namespace
+   *    * @ref DBR_ERR_EXISTS   namespace already exists
+   *    * @ref DBR_ERR_NSINVAL  namespace name exceeds limit or has invalid characters
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = handle of newly created namespace to be supplied with subsequent requests
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSCREATE,
   DBBE_OPCODE_NSATTACH,  /**< Namespace attach operation  */
   DBBE_OPCODE_NSDETACH,  /**< Namespace detach operation  */
   DBBE_OPCODE_NSDELETE,  /**< Namespace delete operation to wipe the name space and its data  */

@@ -1112,7 +1112,7 @@ int dbBE_Redis_process_nshandling( dbBE_Redis_namespace_list_t **s,
         *s = tmp;
         dbBE_Redis_result_cleanup( result, 0 );
         result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = (uint64_t)ns;
+        result->_data._integer = (int64_t)ns;
       }
       break;
     }
@@ -1125,8 +1125,9 @@ int dbBE_Redis_process_nshandling( dbBE_Redis_namespace_list_t **s,
         tmp = dbBE_Redis_namespace_list_insert( *s, ns );
         if( tmp == NULL )
         {
+          int tmperr = -errno;
           dbBE_Redis_namespace_destroy( ns );
-          rc = return_error_clean_result( -errno, result );
+          rc = return_error_clean_result( tmperr, result );
           break;
         }
         *s = tmp;
