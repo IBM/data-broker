@@ -179,21 +179,22 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
         default: break;
       }
       break;
-    case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
-      if( spec->_result != 0 ) // important check because DELETE creates completion in non-final stage
+      switch( rc )
       {
-        switch( rc )
-        {
-          case 0:
-            break;
-          case EBUSY:
-            status = DBR_ERR_NSBUSY;
-            localrc = result->_data._integer;
-            break;
-          default:
-            break;
-        }
+        // positive value since it's not an error that prevents delete to mark the namespace
+        case EBUSY: status = DBR_ERR_NSBUSY; localrc = result->_data._integer; break;
+        default: break;
+      }
+      // intentionally no break: delete has a few extra conditions than detach
+    case DBBE_OPCODE_NSDETACH:
+      switch( rc )
+      {
+        case 0: break;
+        // unlikely/strange condition: if namespace is found in one stage but not in a subsequent step
+        case -EEXIST: status = DBR_ERR_NOFILE;       localrc = 0; break;
+        case -EOVERFLOW: status = DBR_ERR_INVALIDOP; localrc = 0; break;
+        default: break;
       }
       break;
     case DBBE_OPCODE_NSQUERY:

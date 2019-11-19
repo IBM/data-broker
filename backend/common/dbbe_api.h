@@ -287,8 +287,65 @@ typedef enum
    * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_NSATTACH,
-  DBBE_OPCODE_NSDETACH,  /**< Namespace detach operation  */
-  DBBE_OPCODE_NSDELETE,  /**< Namespace delete operation to wipe the name space and its data  */
+
+  /** @brief Namespace detach operation
+   *
+   * Detach operation decreases the reference count and checks if the namespace is marked 'to-be-deleted'.
+   * If the reference count after detach is 0 and the delete mark is set, the namespace and its content are deleted.
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSDETACH
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = valid namespace handle from earlier call to attach/create
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = ignored
+   * *  param[in] @ref DBR_Tuple_name_t     _key = ignored (data is in the handle)
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_UNAVAIL   namespace does not exist or got deleted while detach was in progress
+   *    * @ref DBR_ERR_INVALIDOP namespace detach overflow: attempt to detach from namespace with no client attached
+   *    * @ref DBR_ERR_NOFILE    corrupted namespace detected while detaching from namespace
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0 or reference count after detach operation
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSDETACH,
+
+  /** @brief Namespace delete operation to wipe the name space and its data
+   *
+   * Delete operation marks namespace as 'to-be-deleted' and detaches the client.
+   * If the detach step finds no other clients attached, then it deletes the namespace and its content.
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSDELETE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = valid namespace handle from earlier call to attach/create
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = ignored
+   * *  param[in] @ref DBR_Tuple_name_t     _key = ignored (data is in the handle)
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_NSBUSY    there are still clients attached, namespace only marked for deletion
+   *    * @ref DBR_ERR_UNAVAIL   namespace does not exist
+   *    * @ref DBR_ERR_INVALIDOP namespace detach underflow: detach step detected reference count underflow
+   *    * @ref DBR_ERR_NOFILE    corrupted namespace detected while deleting namespace
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0 or reference count after detach operation
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSDELETE,
   DBBE_OPCODE_NSQUERY,  /**< Namespace query operation  */
   DBBE_OPCODE_NSADDUNITS,  /**< Namespace add units to increase the number of backing storage nodes of a namespace  */
   DBBE_OPCODE_NSREMOVEUNITS, /**< Namespace remove units to decrease the number of backing storage nodes of a namespace */

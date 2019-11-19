@@ -527,7 +527,7 @@ int test_nsattach( dbBE_Redis_command_stage_spec_t *stage_specs,
 
   rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
 
-  // a regular successful nscreate
+  // a regular successful nsattach
   rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, (int64_t)ns ), 0 );
 
 
@@ -572,6 +572,150 @@ int test_nsattach( dbBE_Redis_command_stage_spec_t *stage_specs,
 }
 
 
+int test_nsdetach( dbBE_Redis_command_stage_spec_t *stage_specs,
+                   char *data,
+                   size_t datalen,
+                   dbBE_Request_t *usr )
+{
+  int rc = 0;
+
+  dbBE_Redis_result_t result;   // result already parsed, so it has no impact on the completion of a put, just needs to be there
+  dbBE_Redis_request_t *request;
+  dbBE_Completion_t completion;
+  dbBE_Completion_t *cmp = NULL;
+
+  memset( &result, 0, sizeof( result ) );
+  memset( &completion, 0, sizeof( completion ) );
+
+  dbBE_Redis_namespace_t *ns = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_namespace_create( usr->_key ), NULL, ns );
+  TEST_BREAK( rc, "Namespace handle creation" );
+
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = 0;
+
+  usr->_opcode = DBBE_OPCODE_NSDETACH;
+  usr->_sge_count = 0;
+  usr->_sge[0].iov_base = NULL;
+  usr->_sge[0].iov_len = 0;
+
+  rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
+
+  // a regular successful nsdetach
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, 0 ), 0 );
+
+
+  // the namespace mgr data corruption: DBR_ERR_NOFILE
+  rc += TEST( test_completion( request, &result, -EEXIST, DBR_ERR_NOFILE, 0 ), 0 );
+
+  // namespace not available
+  rc += TEST( test_completion( request, &result, -ENOENT, DBR_ERR_UNAVAIL, 0 ), 0 );
+
+  // too many attached clients (overflow): DBR_ERR_INVALIDOP
+  rc += TEST( test_completion( request, &result, -EOVERFLOW, DBR_ERR_INVALIDOP, 0 ), 0 );
+
+  // a protocol failure: DBR_ERR_BE_GENERAL: general error in backend
+  rc += TEST( test_completion( request, &result, -EPROTO, DBR_ERR_BE_GENERAL, 0 ), 0 );
+
+  // an invalid parameter occurred: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EINVAL, DBR_ERR_INVALID, 0 ), 0 );
+
+  // an unexpected result type got returned: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EBADMSG, DBR_ERR_INVALID, 0 ), 0 );
+
+  // somewhere running out of memory: DBR_ERR_NOMEMORY
+  rc += TEST( test_completion( request, &result, -ENOMEM, DBR_ERR_NOMEMORY, 0 ), 0 );
+
+  // cancelled request
+  rc += TEST_NOT_RC( dbBE_Redis_complete_cancel( request ), NULL, cmp );
+  if( cmp )
+  {
+    rc += TEST( cmp->_rc, 0 );
+    rc += TEST( cmp->_status, DBR_ERR_CANCELLED );
+    rc += TEST( cmp->_user, usr->_user );
+    free( cmp );
+  }
+
+  rc += TEST( dbBE_Redis_namespace_destroy( ns ), 0 );
+  dbBE_Redis_request_destroy( request );
+
+  return rc;
+}
+
+int test_nsdelete( dbBE_Redis_command_stage_spec_t *stage_specs,
+                   char *data,
+                   size_t datalen,
+                   dbBE_Request_t *usr )
+{
+  int rc = 0;
+
+  dbBE_Redis_result_t result;   // result already parsed, so it has no impact on the completion of a put, just needs to be there
+  dbBE_Redis_request_t *request;
+  dbBE_Completion_t completion;
+  dbBE_Completion_t *cmp = NULL;
+
+  memset( &result, 0, sizeof( result ) );
+  memset( &completion, 0, sizeof( completion ) );
+
+  dbBE_Redis_namespace_t *ns = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_namespace_create( usr->_key ), NULL, ns );
+  TEST_BREAK( rc, "Namespace handle creation" );
+
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = 0;
+
+  usr->_opcode = DBBE_OPCODE_NSDELETE;
+  usr->_sge_count = 0;
+  usr->_sge[0].iov_base = NULL;
+  usr->_sge[0].iov_len = 0;
+
+  rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
+
+  // delete of busy namespace: DBR_ERR_NSBUSY and rc = refcount
+  result._data._integer = 5;
+  rc += TEST( test_completion( request, &result, EBUSY, DBR_ERR_NSBUSY, 5 ), 0 );
+  result._data._integer = 0;
+
+  // a regular successful nsdetach
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, 0 ), 0 );
+
+  // the namespace mgr data corruption: DBR_ERR_NOFILE
+  rc += TEST( test_completion( request, &result, -EEXIST, DBR_ERR_NOFILE, 0 ), 0 );
+
+  // namespace not available
+  rc += TEST( test_completion( request, &result, -ENOENT, DBR_ERR_UNAVAIL, 0 ), 0 );
+
+  // too many attached clients (overflow): DBR_ERR_INVALIDOP
+  rc += TEST( test_completion( request, &result, -EOVERFLOW, DBR_ERR_INVALIDOP, 0 ), 0 );
+
+  // a protocol failure: DBR_ERR_BE_GENERAL: general error in backend
+  rc += TEST( test_completion( request, &result, -EPROTO, DBR_ERR_BE_GENERAL, 0 ), 0 );
+
+  // an invalid parameter occurred: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EINVAL, DBR_ERR_INVALID, 0 ), 0 );
+
+  // an unexpected result type got returned: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EBADMSG, DBR_ERR_INVALID, 0 ), 0 );
+
+  // somewhere running out of memory: DBR_ERR_NOMEMORY
+  rc += TEST( test_completion( request, &result, -ENOMEM, DBR_ERR_NOMEMORY, 0 ), 0 );
+
+  // cancelled request
+  rc += TEST_NOT_RC( dbBE_Redis_complete_cancel( request ), NULL, cmp );
+  if( cmp )
+  {
+    rc += TEST( cmp->_rc, 0 );
+    rc += TEST( cmp->_status, DBR_ERR_CANCELLED );
+    rc += TEST( cmp->_user, usr->_user );
+    free( cmp );
+  }
+
+  rc += TEST( dbBE_Redis_namespace_destroy( ns ), 0 );
+  dbBE_Redis_request_destroy( request );
+
+  return rc;
+}
+
 int main( int argc, char ** argv )
 {
 
@@ -601,6 +745,8 @@ int main( int argc, char ** argv )
   rc += test_directory( stage_specs, data, datalen, usr );
   rc += test_nscreate( stage_specs, data, datalen, usr );
   rc += test_nsattach( stage_specs, data, datalen, usr );
+  rc += test_nsdetach( stage_specs, data, datalen, usr );
+  rc += test_nsdelete( stage_specs, data, datalen, usr );
 
   if( data != NULL ) free( data );
   dbBE_Redis_command_stages_spec_destroy( stage_specs );

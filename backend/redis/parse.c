@@ -1381,19 +1381,22 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
         case 3: // the OK from MULTI
           if(( result->_type == dbBE_REDIS_TYPE_CHAR ) && ( strncmp( result->_data._string._data, "OK", result->_data._string._size ) == 0 ) )
             return 0;
-          return -EPROTO;
+          rc = return_error_clean_result( -EPROTO, result );
+          break;
 
         case 2: // QUEUED from the 2 commands
         case 1:
           if(( result->_type == dbBE_REDIS_TYPE_CHAR ) && ( strncmp( result->_data._string._data, "QUEUED", result->_data._string._size ) == 0 ) )
             return 0;
-          return -EPROTO;
+          rc = return_error_clean_result( -EPROTO, result );
+          break;
 
         case 0: // the regular array response, just continue with processing
           rc = dbBE_Redis_process_general( request, result );
           break;
         default: // an invalid stage
-          return -EINVAL;
+          rc = return_error_clean_result( -EINVAL, result );
+          break;
       }
       if( rc != 0 )
         break;
@@ -1447,7 +1450,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
         }
         else // TODO: if the scan list is empty, we need to complete (with error) (no connections available)
         {
-          // whith no deletiong, no more need to do extra transitions here. it's handled in the transition fnct
+          // with no deletion, no more need to do extra transitions here. it's handled in the transition function
           request->_status.nsdetach.to_delete = 0;
           rc = return_error_clean_result( -ENOTCONN, result );
           break;
@@ -1465,7 +1468,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
           if( rc != 0 )
           {
             // todo: clean up and complete only if no other scan request was started
-            return_error_clean_result( rc, result );
+            rc = return_error_clean_result( rc, result );
             break;
           }
           dbBE_Refcounter_up( scan->_status.nsdetach.reference );
@@ -1478,7 +1481,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
       }
       else if ( to_delete < 0 )
       {
-        rc = return_error_clean_result( -EINVAL, result );
+        rc = return_error_clean_result( to_delete, result );
         break;
       }
       else
@@ -1577,12 +1580,10 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
     {
       rc = dbBE_Redis_process_general( request, result );
       uint64_t ref = dbBE_Refcounter_down( request->_status.nsdetach.reference );
-      if( rc == 0 )
-      {
-        if( result->_data._integer != 1 )
-          rc = -ENOENT;
-        result->_data._integer = rc; // set the result/return code for upper layers
-      }
+      if( rc != 0 )
+        rc = return_error_clean_result( rc, result );
+
+      // in case the key could not be deleted, it should mean the key was already gone, so we're good to continue without error
 
       // cleanup the scan key entry (if any) to prevent memleak
       if( request->_status.nsdetach.scankey )
@@ -1610,12 +1611,9 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
       dbBE_Refcounter_destroy( request->_status.nsdetach.reference );
       request->_status.nsdetach.reference = NULL;
 
-      if( rc == 0 )
-      {
-        if( result->_data._integer != 1 )
-          rc = -ENOENT;
-        result->_data._integer = rc; // set the result/return code for upper layers
-      }
+      // unsuccessful delete: key already gone
+      if(( rc != 0 ) || ( result->_data._integer != 1 ))
+        rc = return_error_clean_result( -EEXIST, result );
       break;
     }
     default:
@@ -1690,7 +1688,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request,
       if( result->_data._integer != 0 )
       {
         LOG( DBG_ERR, stderr, "Namespace deletion detected a non-existing namespace. Possible data inconsistency.\n" );
-        rc = return_error_clean_result( -ENOENT, result );
+        rc = return_error_clean_result( -EEXIST, result );
         break;
       }
 
