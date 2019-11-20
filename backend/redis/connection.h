@@ -195,7 +195,7 @@ int dbBE_Redis_connection_send( dbBE_Redis_connection_t *conn,
 /*
  * send the cmd vector to the connected Redis instance
  */
-int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn );
+ssize_t dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn );
 
 /*
  * disconnect from a Redis instance

@@ -525,7 +525,7 @@ ssize_t dbBE_Redis_connection_flatten_cmd( dbBE_sge_t *cmd, int cmdlen, dbBE_Red
 /*
  * flush the send buffer by sending it to the connected Redis instance
  */
-int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn )
+ssize_t dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn )
 {
   if(( conn == NULL ) || ( conn->_cmd->_index > DBBE_SGE_MAX ))
     return -EINVAL;
@@ -534,16 +534,47 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn )
   if( ! dbBE_Redis_connection_RTS( conn ) )
     return -ENOTCONN;
 
-  dbBE_sge_t *cmd = conn->_cmd->_cmd;
-  unsigned cmdlen = conn->_cmd->_index;
+  dbBE_Transport_sge_buffer_t *sge_buf = conn->_cmd;
+  dbBE_sge_t *cmd = sge_buf->_cmd;
 
   struct msghdr msg;
   memset( &msg, 0, sizeof( struct msghdr ) );
   msg.msg_iov = cmd;
-  msg.msg_iovlen = cmdlen;
+  msg.msg_iovlen = sge_buf->_index;
 
-  ssize_t rc = sendmsg( conn->_socket, &msg, 0 );
-  ssize_t datalen = dbBE_SGE_get_len( cmd, cmdlen );
+  ssize_t total = dbBE_SGE_get_len( cmd, sge_buf->_index );
+  ssize_t ssize = 0;
+  ssize_t rc = 0;
+
+  do
+  {
+    rc = sendmsg( conn->_socket, &msg, 0 );
+
+    if( rc < 0 ) break;
+    if(( rc > 0 ) && ( rc + ssize < total ))
+    {
+      ssize_t offset = rc;
+      while(( sge_buf->_index > 0 ) && ( offset > 0 ))
+      {
+        if( (size_t)offset < cmd[0].iov_len )
+        {
+          LOG( DBG_TRACE, stderr, "SGE[0] reduce by %ld from %ld to %ld\n", offset, cmd[0].iov_len, cmd[0].iov_len - offset );
+          cmd[0].iov_base = (char*)cmd[0].iov_base + offset;
+          cmd[0].iov_len -= offset;
+          offset = 0;
+        }
+        else
+        {
+          LOG( DBG_TRACE, stderr, "SGE shift remaining data reduced by %ld from %ld to %ld; remaining entries: %d\n",
+               cmd[0].iov_len, offset, offset - cmd[0].iov_len, sge_buf->_index-1 );
+          offset -= cmd[0].iov_len;
+          memmove( cmd, &cmd[1], sizeof( cmd[0] ) * sge_buf->_index );
+          --sge_buf->_index;
+        }
+      }
+    }
+    ssize += rc;
+  } while (( rc >= 0 ) && ( ssize < total ));
 
 #ifdef DEBUG_REDIS_PROTOCOL
   dbBE_Redis_sr_buffer_t *tmpbuffer = dbBE_Transport_sr_buffer_allocate( DBBE_REDIS_SR_BUFFER_LEN );
@@ -557,17 +588,6 @@ int dbBE_Redis_connection_send_cmd( dbBE_Redis_connection_t *conn )
 #endif
 
   dbBE_Transport_sge_buffer_reset( conn->_cmd );
-  // good case: early exit
-  if( rc == datalen )
-    return rc;
-
-  // remaining error handling
-  switch( rc )
-  {
-    default:
-      rc = -EBADMSG;
-      break;
-  }
 
   return rc;
 }
