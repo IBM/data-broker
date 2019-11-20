@@ -198,11 +198,18 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       }
       break;
     case DBBE_OPCODE_NSQUERY:
-      if( request->_step->_result != 0 )
-      {
-        if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
-          localrc = result->_data._integer;
-      }
+      if( result->_type == dbBE_REDIS_TYPE_INT )
+        switch ( rc )
+        {
+          case -ENOSPC:
+            status = DBR_ERR_UBUFFER;
+            // intentionally no break;
+          case 0:
+            localrc = result->_data._integer;
+            break;
+          default:
+            break;
+        }
       break;
     case DBBE_OPCODE_ITERATOR:
       if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))

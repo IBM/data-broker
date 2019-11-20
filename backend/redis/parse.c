@@ -1216,10 +1216,8 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
   {
     if( result->_data._array._len < 8 )
     {
-      rc = -ENOENT; // if we don't get at least id, refcount and groups entries + values, we have the wrong one...
-      dbBE_Redis_result_cleanup( result, 0 );
-      result->_type = dbBE_REDIS_TYPE_INT;
-      result->_data._integer = rc;
+      // if we don't get at least id, refcount and groups entries + values, we have the wrong one...
+      rc = return_error_clean_result( -ENOENT, result );
     }
     else
     {
@@ -1239,10 +1237,12 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
       }
       if( rc == 0 )
       {
+        size_t user_len = dbBE_SGE_get_len( request->_user->_sge, request->_user->_sge_count );
+
         // allocate intermediate buffer to hold the collected items
         char *res_str = (char*)malloc( total_len + 1 );
         if( res_str == NULL )
-          return return_error_clean_result( -EBADMSG, result );
+          return return_error_clean_result( -ENOMEM, result );
 
         // reset and fill the buffer
         memset( res_str, 0, total_len + 1 );
@@ -1253,23 +1253,34 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
           strcat( res_str, ":" );
         }
 
+        if( total_len > user_len )
+        {
+          // truncate the existing data:
+          memset( &res_str[ user_len ], 0, total_len - user_len );
+        }
+
         // invoke the transport to copy the data to the user buffer (from partial string, because we already have received it regardless of transport
         dbBE_sge_t pstring;
         pstring.iov_base = res_str;
-        pstring.iov_len = total_len;
+        pstring.iov_len = ( total_len < user_len ? total_len : user_len );
         int64_t transferred = transport->scatter( (dbBE_Data_transport_endpoint_t*)NULL,
                                                   NULL,
                                                   &pstring,
-                                                  total_len,
+                                                  pstring.iov_len,
                                                   request->_user->_sge_count, request->_user->_sge );
         free( res_str );
-        if( transferred != (int64_t)total_len )
+        if( transferred != (int64_t)pstring.iov_len )
           rc = return_error_clean_result( -EBADMSG, result );
         else
         {
           dbBE_Redis_result_cleanup( result, 0 );
           result->_type = dbBE_REDIS_TYPE_INT;
           result->_data._integer = transferred;
+          if( user_len < total_len )
+          {
+            rc = -ENOSPC;
+            result->_data._integer = total_len;
+          }
         }
       }
     }

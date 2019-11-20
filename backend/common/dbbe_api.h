@@ -346,7 +346,30 @@ typedef enum
    * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
    */
   DBBE_OPCODE_NSDELETE,
-  DBBE_OPCODE_NSQUERY,  /**< Namespace query operation  */
+
+  /** @brief Namespace query operation
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSQUERY
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = valid namespace handle from earlier call to attach/create
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = ignored
+   * *  param[in] @ref DBR_Tuple_name_t     _key = ignored (data is in the handle)
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = >0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = memory region spec to place the metadata of the namespace
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_UBUFFER   the provided buffer for meta data response is too small; rc contains total amount required
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = number of bytes with metadata in sge[]
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSQUERY,
   DBBE_OPCODE_NSADDUNITS,  /**< Namespace add units to increase the number of backing storage nodes of a namespace  */
   DBBE_OPCODE_NSREMOVEUNITS, /**< Namespace remove units to decrease the number of backing storage nodes of a namespace */
   DBBE_OPCODE_ITERATOR, /**< Iteration over existing keys */
