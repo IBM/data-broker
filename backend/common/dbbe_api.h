@@ -44,6 +44,13 @@
  */
 typedef void* dbBE_Handle_t;
 
+/**
+ * @typedef dbBE_NS_Handle_t
+ * @brief   Handle to a namespace
+ *
+ * Is created and returned by create or attach and required by
+ * subsequent API calls when accessing a namespace.
+ */
 typedef void* dbBE_NS_Handle_t;
 
 /*
@@ -69,19 +76,300 @@ typedef struct iovec dbBE_sge_t;
  */
 typedef enum
 {
-  DBBE_OPCODE_UNSPEC, /**< Unspecified opcode, represents an uninitialized value  */
-  DBBE_OPCODE_PUT, /**< PUT operation to write data into the back-end  */
-  DBBE_OPCODE_GET, /**< GET operation to retrieve and delete data from the back-end  */
-  DBBE_OPCODE_READ,  /**< READ operation to retrieve data and keep it in the back-end  */
-  DBBE_OPCODE_MOVE,  /**< MOVE operation to migrate data from one namespace to another  */
+  /** @brief Unspecified opcode, represents an uninitialized value
+   *
+   * General specs of parameters for all opcodes:
+   * *  param[out] _status returns
+   *    * @ref DBR_ERR_INVALID invalid arguments
+   *    * @ref DBR_ERR_HANDLE invalid namespace hdl, or namespace not attached/exists
+   *    * @ref DBR_ERR_INPROGRESS request not complete; potential timeout
+   *    * @ref DBR_ERR_TIMEOUT unable to complete operation within set timeout
+   *    * @ref DBR_ERR_NOMEMORY insufficient amount of memory somewhere in the BE stack
+   *    * @ref DBR_ERR_NOAUTH not authorized to perform this operation
+   *    * @ref DBR_ERR_NOCONNECT backend is not connected to storage service
+   *    * @ref DBR_ERR_CANCELLED request canceled
+   *    * @ref DBR_ERR_NOTIMPL the requested backend has no PUT operation implemented
+   *    * @ref DBR_ERR_BE_POST  failed to post the request at some stage in the BE stack
+   *    * @ref DBR_ERR_BE_GENERAL  general error in backend
+   */
+  DBBE_OPCODE_UNSPEC,
+
+  /** @brief PUT operation to write data into the back-end
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_PUT
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = number of SGEs in _sge
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = SGE list pointing to (potentially non-contiguous value data)
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = number of inserted elements (i.e. 1)
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_PUT,
+
+  /** @brief Retrieve and consume first tuple data available under tuple name (destructive read)
+   *
+   * The specs of the request are:
+   * *  param[in] _opcode = DBBE_OPCODE_GET
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags behavior control as follows:
+   *    *  @ref DBR_FLAGS_NONE               nothing
+   *    *  @ref DBR_FLAGS_NOWAIT             immediately return DBR_ERR_UNAVAIL if the tuple does not exist
+   *    *  @ref DBR_FLAGS_PARTIAL            no error if available data is larger than user buffer (available size is returned)
+   *
+   * *  param[in]      int                  _sge_count = number of SGEs in _sge
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = SGE list pointing to (potentially non-contiguous value data)
+   *
+   * The specs for the completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues
+   *    * @ref DBR_ERR_TIMEOUT  unable to complete operation within set timeout
+   *    * @ref DBR_ERR_UBUFFER  user-provided buffer was too small (returned size contains available bytes)
+   *    * for more status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = size of returned (or available) value
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_GET,
+
+  /** @brief Retrieve first tuple data available under tuple name (non-destructive read)
+   *
+   * The specs of the request are:
+   * *  param[in] _opcode = DBBE_OPCODE_READ
+   *
+   * @see DBBE_OPCODE_GET
+   */
+  DBBE_OPCODE_READ,
+
+  /** @brief MOVE operation to migrate data from one namespace to another
+   *
+   * The specs of the request are:
+   * *  param[in] _opcode = DBBE_OPCODE_MOVE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = a valid handle to the source namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags = ignored
+   * *  param[in]      int                  _sge_count = 2
+   * *  param[in]      dbBE_sge_t           _sge[0] = contains destination storage group
+   * *  param[in]      dbBE_sge_t           _sge[1] = valid @ref dbBE_NS_Handle_t to destination namespace
+   *
+   * The specs for the completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues
+   *    * @ref DBR_ERR_EXISTS requested tuple either does not exist at source or exists at destination
+   *    * @ref DBR_ERR_NOFILE an unexpected backend error while migrating data between namespaces
+   *    * for more status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0; nothing useful will be returned here
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_MOVE,
+
+  /** @brief REMOVE operation to delete data from the back-end
+   *
+   * Note that this operation will remove all versions of data associated with the tuple
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_REMOVE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = nothing
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0; nothing useful will be returned here
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
   DBBE_OPCODE_REMOVE,  /**< REMOVE operation to delete data from the back-end  */
   DBBE_OPCODE_CANCEL,  /**< CANCEL operation to interrupt/stop cancel an pending or incomplete request  */
-  DBBE_OPCODE_DIRECTORY, /**< DIRECTORY operation to retrieve a (filtered) list of existing keys */
-  DBBE_OPCODE_NSCREATE,  /**< Namespace creation operation  */
-  DBBE_OPCODE_NSATTACH,  /**< Namespace attach operation  */
-  DBBE_OPCODE_NSDETACH,  /**< Namespace detach operation  */
-  DBBE_OPCODE_NSDELETE,  /**< Namespace delete operation to wipe the name space and its data  */
-  DBBE_OPCODE_NSQUERY,  /**< Namespace query operation  */
+
+  /** @brief DIRECTORY operation to retrieve a (filtered) list of existing keys
+   *
+   * Depending on user-provided amount of memory, this operation might not be able to return
+   * the full list of available keys because subsequent calls would start the list from
+   * the beginning again. Think of it like an 'ls -1 | head -n space' on a huge directory
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_DIRECTORY
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl a valid handle to an attached namespace
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of source storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
+   * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 1
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = memory region to receive a comma-separated list of available tuple names
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_ITERATOR              an error occurred while scanning the key space
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = number of bytes placed into request._sge[]
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_DIRECTORY,
+
+  /** @brief Namespace creation operation
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSCREATE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl=NULL (will be created)
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of storage group
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to name of new namespace
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0 (potentially used for grouplist spec if more than single storage group used)
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty (potentially used for grouplist spec if more than single storage group used)
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_NOFILE   corrupted namespace detected during creation of namespace
+   *    * @ref DBR_ERR_EXISTS   namespace already exists
+   *    * @ref DBR_ERR_NSINVAL  namespace name exceeds limit or has invalid characters
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = handle of newly created namespace to be supplied with subsequent requests
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSCREATE,
+
+  /** @brief Namespace attach operation
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSATTACH
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl=NULL (will be created)
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = pointer or definition of storage group where to look for namespace
+   * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to name of namespace to attach
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_UNAVAIL   namespace does not exist
+   *    * @ref DBR_ERR_INVALIDOP namespace attach overflow: too many attached clients
+   *    * @ref DBR_ERR_NOFILE    corrupted namespace detected while attaching to namespace
+   *    * @ref DBR_ERR_NSINVAL   namespace name exceeds limit or has invalid characters
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = handle of newly attached namespace to be supplied with subsequent requests
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSATTACH,
+
+  /** @brief Namespace detach operation
+   *
+   * Detach operation decreases the reference count and checks if the namespace is marked 'to-be-deleted'.
+   * If the reference count after detach is 0 and the delete mark is set, the namespace and its content are deleted.
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSDETACH
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = valid namespace handle from earlier call to attach/create
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = ignored
+   * *  param[in] @ref DBR_Tuple_name_t     _key = ignored (data is in the handle)
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_UNAVAIL   namespace does not exist or got deleted while detach was in progress
+   *    * @ref DBR_ERR_INVALIDOP namespace detach overflow: attempt to detach from namespace with no client attached
+   *    * @ref DBR_ERR_NOFILE    corrupted namespace detected while detaching from namespace
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0 or reference count after detach operation
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSDETACH,
+
+  /** @brief Namespace delete operation to wipe the name space and its data
+   *
+   * Delete operation marks namespace as 'to-be-deleted' and detaches the client.
+   * If the detach step finds no other clients attached, then it deletes the namespace and its content.
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSDELETE
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = valid namespace handle from earlier call to attach/create
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = ignored
+   * *  param[in] @ref DBR_Tuple_name_t     _key = ignored (data is in the handle)
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = 0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_NSBUSY    there are still clients attached, namespace only marked for deletion
+   *    * @ref DBR_ERR_UNAVAIL   namespace does not exist
+   *    * @ref DBR_ERR_INVALIDOP namespace detach underflow: detach step detected reference count underflow
+   *    * @ref DBR_ERR_NOFILE    corrupted namespace detected while deleting namespace
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = 0 or reference count after detach operation
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSDELETE,
+
+  /** @brief Namespace query operation
+   *
+   * The specs of the put-request are:
+   * *  param[in] _opcode = DBBE_OPCODE_NSQUERY
+   * *  param[in] @ref dbBE_NS_Handle_t     _ns_hdl = valid namespace handle from earlier call to attach/create
+   * *  param[in]      void*                _user = pointer to anything, will be returned with completion without change
+   * *  param[in] @ref dbBE_Request_t*      _next = NULL unless this is a chained request
+   * *  param[in] @ref DBR_Group_t          _group = ignored
+   * *  param[in] @ref DBR_Tuple_name_t     _key = ignored (data is in the handle)
+   * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
+   * *  param[in]      int64_t              _flags ignored
+   * *  param[in]      int                  _sge_count = >0
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = memory region spec to place the metadata of the namespace
+   *
+   * The specs for the put-completion are:
+   * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
+   *    * @ref DBR_ERR_UBUFFER   the provided buffer for meta data response is too small; rc contains total amount required
+   *    * for status codes see @ref DBBE_OPCODE_UNSPEC
+   * *  param[out] void*                    _user = unmodified ptr provided in request
+   * *  param[out] int64_t                  _rc = number of bytes with metadata in sge[]
+   * *  param[out] @ref dbBE_Completion_t*  _next = NULL unless multiple completions are created at the same time
+   */
+  DBBE_OPCODE_NSQUERY,
   DBBE_OPCODE_NSADDUNITS,  /**< Namespace add units to increase the number of backing storage nodes of a namespace  */
   DBBE_OPCODE_NSREMOVEUNITS, /**< Namespace remove units to decrease the number of backing storage nodes of a namespace */
   DBBE_OPCODE_ITERATOR, /**< Iteration over existing keys */
@@ -97,11 +385,11 @@ enum
 
 
 /**
- * @struct dbBE_Request dbbe_api.h "backend/common/dbbe_api.h"
+ * @struct dbBE_Request_t dbbe_api.h "backend/common/dbbe_api.h"
  *
  * @brief Back-end API request structure
  *
- * Defines a back-end request with operation code as well an input and output parameters
+ * Defines a back-end request with operation code as well as input and output parameters
  */
 typedef struct dbBE_Request
 {
@@ -124,7 +412,7 @@ typedef struct dbBE_Request
 typedef void* dbBE_Request_handle_t;
 
 /**
- * @struct dbBE_Completion dbbe_api.h "backend/common/dbbe_api.h"
+ * @struct dbBE_Completion_t dbbe_api.h "backend/common/dbbe_api.h"
  *
  * @brief Completion data structure
  *

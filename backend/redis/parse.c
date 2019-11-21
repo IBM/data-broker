@@ -48,7 +48,8 @@ int return_error_clean_result( int rc, dbBE_Redis_result_t *result )
 {
   dbBE_Redis_result_cleanup( result, 0 );
   result->_type = dbBE_REDIS_TYPE_INT;
-  result->_data._integer = rc;
+  result->_data._integer = 0;
+
   return rc;
 }
 
@@ -506,14 +507,15 @@ int dbBE_Redis_process_put( dbBE_Redis_request_t *request,
 
   rc = dbBE_Redis_process_general( request, result );
 
-  if( rc == 0 )
+  switch( rc )
   {
-    if( result->_data._integer != 1 )
-    {
-      result->_data._integer = -ENOMEM;
-    }
+    case 0:
+      if( result->_data._integer < 1 )  // rpush returns new length of list
+        rc = -ENOMEM;
+      break;
+    default:
+      break;
   }
-  // todo: process and generate any error cases since there's not much else to do for a put
 
   return rc;
 }
@@ -658,7 +660,7 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
       {
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
         result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = -ENOENT;
+        result->_data._integer = 0;
         if( request->_user->_flags & DBBE_OPCODE_FLAGS_IMMEDIATE )
           return -ENOENT;
         else
@@ -748,10 +750,19 @@ int dbBE_Redis_process_get( dbBE_Redis_request_t *request,
       }
       else
       {
-        rc = -EBADMSG;
         dbBE_Redis_result_cleanup( result, 0 );  // clean up and set int error code
         result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = rc;
+
+        if( transferred < 0 )
+        {
+          rc = transferred;
+          result->_data._integer = 0;
+        }
+        else
+        {
+          rc = -ENOSPC;
+          result->_data._integer = data_len;
+        }
       }
     }
   }
@@ -770,9 +781,6 @@ int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
     switch( result->_data._integer )
     {
       case 0:
-        dbBE_Redis_result_cleanup( result, 0 );
-        result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = -ENOENT;
         rc = -ENOENT;
         break;
 
@@ -781,10 +789,17 @@ int dbBE_Redis_process_remove( dbBE_Redis_request_t *request,
         break;
 
       default:
-        LOG( DBG_ERR, stderr, "Remove found duplicate entries for %s\n", request->_user->_key );
+        LOG( DBG_ERR, stderr, "REMOVE: Protocol error or duplicate entries for %s\n", request->_user->_key );
+        rc = -EPROTO;
         break;
     }
   }
+
+  // all result info is in rc, no need to keep result
+  dbBE_Redis_result_cleanup( result, 0 );
+  result->_type = dbBE_REDIS_TYPE_INT;
+  result->_data._integer = 0;
+
   return rc;
 }
 
@@ -899,7 +914,7 @@ int dbBE_Redis_process_move( dbBE_Redis_request_t *request,
 
     default:
       LOG( DBG_ERR, stderr, "Invalid request stage (%d) while processing move cmd.\n", (int)request->_step->_stage );
-      rc = return_error_clean_result( rc, result );
+      rc = return_error_clean_result( -EPROTO, result );
       break;
   }
   return rc;
@@ -1039,6 +1054,8 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
       else
       {
         free( request->_status.directory.scankey );
+        request->_status.directory.scankey = NULL;
+
         // if there are other requests in flight, we can drop this one
         if( dbBE_Refcounter_get( request->_status.directory.reference ) > 0 )
         {
@@ -1052,7 +1069,6 @@ int dbBE_Redis_process_directory( dbBE_Redis_request_t **in_out_request,
           dbBE_Refcounter_destroy( request->_status.directory.reference );
           dbBE_Refcounter_destroy( request->_status.directory.keycount );
           request->_status.directory.reference = NULL;
-          request->_status.directory.keycount = NULL;
           result->_type = dbBE_REDIS_TYPE_INT;
           result->_data._integer = strnlen( (char*)request->_user->_sge[0].iov_base, request->_user->_sge[0].iov_len );
           rc = 0;
@@ -1096,7 +1112,7 @@ int dbBE_Redis_process_nshandling( dbBE_Redis_namespace_list_t **s,
         *s = tmp;
         dbBE_Redis_result_cleanup( result, 0 );
         result->_type = dbBE_REDIS_TYPE_INT;
-        result->_data._integer = (uint64_t)ns;
+        result->_data._integer = (int64_t)ns;
       }
       break;
     }
@@ -1109,8 +1125,9 @@ int dbBE_Redis_process_nshandling( dbBE_Redis_namespace_list_t **s,
         tmp = dbBE_Redis_namespace_list_insert( *s, ns );
         if( tmp == NULL )
         {
+          int tmperr = -errno;
           dbBE_Redis_namespace_destroy( ns );
-          rc = return_error_clean_result( -errno, result );
+          rc = return_error_clean_result( tmperr, result );
           break;
         }
         *s = tmp;
@@ -1199,10 +1216,8 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
   {
     if( result->_data._array._len < 8 )
     {
-      rc = -ENOENT; // if we don't get at least id, refcount and groups entries + values, we have the wrong one...
-      dbBE_Redis_result_cleanup( result, 0 );
-      result->_type = dbBE_REDIS_TYPE_INT;
-      result->_data._integer = rc;
+      // if we don't get at least id, refcount and groups entries + values, we have the wrong one...
+      rc = return_error_clean_result( -ENOENT, result );
     }
     else
     {
@@ -1222,10 +1237,12 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
       }
       if( rc == 0 )
       {
+        size_t user_len = dbBE_SGE_get_len( request->_user->_sge, request->_user->_sge_count );
+
         // allocate intermediate buffer to hold the collected items
         char *res_str = (char*)malloc( total_len + 1 );
         if( res_str == NULL )
-          return return_error_clean_result( -EBADMSG, result );
+          return return_error_clean_result( -ENOMEM, result );
 
         // reset and fill the buffer
         memset( res_str, 0, total_len + 1 );
@@ -1236,23 +1253,34 @@ int dbBE_Redis_process_nsquery( dbBE_Redis_request_t *request,
           strcat( res_str, ":" );
         }
 
+        if( total_len > user_len )
+        {
+          // truncate the existing data:
+          memset( &res_str[ user_len ], 0, total_len - user_len );
+        }
+
         // invoke the transport to copy the data to the user buffer (from partial string, because we already have received it regardless of transport
         dbBE_sge_t pstring;
         pstring.iov_base = res_str;
-        pstring.iov_len = total_len;
+        pstring.iov_len = ( total_len < user_len ? total_len : user_len );
         int64_t transferred = transport->scatter( (dbBE_Data_transport_endpoint_t*)NULL,
                                                   NULL,
                                                   &pstring,
-                                                  total_len,
+                                                  pstring.iov_len,
                                                   request->_user->_sge_count, request->_user->_sge );
         free( res_str );
-        if( transferred != (int64_t)total_len )
+        if( transferred != (int64_t)pstring.iov_len )
           rc = return_error_clean_result( -EBADMSG, result );
         else
         {
           dbBE_Redis_result_cleanup( result, 0 );
           result->_type = dbBE_REDIS_TYPE_INT;
           result->_data._integer = transferred;
+          if( user_len < total_len )
+          {
+            rc = -ENOSPC;
+            result->_data._integer = total_len;
+          }
         }
       }
     }
@@ -1364,19 +1392,22 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
         case 3: // the OK from MULTI
           if(( result->_type == dbBE_REDIS_TYPE_CHAR ) && ( strncmp( result->_data._string._data, "OK", result->_data._string._size ) == 0 ) )
             return 0;
-          return -EPROTO;
+          rc = return_error_clean_result( -EPROTO, result );
+          break;
 
         case 2: // QUEUED from the 2 commands
         case 1:
           if(( result->_type == dbBE_REDIS_TYPE_CHAR ) && ( strncmp( result->_data._string._data, "QUEUED", result->_data._string._size ) == 0 ) )
             return 0;
-          return -EPROTO;
+          rc = return_error_clean_result( -EPROTO, result );
+          break;
 
         case 0: // the regular array response, just continue with processing
           rc = dbBE_Redis_process_general( request, result );
           break;
         default: // an invalid stage
-          return -EINVAL;
+          rc = return_error_clean_result( -EINVAL, result );
+          break;
       }
       if( rc != 0 )
         break;
@@ -1430,7 +1461,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
         }
         else // TODO: if the scan list is empty, we need to complete (with error) (no connections available)
         {
-          // whith no deletiong, no more need to do extra transitions here. it's handled in the transition fnct
+          // with no deletion, no more need to do extra transitions here. it's handled in the transition function
           request->_status.nsdetach.to_delete = 0;
           rc = return_error_clean_result( -ENOTCONN, result );
           break;
@@ -1448,7 +1479,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
           if( rc != 0 )
           {
             // todo: clean up and complete only if no other scan request was started
-            return_error_clean_result( rc, result );
+            rc = return_error_clean_result( rc, result );
             break;
           }
           dbBE_Refcounter_up( scan->_status.nsdetach.reference );
@@ -1461,7 +1492,7 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
       }
       else if ( to_delete < 0 )
       {
-        rc = return_error_clean_result( -EINVAL, result );
+        rc = return_error_clean_result( to_delete, result );
         break;
       }
       else
@@ -1560,12 +1591,10 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
     {
       rc = dbBE_Redis_process_general( request, result );
       uint64_t ref = dbBE_Refcounter_down( request->_status.nsdetach.reference );
-      if( rc == 0 )
-      {
-        if( result->_data._integer != 1 )
-          rc = -ENOENT;
-        result->_data._integer = rc; // set the result/return code for upper layers
-      }
+      if( rc != 0 )
+        rc = return_error_clean_result( rc, result );
+
+      // in case the key could not be deleted, it should mean the key was already gone, so we're good to continue without error
 
       // cleanup the scan key entry (if any) to prevent memleak
       if( request->_status.nsdetach.scankey )
@@ -1593,12 +1622,9 @@ int dbBE_Redis_process_nsdetach( dbBE_Redis_request_t **in_out_request,
       dbBE_Refcounter_destroy( request->_status.nsdetach.reference );
       request->_status.nsdetach.reference = NULL;
 
-      if( rc == 0 )
-      {
-        if( result->_data._integer != 1 )
-          rc = -ENOENT;
-        result->_data._integer = rc; // set the result/return code for upper layers
-      }
+      // unsuccessful delete: key already gone
+      if(( rc != 0 ) || ( result->_data._integer != 1 ))
+        rc = return_error_clean_result( -EEXIST, result );
       break;
     }
     default:
@@ -1653,17 +1679,15 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request,
 //        result->_data._integer = 0;
 //        break;
 //      }
+      dbBE_Redis_result_cleanup( result, 0 );
+      result->_type = dbBE_REDIS_TYPE_INT;
       if( refcnt > 1 )
       {
-        return_error_clean_result( -EBUSY, result );
-        rc = 0; // this error just needs to be in the result
+        rc = EBUSY; // positive result because this is not an actual request error/problem
+        result->_data._integer = refcnt - 1;
       }
       else
-      {
-        dbBE_Redis_result_cleanup( result, 0 );
-        result->_type = dbBE_REDIS_TYPE_INT;
         result->_data._integer = 0;
-      }
 
       break;
     }
@@ -1675,7 +1699,7 @@ int dbBE_Redis_process_nsdelete( dbBE_Redis_request_t *request,
       if( result->_data._integer != 0 )
       {
         LOG( DBG_ERR, stderr, "Namespace deletion detected a non-existing namespace. Possible data inconsistency.\n" );
-        rc = return_error_clean_result( -ENOENT, result );
+        rc = return_error_clean_result( -EEXIST, result );
         break;
       }
 

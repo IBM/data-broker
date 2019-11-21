@@ -74,8 +74,8 @@ int64_t dbBE_Transport_scopy_scatter( dbBE_Data_transport_endpoint_t* dev,
       memcpy( sge_buf->_cmd, sge, sge_count * sizeof( struct iovec ) );
     sge_buf->_index = sge_count;
 
-    // our regular receive buffer is fairly small,
-    // do we require a temporary buffer for partial data retrieval?
+    // any sufficient buffer allocations have to be performed outside of the transport function
+    // we just have to check here whether there's enough space
     if( sge_space < total )
       return -ENOSPC;
 

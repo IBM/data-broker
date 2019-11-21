@@ -15,10 +15,6 @@
  *
  */
 
-#include "util/lock_tools.h"
-#include "libdatabroker.h"
-#include "libdatabroker_int.h"
-
 #ifdef __APPLE__
 #include <stdlib.h>
 #else
@@ -28,6 +24,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+
+#include "logutil.h"
+#include "lock_tools.h"
+#include "libdatabroker.h"
+#include "libdatabroker_int.h"
+
 
 /*
  * check local existence
@@ -87,6 +89,7 @@ libdbrAttach (DBR_Name_t db_name)
   if( tag == DB_TAG_ERROR )
     BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)NULL );
 
+  DBR_Errorcode_t attach_rc = DBR_SUCCESS;
   dbrRequestContext_t *rctx = dbrCreate_request_ctx( DBBE_OPCODE_NSATTACH,
                                                      cs,
                                                      DBR_GROUP_EMPTY,
@@ -99,25 +102,31 @@ libdbrAttach (DBR_Name_t db_name)
                                                      NULL,
                                                      tag );
   if( rctx == NULL )
+  {
+    attach_rc = DBR_ERR_HANDLE;
     goto error;
+  }
 
   DBR_Tag_t rtag = dbrInsert_request( cs, rctx );
   if( rtag == DB_TAG_ERROR )
+  {
+    attach_rc = DBR_ERR_TAGERROR;
     goto error;
+  }
 
   DBR_Request_handle_t attach_handle = dbrPost_request( rctx );
   if( attach_handle == NULL )
+  {
+    attach_rc = DBR_ERR_BE_POST;
     goto error;
+  }
 
-  DBR_Errorcode_t attach_rc = dbrWait_request( cs, attach_handle, 0 );
+  attach_rc = dbrWait_request( cs, attach_handle, 0 );
   if( attach_rc != DBR_SUCCESS )
     goto error;
 
   if( dbrCheck_response( rctx ) != DBR_SUCCESS )
-  {
-    printf("name space doesn't exist: %s\n", db_name );
     goto error;
-  }
 
   cs->_be_ns_hdl = (dbBE_NS_Handle_t)rctx->_cpl._rc;
   dbrRemove_request( cs, rctx );
@@ -127,5 +136,6 @@ error:
   dbrRemove_request( cs, rctx );
   if( cs != NULL )
     dbrMain_detach( ctx, cs );
+  LOG( DBG_ERR, stderr, "Attach error: %s\n", dbrGet_error( attach_rc ) );
   BIGLOCK_UNLOCKRETURN( ctx, (DBR_Handle_t)NULL );
 }

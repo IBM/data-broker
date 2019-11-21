@@ -30,6 +30,7 @@ set(DB_BACKEND_TEST_SOURCES
 	backend_redis_s2r_queue_test.c
 	backend_redis_slot_bitmap_test.c
 	backend_redis_locator_test.c
+	backend_redis_completion_test.c
 	backend_redis_connection_test.c
 	backend_redis_conn_mgr_test.c
 	backend_redis_namespace_test.c

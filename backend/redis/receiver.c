@@ -262,8 +262,8 @@ process_next_item:
               // unable to recreate connection, failing the request
               dbBE_Completion_t *completion = dbBE_Redis_complete_error(
                   request,
-                  &result,
-                  -ENOTCONN );
+                  DBR_ERR_NOCONNECT,
+                  0 );
               dbBE_Redis_request_destroy( request );
               if( completion == NULL )
               {
@@ -424,7 +424,7 @@ process_next_item:
         }
         else // handle errors
         {
-          if( rc == -EAGAIN )
+          if( rc == -EAGAIN ) // EAGAIN is special for requests with polling or flags
           {
             dbBE_Redis_result_cleanup( &result, 0 );
             dbBE_Redis_s2r_queue_push( input->_backend->_retry_q, request );
@@ -449,9 +449,10 @@ process_next_item:
             free( completion );
           }
 
-          completion = dbBE_Redis_complete_error( request,
-                                                  &result,
-                                                  rc );
+          completion = dbBE_Redis_complete_command(
+              request,
+              &result,
+              rc );
           dbBE_Redis_request_destroy( request );
           if( completion == NULL )
           {

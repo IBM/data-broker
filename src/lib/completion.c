@@ -98,10 +98,7 @@ DBR_Errorcode_t dbrCheck_response( dbrRequestContext_t *rctx )
 
       case DBBE_OPCODE_NSCREATE:
       case DBBE_OPCODE_NSATTACH:
-        if( cpl->_rc == 0 )
-          rc = cpl->_status;
-        else
-          rc = DBR_SUCCESS;
+        rc = cpl->_status;
         break;
       case DBBE_OPCODE_NSADDUNITS:
       case DBBE_OPCODE_NSREMOVEUNITS:

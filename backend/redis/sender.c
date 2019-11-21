@@ -39,11 +39,9 @@ typedef struct dbBE_Redis_sender_args
 
 int dbBE_Redis_create_send_error( dbBE_Completion_queue_t *cq, dbBE_Redis_request_t *request, int error )
 {
-  dbBE_Redis_result_t result = { ._type = dbBE_REDIS_TYPE_INT, ._data = -1 };
-  dbBE_Completion_t *completion = dbBE_Redis_complete_error(
-      request,
-      &result,
-      error );
+  dbBE_Completion_t *completion = dbBE_Redis_complete_error( request,
+                                                             error,
+                                                             0 );
   dbBE_Redis_request_destroy( request );
   if( completion != NULL )
   {
@@ -212,9 +210,7 @@ dbBE_Redis_request_t* dbBE_Redis_sender_acquire_request( dbBE_Redis_context_t *b
     // Check if this request has been cancelled before continuing to process it
     if( dbBE_Request_set_delete( backend->_cancellations, request->_user) != 0 )
     {
-      dbBE_Completion_t *completion = dbBE_Redis_complete_cancel(
-          request,
-          DBR_ERR_CANCELLED );
+      dbBE_Completion_t *completion = dbBE_Redis_complete_cancel( request );
 
       if( completion != NULL )
         if( dbBE_Completion_queue_push( backend->_compl_q, completion ) != 0 )
