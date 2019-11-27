@@ -98,9 +98,9 @@ def gethosts(jobid):
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
 	if stderr:
-		print('gethosts error: %s' % stderr)
+		print('gethosts error: %s' % stderr.decode())
 		exit()
-	hosts = stdout.split(':')
+	hosts = stdout.decode().split(':')
 	hosts = hosts[1:]
 	for i in range(len(hosts)):
 		head, sep, tail = hosts[i].partition('*')
@@ -112,13 +112,14 @@ def serversrunning(hosts):
 	global rs_per
 	global pw
 	global port
+	global redisclient
 	hostlist = []
 #
 	hostlist = getipaddr(hosts)
 #
 	for h in hostlist:
 		for j in range(rs_per):
-			cmd = ['/shared/ext_sw/redis/bin/redis-cli']
+			cmd = [redisclient]
 			args = '-h %s -p %s -a %s ping' % (h, port+j, pw)
 			args = args.split(' ')
 			cmd = cmd + args
@@ -127,9 +128,9 @@ def serversrunning(hosts):
 			while noping == True:
 				p = Popen(cmd, stdin=PIPE, stderr=PIPE, stdout=PIPE)
 				stdout, stderr = p.communicate()
-				print('stdout:%s' % stdout)
-				print('stderr:%s' % stderr)
-				if stdout.replace('\n','') != 'PONG':
+				print('stdout:%s' % stdout.decode())
+				print('stderr:%s' % stderr.decode())
+				if stdout.decode().replace('\n','') != 'PONG':
 					noping = True
 				else:
 					noping = False
@@ -157,8 +158,8 @@ def createcluster(hosts):
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	p.stdin.write(b'yes\n')
 	stdout, stderr = p.communicate()
-	print('stdout: %s' % stdout)
-	print('stderr: %s' % stderr)
+	print('stdout: %s' % stdout.decode())
+	print('stderr: %s' % stderr.decode())
 #
 #
 def startservers(options):
@@ -192,7 +193,7 @@ def startservers(options):
 	# start the redis server on the host
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
-	print('startserver error: %s' % stderr)
+	print('startserver error: %s' % stderr.decode())
 	if stderr:
 		exit(1)
 #
@@ -235,9 +236,10 @@ def startserver(options):
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
 	if stderr:
-		print('redis server error:%s' % stderr)
+		print('redis server error:%s' % stderr.decode())
 		exit(-1)
 #
+import time
 def start(options):
 	global rs_per
 	global nnodes
@@ -264,7 +266,7 @@ def start(options):
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
 	if not stderr:
-		jobid=stdout
+		jobid=stdout.decode()
 		jobid = jobid.split()
 		jobid = jobid[1]
 		jobid = jobid.replace('<','')
@@ -275,18 +277,22 @@ def start(options):
 		exit(-1)
 #
 	# once job is started we can proceed to cluster creation
-	print(jobid)
 	cmd = ['bjobs']
 	args = ['-o','-noheader','stat','%d' % jobid]
 	cmd = cmd + args
+	backoff = 1
 	while True:
 		p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 		stdout,stderr = p.communicate()
-		stdout = stdout.strip('\n')
+		
 		print('Waiting for job to run')
-		if stdout == 'RUN':
+		if stdout.decode().strip('\n') == 'RUN':
 			print('Running job')
 			break
+		else:
+			print('Job not running: backing off %d secs' % backoff)
+			time.sleep(backoff)
+			backoff *= 2
 #
 	hosts = gethosts(jobid)
 	# wait for servers to all start running
@@ -302,11 +308,11 @@ def gettaskspernode(jobid):
 	p = Popen(cmd, stdout=PIPE,stderr=PIPE,stdin=PIPE)
 	stdout,stderr = p.communicate()
 	if stderr:
-		print(stderr)
+		print(stderr.decode())
 		exit(-1)
 #
-	index = stdout.find('-r')
-	mylist = stdout.replace('"','')
+	index = stdout.decode().find('-r')
+	mylist = stdout.decode().replace('"','')
 	mylist = mylist.replace(',','')
 	mylist = mylist.replace('<','')
 	mylist = mylist.replace('>','')
@@ -347,8 +353,8 @@ def saverdb(options):
 		cmd = cmd + args
 		p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 		stdout, stderr = p.communicate()
-		print(stdout.replace('\n',''))
-		returns.append(stdout.replace('\n',''))
+		print(stdout.decode().replace('\n',''))
+		returns.append(stdout.decode().replace('\n',''))
 		lastsave.append(returns[i])
 		cmd = [redisclient]
 		args = '-h %s -p %d -a %s BGSAVE' % (myhost, port+i, pw)
@@ -370,7 +376,7 @@ def saverdb(options):
 			cmd = cmd + args
 			p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 			stdout, stderr = p.communicate()
-			if stdout.replace('\n','') != returns[i]:
+			if stdout.decode().replace('\n','') != returns[i]:
 				waiting = False
 def save(options):
 	jobid = options.jobid
@@ -394,8 +400,8 @@ def save(options):
 	print(cmd)
 	p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
-	print('stdout:%s' % stdout)
-	print('stderr:%s' % stderr)
+	print('stdout:%s' % stdout.decode())
+	print('stderr:%s' % stderr.decode())
 #
 def shutdown(options):
 	global port
@@ -415,7 +421,7 @@ def shutdown(options):
 		cmd = cmd + args
 		p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 		stdout, stderr = p.communicate()
-		print(stdout.replace('\n',''))
+		print(stdout.decode().replace('\n',''))
 #
 def stop(options):
 	jobid = options.jobid
@@ -442,8 +448,8 @@ def stop(options):
 	print(cmd)
 	p = Popen(cmd, stdin=PIPE, stderr=PIPE, stdout=PIPE)
 	stdout, stderr = p.communicate()
-	print('stdout:%s' % stdout)
-	print('stderr:%s' % stderr)
+	print('stdout:%s' % stdout.decode())
+	print('stderr:%s' % stderr.decode())
 #
 #
 def getrdb(options):
@@ -464,17 +470,17 @@ def getrdb(options):
 		args = args.split()
 		cmd = cmd + args
 		p0 = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
-		print('p0 output:%s' % p0.stdout)
-		print('p0 stderr:%s' % p0.stderr)
+		print('p0 output:%s' % p0.stdout.decode())
+		print('p0 stderr:%s' % p0.stderr.decode())
 		if p0.stdout:
 			cmd = [redisclient]
 			args = '-h %s -p %d -a %s --pipe' % (myhost, port+i, pw)
 			args = args.split()
 			cmd = cmd + args
 			p1 = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=p0.stdout)
-			stdout, stderr = p1.communicate()
-			print('p1 output:%s' % p1.stdout)
-			print('p1 stderr:%s' % p1.stderr)
+			p1.communicate()
+			print('p1 output:%s' % p1.stdout.decode())
+			print('p1 stderr:%s' % p1.stderr.decode())
 		else:
 			print('no additional data to restore')
 #
@@ -509,8 +515,8 @@ def restore(options):
 	print(cmd)
 	p = Popen(cmd, stderr=PIPE, stdout=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
-	print('stdout:%s' % stdout)
-	print('stderr:%s' % stderr)
+	print('stdout:%s' % stdout.decode())
+	print('stderr:%s' % stderr.decode())
 
 
 # argument processing
