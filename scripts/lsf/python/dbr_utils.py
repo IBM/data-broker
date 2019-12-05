@@ -34,6 +34,7 @@ redisclient = "redis-cli"
 redisserver = "redis-server"
 rdb = "rdb"
 rdir = ""
+netif="ib0"
 # redis configuration values
 # user should customize these values to their own needs
 pw = "foobared"
@@ -70,7 +71,7 @@ def getipaddr(hosts):
 	hostlist = []
 	for i in range(len(hosts)):
 		for j in range(rs_per):
-			nexthost = hosts[i]+'-ib0'
+			nexthost = hosts[i]+'-'+netif
 			addr=socket.gethostbyname(nexthost)
 			nexthost = addr
 			hostlist.append(nexthost)
@@ -88,7 +89,7 @@ def gethost():
 		index = hostlist.index(head)
 	else:
 		index=-1
-	myhost = head+'-ib0'
+	myhost = head+'-'+netif
 	return myhost,index
 #
 def gethosts(jobid):
@@ -123,17 +124,20 @@ def serversrunning(hosts):
 			args = '-h %s -p %s -a %s ping' % (h, port+j, pw)
 			args = args.split(' ')
 			cmd = cmd + args
-			print('cmd=%s' % cmd)
 			noping = True
 			while noping == True:
 				p = Popen(cmd, stdin=PIPE, stderr=PIPE, stdout=PIPE)
 				stdout, stderr = p.communicate()
-				print('stdout:%s' % stdout.decode())
-				print('stderr:%s' % stderr.decode())
+				if stderr:
+					print('>>> serversrunning stderr:')
+					print(stderr.decode())
 				if stdout.decode().replace('\n','') != 'PONG':
-					noping = True
+					print('>>> serversrunning stdout:')
+					print(stdout.decode())
 				else:
+					print('>>> PONG %s:%s' % (h, port+j))
 					noping = False
+
 def createcluster(hosts):
 	global pw
 	global replicas
@@ -143,7 +147,7 @@ def createcluster(hosts):
 	print('num of tasks  %d' % rs_per)
 	for i in range(len(hosts)):
 		for j in range(rs_per):
-			nexthost = hosts[i]+'-ib0'
+			nexthost = hosts[i]+'-'+netif
 			addr=socket.gethostbyname(nexthost)
 			nexthost = addr  + ':' + str(port+j)
 			hostlist.append(nexthost)
@@ -181,9 +185,8 @@ def startservers(options):
 	print('hosts: %s' % hosts)
 #
 	cmd = ['jsrun']
-	args = ['--smpiargs="none"',
-	'--rs_per_host=%d' % rs_per,
-	'./dbr_utils.py',
+	args = ['--rs_per_host=%d' % rs_per,
+	'%s/dbr_utils.py' % rdir,
 	'startserver',
 	'-m %s' % hosts,
 	'-d %s' % rdir]
@@ -229,7 +232,7 @@ def startserver(options):
 	'--dir %s' % rdir,
 	'--dbfilename dump-%d-%d.rdb' % (index, rank),
 	'--logfile log-%d-%d.log' % (index, rank),
-	'--daemonize no',
+	'--daemonize yes',
 	'--cluster-node-timeout %d' %  timeout]
 	cmd = cmd + args
 	print('server cmd:%s' % cmd)
@@ -284,7 +287,7 @@ def start(options):
 	while True:
 		p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 		stdout,stderr = p.communicate()
-		
+
 		print('Waiting for job to run')
 		if stdout.decode().strip('\n') == 'RUN':
 			print('Running job')
@@ -300,6 +303,23 @@ def start(options):
 #
 	createcluster(hosts)
 #
+def start_allocated(options):
+	print('start Redis server on allocted nodes')
+
+	startservers(options)
+
+	### wait for connections
+	with open(os.environ.get('LSB_DJOB_HOSTFILE')) as f:
+		hostset = set([x.strip() for x in f.readlines()])
+	hostset.discard(launchnode)
+	hosts = list(hostset)
+
+	print(">>> pingpong hosts: %s" % hosts)
+
+	serversrunning(hosts)
+
+	createcluster(hosts)
+
 def gettaskspernode(jobid):
 	cmd = ['bjobs']
 	args = ['-l',
@@ -385,7 +405,7 @@ def save(options):
 	hostlist = []
 	hosts = gethosts(jobid)
 	for x in hosts:
-		hostlist.append(x+'-ib0')
+		hostlist.append(x+'-'+netif)
 	hostlist = " ".join(str(x) for x in hostlist)
 	hostlist = hostlist.replace(' ',',')
 #
@@ -432,7 +452,7 @@ def stop(options):
 	print('stop Redis cluster')
 	hosts = gethosts(jobid)
 	for x in hosts:
-		hostlist.append(x+'-ib0')
+		hostlist.append(x+'-'+netif)
 #
 	hostlist = " ".join(str(x) for x in hostlist)
 	hostlist = hostlist.replace(' ',',')
@@ -497,7 +517,7 @@ def restore(options):
 	hostlist = []
 	hosts = gethosts(jobid)
 	for x in hosts:
-		hostlist.append(x+'-ib0')
+		hostlist.append(x+'-'+netif)
 #
 	hostlist = " ".join(str(x) for x in hostlist)
 	hostlist = hostlist.replace(' ',',')
@@ -529,6 +549,10 @@ start_parser.set_defaults(func=start)
 start_parser.add_argument('-n', '--nodes', type=int, nargs='?', const=3, default=3, help='number of nodes to start servers on')
 start_parser.add_argument('-r', '--rs_per_node', type=int, nargs='?', const=1, default=1, help='number of servers per node')
 start_parser.add_argument('-d', '--rdir', nargs='?', const="./", default="./", help='rdirectory for rdb files')
+start_allocated_parser = subparsers.add_parser('start_allocated', help='start -r <servers per node>')
+start_allocated_parser.set_defaults(func=start_allocated)
+start_allocated_parser.add_argument('-r', '--rs_per_node', type=int, nargs='?', const=1, default=1, help='number of servers per node')
+start_allocated_parser.add_argument('-d', '--rdir', nargs='?', const="./", default="./", help='rdirectory for rdb files')
 stop_parser = subparsers.add_parser('stop', help='stop -j <jobid>')
 stop_parser.set_defaults(func=stop)
 stop_parser.add_argument('-j', '--jobid', type=int, help='jobid of cluster to stop')
