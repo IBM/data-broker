@@ -34,7 +34,7 @@ redisclient = "redis-cli"
 redisserver = "redis-server"
 rdb = "rdb"
 rdir = ""
-netif="ib0"
+netif = "ib0"
 # redis configuration values
 # user should customize these values to their own needs
 pw = "foobared"
