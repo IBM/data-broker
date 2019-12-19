@@ -42,6 +42,11 @@ dbBE_Transport_dbuffer_t* dbBE_Transport_dbuffer_allocate( const size_t size )
     return NULL;
 
   char *buffer = (char*)malloc( size * 2 );
+  if( buffer == NULL )
+  {
+    free( ret );
+    return NULL;
+  }
   dbBE_Transport_sr_buffer_initialize( &ret->_buf[0], size, buffer );
   dbBE_Transport_sr_buffer_initialize( &ret->_buf[1], size, &buffer[ size ] );
 
