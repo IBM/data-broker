@@ -479,7 +479,6 @@ def stop_allocated(options):
 	h = os.environ.get('LSB_DJOB_HOSTFILE')
 	print ('hostfile=%s' % h)
 	with open(h) as f: hostlist = [x.strip() for x in f.readlines()]
-	print('hostlist = %s, lnchnode = %s' % (hostlist, launchnode))
 	hostlist.remove(launchnode)
 	hostlist = list(set(hostlist))
 
