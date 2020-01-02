@@ -306,6 +306,7 @@ def start(options):
 def start_allocated(options):
 	print('start Redis server on allocted nodes')
 
+	options.rs_per_node = 1
 	startservers(options)
 
 	### wait for connections
@@ -472,6 +473,28 @@ def stop(options):
 	print('stderr:%s' % stderr.decode())
 #
 #
+def stop_allocated(options):
+
+	# get all the hosts lsf allocated
+	h = os.environ.get('LSB_DJOB_HOSTFILE')
+	print ('hostfile=%s' % h)
+	with open(h) as f: hostlist = [x.strip() for x in f.readlines()]
+	hostlist.remove(launchnode)
+	hostlist = list(set(hostlist))
+
+	cmd = ['pdsh']
+	args = ['-w %s' % ",".join(hostlist),
+			'%s/dbr_utils.py' % options.rdir,
+			'shutdown',
+			'-m "%s"' % "\n".join(hostlist)]
+	cmd = cmd + args
+	print(cmd)
+	p = Popen(cmd, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+	stdout, stderr = p.communicate()
+	print('stdout:%s' % stdout.decode())
+	print('stderr:%s' % stderr.decode())
+#
+#
 def getrdb(options):
 	global port
 	global pw
@@ -549,13 +572,15 @@ start_parser.set_defaults(func=start)
 start_parser.add_argument('-n', '--nodes', type=int, nargs='?', const=3, default=3, help='number of nodes to start servers on')
 start_parser.add_argument('-r', '--rs_per_node', type=int, nargs='?', const=1, default=1, help='number of servers per node')
 start_parser.add_argument('-d', '--rdir', nargs='?', const="./", default="./", help='rdirectory for rdb files')
-start_allocated_parser = subparsers.add_parser('start_allocated', help='start -r <servers per node>')
+start_allocated_parser = subparsers.add_parser('start_allocated', help='start_allocated -r <servers per node>')
 start_allocated_parser.set_defaults(func=start_allocated)
-start_allocated_parser.add_argument('-r', '--rs_per_node', type=int, nargs='?', const=1, default=1, help='number of servers per node')
 start_allocated_parser.add_argument('-d', '--rdir', nargs='?', const="./", default="./", help='rdirectory for rdb files')
 stop_parser = subparsers.add_parser('stop', help='stop -j <jobid>')
 stop_parser.set_defaults(func=stop)
 stop_parser.add_argument('-j', '--jobid', type=int, help='jobid of cluster to stop')
+stop_allocated_parser = subparsers.add_parser('stop_allocated', help='stop_allocated -r <servers per node>')
+stop_allocated_parser.set_defaults(func=stop_allocated)
+stop_allocated_parser.add_argument('-d', '--rdir', nargs='?', const="./", default="./", help='rdirectory for rdb files')
 shutdown_parser = subparsers.add_parser('shutdown', help=argparse.SUPPRESS)
 shutdown_parser.set_defaults(func=shutdown)
 shutdown_parser.add_argument('-j', '--jobid', type=int, help='jobid of cluster to stop')
