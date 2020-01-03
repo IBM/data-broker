@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ set(DB_BACKEND_TEST_SOURCES
 	backend_common_request_queue_test.c
 	backend_common_completion_queue_test.c
 	backend_common_request_set_test.c
+	backend_common_sge_test.c
 )
 
 foreach(_test ${DB_BACKEND_TEST_SOURCES})
