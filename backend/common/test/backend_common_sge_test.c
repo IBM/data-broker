@@ -21,11 +21,11 @@
 int test_header_extract()
 {
   int rc = 0;
-
+  unsigned i;
 
   dbBE_sge_t *sge = NULL;
   dbBE_sge_t ssge;
-  char *data = "150\n\5\n\10\n\20\n\30\n\40\n\50\n";
+  char *data = "150\n5\n10\n20\n30\n40\n50\n";
   size_t parsed;
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( NULL, 0, NULL, 0, NULL, NULL ));
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 0, NULL, 0, NULL, NULL ));
@@ -56,11 +56,23 @@ int test_header_extract()
   rc += TEST( parsed, 7 );
   rc += TEST( sge[0].iov_len, 12 );
 
+  rc += TEST( 5, dbBE_SGE_extract_header( NULL, 0, data, strlen(data), &sge, &parsed ));
+  rc += TEST( parsed, strlen(data) );
+  for( i=0; i<5; ++i)
+    rc += TEST( sge[i].iov_len, 10 * (i+1) );
+  free( sge );
+
+  rc += TEST( -EAGAIN, dbBE_SGE_extract_header( NULL, 0, "150\n5\n10\n20\n30\n", strlen("150\n5\n10\n20\n30\n"), &sge, &parsed ));
+  rc += TEST( 5, dbBE_SGE_extract_header( sge, 5, data, strlen(data), &sge, &parsed ));
+  rc += TEST( parsed, strlen(data) );
+  for( i=0; i<5; ++i)
+    rc += TEST( sge[i].iov_len, 10 * (i+1) );
+  free( sge );
+
   return rc;
 }
 
 
-#if 0
 int test_deserialize()
 {
   int rc = 0;
@@ -90,8 +102,9 @@ int test_deserialize()
     rc += TEST( total, strnlen( in_data, datalen * DBBE_SGE_MAX ) );
     ssize_t serlen = dbBE_SGE_serialize( sge, sgelen, serial, datalen * DBBE_SGE_MAX );
 
-    dbBE_sge_t sge2[DBBE_SGE_MAX];
-    dbBE_SGE_deserialize( sge2, sgelen, serial, serlen );
+    dbBE_sge_t *sge2 = NULL;
+    int nsgelen = 0;
+    dbBE_SGE_deserialize( serial, serlen, &sge2, &nsgelen );
     for( i=0; i<sgelen; ++i )
     {
       rc += TEST( total, dbBE_SGE_get_len( sge2, sgelen ) );
@@ -101,14 +114,13 @@ int test_deserialize()
   }
   return rc;
 }
-#endif
 
 int main( int argc, char *argv[] )
 {
   int rc = 0;
 
   rc += test_header_extract();
-//  rc += test_deserialize();
+  rc += test_deserialize();
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

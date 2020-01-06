@@ -191,9 +191,6 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
   if(( i<i_sge_count ) && ( space < 1 ))
     return -EAGAIN;
 
-  if( sge_out != NULL )
-    *sge_out = sge;
-
   return i_sge_count;
 }
 
