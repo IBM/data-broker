@@ -104,8 +104,8 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
   {
     plen = sge[i].iov_len;
     memcpy( data, sge[i].iov_base, plen );
-    data[plen] = '\n';
-    ++plen;
+//    data[plen] = '\n';
+//    ++plen;
 
     space -= plen;
     data += plen;
@@ -228,11 +228,14 @@ ssize_t dbBE_SGE_deserialize( char *data, size_t space, dbBE_sge_t **sge_out, in
     return -EINVAL;
 
   offset = 0;
-  for( i=0; i < i_sge_count; ++i )
+  for( i=0; (i < i_sge_count); ++i )
   {
+    if( space < sge[i].iov_len )
+      return -EAGAIN;
     sge[i].iov_base = data;
-    ((char*)(sge[i].iov_base))[ sge[i].iov_len ] = '\0';
-    data += sge[i].iov_len + 1;
+//    ((char*)(sge[i].iov_base))[ sge[i].iov_len ] = '\0';
+    data += sge[i].iov_len; // + 1;
+    space -= sge[i].iov_len;
   }
 
   if( space == 0 )
