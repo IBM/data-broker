@@ -50,10 +50,13 @@ int test_header_extract()
   rc += TEST( -EBADMSG, dbBE_SGE_extract_header( &ssge, 1, "4\n1\nno", 6, &sge, &parsed ));
   rc += TEST( -EAGAIN, dbBE_SGE_extract_header( &ssge, 1, "4\n1\n12", 6, &sge, &parsed ));
   rc += TEST( -EBADMSG, dbBE_SGE_extract_header( &ssge, 1, "4\n1\n12265\n", 6, &sge, &parsed ));
+  // inconsistent lengths
+  rc += TEST( -EBADMSG, dbBE_SGE_extract_header( &ssge, 1, "4\n1\n5\n", 6, &sge, &parsed ));
+  rc += TEST( -EBADMSG, dbBE_SGE_extract_header( NULL, 0, "150\n3\n10\n20\n30\n", strlen("150\n3\n10\n20\n30\n"), &sge, &parsed ));
+  free( sge );
 
-
-  rc += TEST( 1, dbBE_SGE_extract_header( &ssge, 1, "4\n1\n12\n", 7, &sge, &parsed ));
-  rc += TEST( parsed, 7 );
+  rc += TEST( 1, dbBE_SGE_extract_header( &ssge, 1, "12\n1\n12\n", 8, &sge, &parsed ));
+  rc += TEST( parsed, 8 );
   rc += TEST( sge[0].iov_len, 12 );
 
   rc += TEST( 5, dbBE_SGE_extract_header( NULL, 0, data, strlen(data), &sge, &parsed ));
@@ -85,7 +88,7 @@ int test_deserialize()
   TEST_BREAK( rc, "Failed to allocate memory. Stopping" );
 
   int sgelen;
-  for( sgelen=1; sgelen<DBBE_SGE_MAX; ++sgelen)
+  for( sgelen=1; sgelen<DBBE_SGE_MAX; sgelen += random()%4 + 1)
   {
     dbBE_sge_t sge[ sgelen ];
     size_t total = 0;
@@ -104,14 +107,33 @@ int test_deserialize()
 
     dbBE_sge_t *sge2 = NULL;
     int nsgelen = 0;
-    dbBE_SGE_deserialize( serial, serlen, &sge2, &nsgelen );
+    dbBE_SGE_deserialize( sge2, 0, serial, serlen, &sge2, &nsgelen );
     for( i=0; i<sgelen; ++i )
     {
       rc += TEST( total, dbBE_SGE_get_len( sge2, sgelen ) );
       rc += TEST( sge2[i].iov_len, sge[i].iov_len );
       rc += TEST( strncmp( (char*)sge2[i].iov_base, (char*)sge[i].iov_base, sge[i].iov_len ), 0 );
     }
+    free( sge2 );
   }
+
+  int nsgelen = 0;
+  dbBE_sge_t *sge = NULL;
+  char *data2 = "16\n2\n10\n6\nHello World more";
+  rc += TEST( dbBE_SGE_deserialize( NULL, 0, NULL, 0, &sge, &nsgelen ), -EINVAL );
+  rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, 0, &sge, &nsgelen ), -EINVAL );
+  rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, datalen, NULL, &nsgelen ), -EINVAL );
+
+  // shortened input data to cause EAGAIN
+  rc += TEST( dbBE_SGE_deserialize( sge, nsgelen, data2, strlen(data2)-4, &sge, &nsgelen ), -EAGAIN );
+  rc += TEST( dbBE_SGE_deserialize( sge, nsgelen, data2, strlen(data2), &sge, &nsgelen ), (ssize_t)strlen(data2) );
+  rc += TEST( nsgelen, 2 );
+  rc += TEST( sge[0].iov_len, 10 );
+  rc += TEST( sge[1].iov_len, 6 );
+  rc += TEST( strncmp( (char*)sge[0].iov_base, "Hello Worl", 10 ), 0 );
+  rc += TEST( strncmp( (char*)sge[1].iov_base, "d more", 6 ), 0 );
+
+  free( sge );
   return rc;
 }
 

@@ -138,7 +138,8 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
  */
 
 static inline
-int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data, size_t space, dbBE_sge_t **sge_out, size_t *parsed )
+int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data, size_t space,
+                             dbBE_sge_t **sge_out, size_t *parsed )
 {
   // 4 is the minimum number of bytes to resemble a valid header ( "0\n0\n" )
   if(( parsed == NULL ) || (data == NULL) || (space < 4 ) ||
@@ -172,6 +173,8 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
   if(( sge_in != NULL ) && (sge_count < i_sge_count))
     return -E2BIG;
 
+  size_t consistent = 0;
+
   for( i=0; (i < i_sge_count) && (space > 1); ++i )
   {
     // scan the length
@@ -183,6 +186,7 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
       return -EAGAIN;
 
     sge[i].iov_len = len;
+    consistent += len;
     data += offset;
     space -= offset;
     *parsed += (size_t)offset;
@@ -191,14 +195,23 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
   if(( i<i_sge_count ) && ( space < 1 ))
     return -EAGAIN;
 
+  if( consistent != total )
+    return -EBADMSG;
+
   return i_sge_count;
 }
 
 
 static inline
-ssize_t dbBE_SGE_deserialize( char *data, size_t space, dbBE_sge_t **sge_out, int *sge_count )
+ssize_t dbBE_SGE_deserialize( dbBE_sge_t *sge_in, const int sge_count_in,
+                              const char *data, size_t space,
+                              dbBE_sge_t **sge_out, int *sge_count )
 {
-  if(( data == NULL ) || ( sge_out == NULL ) || ( sge_count == NULL ))
+  if(( data == NULL ) || ( space < 4 ) || ( sge_out == NULL ) || ( sge_count == NULL ))
+    return -EINVAL;
+
+  if( (( sge_in != NULL ) && ( sge_count_in == 0 )) ||
+      (( sge_in == NULL ) && ( sge_count_in > 0 )) )
     return -EINVAL;
 
   int i;
@@ -206,7 +219,7 @@ ssize_t dbBE_SGE_deserialize( char *data, size_t space, dbBE_sge_t **sge_out, in
   size_t offset = 0;
   int i_sge_count = 0;
 
-  i_sge_count = dbBE_SGE_extract_header( *sge_out, *sge_count, data, space, sge_out, &offset );
+  i_sge_count = dbBE_SGE_extract_header( sge_in, sge_count_in, data, space, sge_out, &offset );
   switch( i_sge_count )
   {
     case -EBADMSG:
@@ -219,6 +232,8 @@ ssize_t dbBE_SGE_deserialize( char *data, size_t space, dbBE_sge_t **sge_out, in
       break;
   }
 
+  *sge_count = i_sge_count;
+
   // adjust to remaining data and space
   data += offset;
   space -= offset;
@@ -227,19 +242,18 @@ ssize_t dbBE_SGE_deserialize( char *data, size_t space, dbBE_sge_t **sge_out, in
   if( sge == NULL )
     return -EINVAL;
 
+  total += offset;
   offset = 0;
   for( i=0; (i < i_sge_count); ++i )
   {
     if( space < sge[i].iov_len )
       return -EAGAIN;
-    sge[i].iov_base = data;
+    sge[i].iov_base = (void*)data;
 //    ((char*)(sge[i].iov_base))[ sge[i].iov_len ] = '\0';
     data += sge[i].iov_len; // + 1;
     space -= sge[i].iov_len;
+    total += sge[i].iov_len;
   }
-
-  if( space == 0 )
-    return -E2BIG;
 
   return total;
 }
