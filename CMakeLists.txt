@@ -1,5 +1,5 @@
  #
- # Copyright © 2018,2019 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -47,7 +47,9 @@ endif( DEFINED VOIDTAG )
 
 if( DEFINED WITH_DATA_ADAPTERS )
   add_definitions( -DDBR_DATA_ADAPTERS )
-  set( DL_LIB -ldl )
+  set( EXTRA_LIB -ldl -lm )
+else( DEFINED WITH_DATA_ADAPTERS )
+ set( EXTRA_LIB -lm )
 endif( DEFINED WITH_DATA_ADAPTERS )
 
 if( NOT DEFINED DEFAULT_BE )
