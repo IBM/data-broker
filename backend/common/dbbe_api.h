@@ -391,6 +391,8 @@ typedef struct dbBE_Request
   dbBE_sge_t _sge[];           /**< SGE's */
 } dbBE_Request_t;
 
+#include "common/request.h"
+
 /**
  * @typedef dbBE_Request_handle_t
  * @brief Back-end request handle

@@ -73,7 +73,7 @@ size_t dbBE_SGE_get_len( const dbBE_sge_t *sge, const int sge_count )
  */
 
 static inline
-ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *data, size_t space )
+ssize_t dbBE_SGE_serialize_header( const dbBE_sge_t *sge, const int sge_count, char *data, size_t space )
 {
   if(( data == NULL ) || ( sge == NULL ) || ( sge_count < 1 ) || ( sge_count > DBBE_SGE_MAX ))
     return -EINVAL;
@@ -91,6 +91,9 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
   ssize_t total = plen;
   for( i=0; (i < sge_count) && (space > 0); ++i )
   {
+    if(( sge[i].iov_len == 0 ) && (sge[i].iov_base == NULL ))
+      return -EBADMSG;
+
     plen = snprintf( data, space, "%ld\n", sge[i].iov_len );
     if( plen <= 0 )
       return -EBADMSG;
@@ -100,9 +103,29 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
     total += plen;
   }
 
+  return total;
+}
+
+
+static inline
+ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *data, size_t space )
+{
+  if(( data == NULL ) || ( sge == NULL ) || ( sge_count < 1 ) || ( sge_count > DBBE_SGE_MAX ))
+    return -EINVAL;
+
+  int i;
+
+  // create header
+  ssize_t total = dbBE_SGE_serialize_header( sge, sge_count, data, space );
+  if( total <= 0 )
+    return -EBADMSG;
+
+  space -= total;
+  data += total;
+
   for( i=0; (i < sge_count) && (space > 0); ++i )
   {
-    plen = sge[i].iov_len;
+    ssize_t plen = sge[i].iov_len;
     memcpy( data, sge[i].iov_base, plen );
 //    data[plen] = '\n';
 //    ++plen;
