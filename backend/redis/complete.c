@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -198,22 +198,28 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       }
       break;
     case DBBE_OPCODE_NSQUERY:
-      if( result->_type == dbBE_REDIS_TYPE_INT )
-        switch ( rc )
-        {
-          case -ENOSPC:
-            status = DBR_ERR_UBUFFER;
-            // intentionally no break;
-          case 0:
-            localrc = result->_data._integer;
-            break;
-          default:
-            break;
-        }
+      switch ( rc )
+      {
+        case -ENOSPC:
+          status = DBR_ERR_UBUFFER;
+          // intentionally no break;
+        case 0:
+          localrc = result->_data._integer;
+          break;
+        default:
+          break;
+      }
       break;
     case DBBE_OPCODE_ITERATOR:
-      if(( rc == 0 ) && ( result->_type == dbBE_REDIS_TYPE_INT ))
-        localrc = result->_data._integer;  // int64 value contains the iterator pointer
+      switch( rc )
+      {
+        case -EILSEQ: status = DBR_ERR_ITERATOR; localrc = 0; break;
+        case 0:
+          localrc = result->_data._integer;  // int64 value contains the iterator pointer
+          break;
+        default:
+          break;
+      }
       break;
     default:
       break;
