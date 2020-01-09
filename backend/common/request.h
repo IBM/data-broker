@@ -53,10 +53,26 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
   {
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_NSQUERY:
       sge_total = dbBE_SGE_serialize_header( req->_sge, req->_sge_count, data, space );
       break;
     case DBBE_OPCODE_PUT:
       sge_total = dbBE_SGE_serialize( req->_sge, req->_sge_count, data, space );
+      break;
+    case DBBE_OPCODE_MOVE:
+      // param[in]      dbBE_sge_t           _sge[0] = contains destination storage group
+      // param[in]      dbBE_sge_t           _sge[1] = valid @ref dbBE_NS_Handle_t to destination namespace
+      sge_total = snprintf( data, space, "%p\n%p\n", req->_sge[0].iov_base, req->_sge[1].iov_base );
+      break;
+    case DBBE_OPCODE_REMOVE:
+    case DBBE_OPCODE_CANCEL:
+    case DBBE_OPCODE_NSCREATE:
+    case DBBE_OPCODE_NSATTACH:
+    case DBBE_OPCODE_NSDETACH:
+    case DBBE_OPCODE_NSDELETE:
+      break;
+    case DBBE_OPCODE_DIRECTORY:
+      sge_total = snprintf( data, space, "%"PRId64"\n%d", req->_sge[0].iov_len, req->_sge_count );
       break;
     default:
       return -EINVAL;
