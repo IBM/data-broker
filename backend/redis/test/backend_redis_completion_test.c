@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -786,6 +786,74 @@ int test_nsquery( dbBE_Redis_command_stage_spec_t *stage_specs,
   return rc;
 }
 
+
+int test_iterator( dbBE_Redis_command_stage_spec_t *stage_specs,
+                   char *data,
+                   size_t datalen,
+                   dbBE_Request_t *usr )
+{
+  int rc = 0;
+
+  dbBE_Redis_result_t result;   // result already parsed, so it has no impact on the completion of a put, just needs to be there
+  dbBE_Redis_request_t *request;
+  dbBE_Completion_t completion;
+  dbBE_Completion_t *cmp = NULL;
+
+  memset( &result, 0, sizeof( result ) );
+  memset( &completion, 0, sizeof( completion ) );
+
+  usr->_opcode = DBBE_OPCODE_ITERATOR;
+  usr->_sge_count = 1;
+  usr->_sge[0].iov_base = data;
+  usr->_sge[0].iov_len = datalen;
+
+  rc += TEST_NOT_RC( dbBE_Redis_request_allocate( usr ), NULL, request );
+
+  dbBE_Redis_iterator_list_t itlist = NULL;
+  rc += TEST_NOT_RC( dbBE_Redis_iterator_list_allocate(), NULL, itlist );
+  dbBE_Redis_iterator_t *iterator = dbBE_Redis_iterator_new( itlist );
+
+  request->_status.iterator._it = iterator;
+  result._type = dbBE_REDIS_TYPE_INT;
+  result._data._integer = (int64_t)iterator;
+
+  // a regular successful iterator
+  rc += TEST( test_completion( request, &result, 0, DBR_SUCCESS, (int64_t)iterator ), 0 );
+
+  // a protocol failure: DBR_ERR_BE_GENERAL: general error in backend
+  rc += TEST( test_completion( request, &result, -EPROTO, DBR_ERR_BE_GENERAL, 0 ), 0 );
+
+  // an invalid parameter occurred: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EINVAL, DBR_ERR_INVALID, 0 ), 0 );
+
+  // an unexpected result type got returned: DBR_ERR_INVALID
+  rc += TEST( test_completion( request, &result, -EBADMSG, DBR_ERR_INVALID, 0 ), 0 );
+
+  // somewhere running out of memory: DBR_ERR_NOMEMORY
+  rc += TEST( test_completion( request, &result, -ENOMEM, DBR_ERR_NOMEMORY, 0 ), 0 );
+
+  // trying to list a namespace that doesn't exist
+  rc += TEST( test_completion( request, &result, -ENOENT, DBR_ERR_UNAVAIL, 0 ), 0 );
+
+  // inconsistencies or errors during iteration: DBR_ERR_ITERATOR
+  rc += TEST( test_completion( request, &result, -EILSEQ, DBR_ERR_ITERATOR, 0 ), 0 );
+
+  // cancelled request
+  rc += TEST_NOT_RC( dbBE_Redis_complete_cancel( request ), NULL, cmp );
+  if( cmp )
+  {
+    rc += TEST( cmp->_rc, 0 );
+    rc += TEST( cmp->_status, DBR_ERR_CANCELLED );
+    rc += TEST( cmp->_user, usr->_user );
+    free( cmp );
+  }
+
+  dbBE_Redis_request_destroy( request );
+  rc += TEST( dbBE_Redis_iterator_list_destroy( itlist ), 0 );
+  return rc;
+}
+
+
 int main( int argc, char ** argv )
 {
 
@@ -818,6 +886,7 @@ int main( int argc, char ** argv )
   rc += test_nsdetach( stage_specs, data, datalen, usr );
   rc += test_nsdelete( stage_specs, data, datalen, usr );
   rc += test_nsquery( stage_specs, data, datalen, usr );
+  rc += test_iterator( stage_specs, data, datalen, usr );
 
   if( data != NULL ) free( data );
   dbBE_Redis_command_stages_spec_destroy( stage_specs );
