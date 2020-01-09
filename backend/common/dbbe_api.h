@@ -527,19 +527,6 @@ extern const dbBE_api_t g_dbBE;
 
 
 /**
- * @brief allocate a new request struct including SGE-space
- *
- * @param [in] sge_count  number of SGEs to allocate at the end of the structure
- *
- * @return pointer to new allocated struct or NULL in case of failure
- */
-static inline
-dbBE_Request_t* dbBE_Request_allocate( const int sge_count )
-{
-  return (dbBE_Request_t*)calloc( 1, sizeof( dbBE_Request_t) + sge_count * sizeof( dbBE_sge_t ) );
-}
-
-/**
  *@}
  */
 

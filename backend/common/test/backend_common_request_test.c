@@ -106,12 +106,57 @@ int test_serialize()
   return rc;
 }
 
+char* build_data( char *data, const char *in )
+{
+  if( data != NULL )
+    free( data );
+  data = strdup( in );
+  return data;
+}
+
+int test_deserialize()
+{
+  int rc = 0;
+
+  char *data = NULL;
+  data = build_data( data, "1\n(nil)\n(nil)\n" );
+  dbBE_Request_t *req = NULL;
+
+  rc += TEST( dbBE_Request_deserialize( NULL, 100, &req ), -EINVAL );
+  rc += TEST( dbBE_Request_deserialize( "", 0, &req ), -EINVAL );
+  rc += TEST( dbBE_Request_deserialize( "1\n", 8, NULL ), -EINVAL );
+
+  rc += TEST( dbBE_Request_deserialize( data, strlen(data), NULL ), -EINVAL );
+
+  // missing key+match (EAGAIN)
+  data = build_data( data, "1\n(nil)\n(nil)\n(nil)\n(nil)\n5\n1\n0\n");
+  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), -EAGAIN );
+
+  data = build_data( data, "1\n(nil)\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n");
+  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), -EAGAIN );
+
+  // a successfully serialized PUT
+  data = build_data( data, "1\n0x0123456789\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n6\n1\n6\nWorld!\n");
+  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), (ssize_t)strlen( data ) );
+  rc += TEST( req->_opcode, DBBE_OPCODE_PUT );
+  rc += TEST( req->_ns_hdl, (dbBE_NS_Handle_t)0x0123456789ull );
+  rc += TEST( req->_user, NULL );
+  rc += TEST( req->_sge_count, 1 );
+  rc += TEST( strncmp( req->_key, "Hello", 6) , 0 );
+  rc += TEST( req->_sge[0].iov_len, 6 );
+  rc += TEST( strncmp( (char*)req->_sge[0].iov_base, "World!", req->_sge[0].iov_len ), 0 );
+
+  free( data );
+  printf( "Deserialize test exiting with rc=%d\n", rc );
+  return rc;
+}
 
 int main( int argc, char *argv[] )
 {
   int rc = 0;
 
   rc += test_serialize();
+  rc += test_deserialize();
 
   printf( "Test exiting with rc=%d\n", rc );
   return rc;

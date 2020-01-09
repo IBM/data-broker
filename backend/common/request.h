@@ -20,6 +20,19 @@
 #define BACKEND_COMMON_REQUEST_H_
 
 
+/**
+ * @brief allocate a new request struct including SGE-space
+ *
+ * @param [in] sge_count  number of SGEs to allocate at the end of the structure
+ *
+ * @return pointer to new allocated struct or NULL in case of failure
+ */
+static inline
+dbBE_Request_t* dbBE_Request_allocate( const int sge_count )
+{
+  return (dbBE_Request_t*)calloc( 1, sizeof( dbBE_Request_t) + sge_count * sizeof( dbBE_sge_t ) );
+}
+
 
 static inline
 ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t space )
@@ -44,7 +57,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
       return -EBADMSG;
   }
 
-  total = snprintf( data, space, "%d\n%p\n%p\n%p\n%p\n%ld\n%ld\n%"PRId64"\n%s\n%s\n",
+  total = snprintf( data, space, "%d\n%p\n%p\n%p\n%p\n%ld\n%ld\n%"PRId64"\n%s%s\n",
             req->_opcode,
             req->_ns_hdl,
             req->_user,
@@ -102,20 +115,33 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
 }
 
 static inline
-ssize_t dbBE_Request_deserialize( dbBE_Request_t *req, char *data, size_t space )
+ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **request )
 {
-  unsigned keylen, matchlen;
+  if(( data == NULL ) || ( space == 0 ) || ( request == NULL ))
+    return -EINVAL;
+
   int parsed;
   ssize_t total = 0;
+
+  dbBE_Opcode opcode;
+  dbBE_NS_Handle_t ns_hdl, dsthdl;
+  void *user;
+  dbBE_Request_t *next;
+  DBR_Group_t group, dstgroup;
+  unsigned keylen, matchlen;
+  int64_t flags;
+  int sge_count;
+  dbBE_sge_t *sge_out;
+
   int items = sscanf( data, "%d\n%p\n%p\n%p\n%p\n%d\n%d\n%"PRId64"\n%n",
-            (int*)&req->_opcode,
-            &req->_ns_hdl,
-            &req->_user,
-            &req->_next,
-            &req->_group,
+            (int*)&opcode,
+            &ns_hdl,
+            &user,
+            &next,
+            &group,
             &keylen,
             &matchlen,
-            &req->_flags,
+            &flags,
             &parsed );
   if( items < 0 )
     return -EBADMSG;
@@ -123,7 +149,7 @@ ssize_t dbBE_Request_deserialize( dbBE_Request_t *req, char *data, size_t space 
   if( items < 8 )
     return -EAGAIN;
 
-  if(( req->_opcode >= DBBE_OPCODE_MAX ) || ( req->_flags >= DBR_FLAGS_MAX ))
+  if(( opcode >= DBBE_OPCODE_MAX ) || ( flags >= DBR_FLAGS_MAX ))
     return -EBADMSG;
 
   if(( keylen > DBR_MAX_KEY_LEN ) || ( matchlen > DBR_MAX_KEY_LEN ))
@@ -135,7 +161,11 @@ ssize_t dbBE_Request_deserialize( dbBE_Request_t *req, char *data, size_t space 
   if( space < keylen )
     return -EAGAIN;
 
-  strncpy( req->_key, data, keylen );
+  char *key = (char*)malloc( keylen + 1 );
+  if( key == NULL )
+    return -ENOMEM;
+  strncpy( key, data, keylen );
+  key[keylen] = '\0';
 
   data += keylen;
   space -= keylen;
@@ -143,9 +173,81 @@ ssize_t dbBE_Request_deserialize( dbBE_Request_t *req, char *data, size_t space 
   if( space < matchlen )
     return -EAGAIN;
 
-  strncpy( req->_match, data, matchlen );
+  char *match = (char*)malloc( matchlen + 1 );
+  if( match == NULL )
+    return -ENOMEM;
+  strncpy( match, data, matchlen );
+  match[matchlen] = '\0';
+
+  matchlen += 1;  // trailed by \n
+  data += matchlen;
+  space -= matchlen;
   total += matchlen;
 
+  if( space < 1 )
+    return -EAGAIN;
+
+  ssize_t sge_total = 0;
+  switch( opcode )
+  {
+    case DBBE_OPCODE_GET:
+    case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_NSQUERY:
+    case DBBE_OPCODE_DIRECTORY:
+    case DBBE_OPCODE_ITERATOR:
+      sge_count = dbBE_SGE_extract_header( NULL, 0, data, space, &sge_out, (size_t*)&sge_total );
+      if( sge_count < 0 )
+        sge_total = sge_count;
+      break;
+    case DBBE_OPCODE_PUT:
+      sge_total = dbBE_SGE_deserialize( NULL, 0, data, space, &sge_out, &sge_count );
+      break;
+    case DBBE_OPCODE_MOVE:
+      // param[in]      dbBE_sge_t           _sge[0] = contains destination storage group
+      // param[in]      dbBE_sge_t           _sge[1] = valid @ref dbBE_NS_Handle_t to destination namespace
+    {
+      int parsed;
+      sge_count = sscanf( data, "%p\n%p\n%n", &dsthdl, &dstgroup, &parsed );
+      if( sge_count < 2 )
+        return -EBADMSG;
+      sge_total = parsed;
+      break;
+    }
+    case DBBE_OPCODE_REMOVE:
+    case DBBE_OPCODE_CANCEL:
+    case DBBE_OPCODE_NSCREATE:
+    case DBBE_OPCODE_NSATTACH:
+    case DBBE_OPCODE_NSDETACH:
+    case DBBE_OPCODE_NSDELETE:
+      break;
+    default:
+      return -EBADMSG;
+  }
+
+  if( sge_total < 0 )
+    return -EBADMSG;
+
+  total += sge_total + 1;
+
+  dbBE_Request_t *req = dbBE_Request_allocate( sge_count );
+  req->_opcode = opcode;
+  req->_ns_hdl = ns_hdl;
+  req->_user = user;
+  req->_next = next;
+  req->_group = group;
+  req->_key = key;
+  req->_match = match;
+  req->_flags = flags;
+  req->_sge_count = sge_count;
+  memcpy( req->_sge, sge_out, sizeof(dbBE_sge_t) * sge_count );
+
+  if( opcode == DBBE_OPCODE_ITERATOR )
+  {
+    sscanf( key, "%p\n", &req->_key );
+    free( key );
+  }
+
+  *request = req;
   return total;
 }
 
