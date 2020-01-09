@@ -25,7 +25,7 @@ int test_serialize()
 
   dbBE_Request_t *req = NULL;
   char *data = malloc(10000);
-  char *putdata = generateLongMsg(64);
+  char *putdata = generateLongMsg(DBR_MAX_KEY_LEN);
   char *partdata = malloc(10);
   strncpy(partdata, putdata, 4 );
   partdata[4] = '\0';
@@ -77,11 +77,27 @@ int test_serialize()
   req->_opcode = DBBE_OPCODE_GET;
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
   rc += TEST( strstr( data, partdata ), NULL ); // get mustdn't contain the SGE values
+  rc += TEST_NOT( strstr( data, "4\n1\n4\n"), NULL ); // contains the SGE header
 
   req->_opcode = DBBE_OPCODE_READ;
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
   rc += TEST( strstr( data, partdata ), NULL ); // read mustn't contain the SGE values
+  rc += TEST_NOT( strstr( data, "4\n1\n4\n"), NULL ); // contains the SGE header
 
+  req->_opcode = DBBE_OPCODE_NSQUERY;
+  rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
+  rc += TEST( strstr( data, partdata ), NULL ); // nsquery must only contain the sge header
+  rc += TEST_NOT( strstr( data, "4\n1\n4\n"), NULL ); // contains the SGE header
+
+  req->_opcode = DBBE_OPCODE_ITERATOR;
+  req->_sge[0].iov_len = DBR_MAX_KEY_LEN;
+  void *it = malloc(10);
+  req->_key = (DBR_Tuple_name_t)it;
+  rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
+  rc += TEST( strstr( data, "1024\n\1\n\1024\n" ), NULL ); // iterator must contain an SGE with DBR_MAX_KEY_LEN single SGE
+
+
+  free( it );
   free( req->_user );
   free( req->_ns_hdl );
   free( req );

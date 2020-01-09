@@ -29,6 +29,20 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     return -EINVAL;
 
   ssize_t total = 0;
+  DBR_Tuple_name_t key = req->_key;
+
+  // todo: this is ugly because the iterator ptr is forced into the key. Therefore we need to pre-serialize it into a string here.
+  if( req->_opcode == DBBE_OPCODE_ITERATOR )
+  {
+    // the sge points to space for a full key,
+    // we temporarily use this space for the ptr serialization
+    // to avoid an extra malloc/free
+    key = (DBR_Tuple_name_t)req->_sge[0].iov_base;
+    if( key == NULL )
+      return -ENOMEM;
+    if( snprintf( key, sizeof( uintptr_t ) + 1, "%p", (void*)req->_key ) < (int)sizeof( uintptr_t ) )
+      return -EBADMSG;
+  }
 
   total = snprintf( data, space, "%d\n%p\n%p\n%p\n%p\n%ld\n%ld\n%"PRId64"\n%s\n%s\n",
             req->_opcode,
@@ -36,10 +50,10 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
             req->_user,
             req->_next,
             req->_group,
-            req->_key != NULL ? strnlen(req->_key, DBR_MAX_KEY_LEN) : 0,
+            key != NULL ? strnlen(key, DBR_MAX_KEY_LEN) : 0,
             req->_match != NULL ? strnlen(req->_match, DBR_MAX_KEY_LEN) : 0,
             req->_flags,
-            req->_key,
+            key,
             req->_match );
 
   if( total < (ssize_t)dbBE_REQUEST_MIN_SPACE )
@@ -54,6 +68,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_NSQUERY:
+    case DBBE_OPCODE_ITERATOR:
       sge_total = dbBE_SGE_serialize_header( req->_sge, req->_sge_count, data, space );
       break;
     case DBBE_OPCODE_PUT:
