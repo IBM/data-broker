@@ -121,7 +121,7 @@ def serversrunning(hosts):
 	for h in hostlist:
 		for j in range(rs_per):
 			cmd = [redisclient]
-			args = '-h %s -p %s -a %s ping' % (h, port+j, pw)
+			args = '--no-auth-warning -h %s -p %s -a %s ping' % (h, port+j, pw)
 			args = args.split(' ')
 			cmd = cmd + args
 			noping = True
@@ -131,7 +131,7 @@ def serversrunning(hosts):
 				if stderr:
 					print('>>> serversrunning stderr:')
 					print(stderr.decode())
-				if stdout.decode().replace('\n','') != 'PONG':
+				if stdout.decode().strip() != 'PONG':
 					print('>>> serversrunning stdout:')
 					print(stdout.decode())
 				else:
