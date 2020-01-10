@@ -175,6 +175,7 @@ def startservers(options):
 #
 	rs_per = options.rs_per_node
 	rdir = options.rdir
+	daemonize = options.daemonize
 #
 	# get all the hosts lsf allocated
 	h = os.environ.get('LSB_DJOB_HOSTFILE')
@@ -186,16 +187,19 @@ def startservers(options):
 #
 	cmd = ['jsrun']
 	args = ['--rs_per_host=%d' % rs_per,
-	'%s/dbr_utils.py' % rdir,
+	'./dbr_utils.py',
 	'startserver',
 	'-m %s' % hosts,
 	'-d %s' % rdir]
+	if daemonize:
+		args += ['--daemonize']
 	cmd = cmd + args
 	print('jsrun cmd:%s' % cmd)
 #
 	# start the redis server on the host
 	p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
 	stdout, stderr = p.communicate()
+	print('startserver output: %s' % stdout.decode())
 	print('startserver error: %s' % stderr.decode())
 	if stderr:
 		exit(1)
@@ -209,6 +213,7 @@ def startserver(options):
 #
 	hosts = options.hostlist
 	rdir = options.rdir
+	daemonize = options.daemonize
 #
 	print ('start a Redis server')
 	rank = int(os.environ.get('JSM_NAMESPACE_LOCAL_RANK'))
@@ -232,7 +237,7 @@ def startserver(options):
 	'--dir %s' % rdir,
 	'--dbfilename dump-%d-%d.rdb' % (index, rank),
 	'--logfile log-%d-%d.log' % (index, rank),
-	'--daemonize yes',
+	'--daemonize %s' % ("yes" if daemonize else "no"),
 	'--cluster-node-timeout %d' %  timeout]
 	cmd = cmd + args
 	print('server cmd:%s' % cmd)
@@ -307,6 +312,7 @@ def start_allocated(options):
 	print('start Redis server on allocted nodes')
 
 	options.rs_per_node = 1
+	options.daemonize = True
 	startservers(options)
 
 	### wait for connections
@@ -606,11 +612,13 @@ startserver_parser = subparsers.add_parser('startserver', help=argparse.SUPPRESS
 startserver_parser.set_defaults(func=startserver)
 startserver_parser.add_argument('-m', '--hostlist', type=str)
 startserver_parser.add_argument('-d', '--rdir', nargs='?', const="./", default="./", help='rdirectory for rdb files')
+startserver_parser.add_argument('--daemonize', action='store_true', help='launch Redis in daemonize mode')
 startservers_parser = subparsers.add_parser('startservers', help=argparse.SUPPRESS)
 startservers_parser.set_defaults(func=startservers)
 startservers_parser.add_argument('-n', '--nodes', type=int, nargs='?', const=1, default=1, help='number of nodes to start servers on')
 startservers_parser.add_argument('-r', '--rs_per_node', type=int, nargs='?', const=1, default=1, help='number of servers per node')
 startservers_parser.add_argument('-d', '--rdir', nargs='?', const="./", default="./", help='rdirectory for rdb files')
+startservers_parser.add_argument('--daemonize', action='store_true', help='launch Redis in daemonize mode')
 #
 if len(sys.argv) <= 1:
     sys.argv.append('--help')
