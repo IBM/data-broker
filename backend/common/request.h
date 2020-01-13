@@ -33,6 +33,19 @@ dbBE_Request_t* dbBE_Request_allocate( const int sge_count )
   return (dbBE_Request_t*)calloc( 1, sizeof( dbBE_Request_t) + sge_count * sizeof( dbBE_sge_t ) );
 }
 
+static inline
+int dbBE_Request_free( dbBE_Request_t *req )
+{
+  if( req == NULL )
+    return -EINVAL;
+
+  if( req->_key != NULL ) free( req->_key );
+  if( req->_match != NULL ) free( req->_match );
+
+  memset( req, 0, sizeof( dbBE_Request_t ) + sizeof( dbBE_sge_t ) * req->_sge_count );
+  free( req );
+  return 0;
+}
 
 static inline
 ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t space )
@@ -82,6 +95,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_ITERATOR:
+    case DBBE_OPCODE_DIRECTORY:
       sge_total = dbBE_SGE_serialize_header( req->_sge, req->_sge_count, data, space );
       break;
     case DBBE_OPCODE_PUT:
@@ -90,7 +104,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     case DBBE_OPCODE_MOVE:
       // param[in]      dbBE_sge_t           _sge[0] = contains destination storage group
       // param[in]      dbBE_sge_t           _sge[1] = valid @ref dbBE_NS_Handle_t to destination namespace
-      sge_total = snprintf( data, space, "%p\n%p\n", req->_sge[0].iov_base, req->_sge[1].iov_base );
+      sge_total = snprintf( data, space, "%p\n%p", req->_sge[0].iov_base, req->_sge[1].iov_base );
       break;
     case DBBE_OPCODE_REMOVE:
     case DBBE_OPCODE_CANCEL:
@@ -99,9 +113,6 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
       break;
-    case DBBE_OPCODE_DIRECTORY:
-      sge_total = snprintf( data, space, "%"PRId64"\n%d", req->_sge[0].iov_len, req->_sge_count );
-      break;
     default:
       return -EINVAL;
   }
@@ -109,10 +120,21 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
   if( sge_total < 0 )
     return sge_total;
 
+  if(( sge_total > 0 ) && ( space > 0 ))
+  {
+    space -= sge_total;
+    data += sge_total;
+    if( snprintf( data, space, "\n" ) != 1 ) // terminate
+      return -EBADMSG;
+    ++sge_total;
+  }
+
   total += sge_total;
 
   return total;
 }
+
+#define dbBE_Request_deserialize_error( rc, a, b ) { if( a != NULL ) free( a ); if( b != NULL ) free( b ); return rc; }
 
 static inline
 ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **request )
@@ -146,7 +168,7 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
   if( items < 0 )
     return -EBADMSG;
 
-  if( items < 8 )
+  if(( items < 8 ) || ( data[ parsed - 1 ] != '\n'))
     return -EAGAIN;
 
   if(( opcode >= DBBE_OPCODE_MAX ) || ( flags >= DBR_FLAGS_MAX ))
@@ -161,31 +183,49 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
   if( space < keylen )
     return -EAGAIN;
 
-  char *key = (char*)malloc( keylen + 1 );
-  if( key == NULL )
-    return -ENOMEM;
-  strncpy( key, data, keylen );
-  key[keylen] = '\0';
+  char *match = NULL;
+  char *key = NULL;
+  if( keylen > 0 )
+  {
+    key = (char*)malloc( keylen + 1 );
+    if( key == NULL )
+      return -ENOMEM;
+    strncpy( key, data, keylen );
+    key[keylen] = '\0';
 
-  data += keylen;
-  space -= keylen;
-  total += keylen;
+    data += keylen;
+    space -= keylen;
+    total += keylen;
+  }
+
   if( space < matchlen )
-    return -EAGAIN;
+    dbBE_Request_deserialize_error( -EAGAIN, key, match )
 
-  char *match = (char*)malloc( matchlen + 1 );
-  if( match == NULL )
-    return -ENOMEM;
-  strncpy( match, data, matchlen );
-  match[matchlen] = '\0';
+  if( matchlen > 0 )
+  {
+    match = (char*)malloc( matchlen + 1 );
+    if( match == NULL )
+      dbBE_Request_deserialize_error( -ENOMEM, key, match )
+    strncpy( match, data, matchlen );
+    match[matchlen] = '\0';
 
-  matchlen += 1;  // trailed by \n
-  data += matchlen;
-  space -= matchlen;
-  total += matchlen;
+    data += matchlen;
+    space -= matchlen;
+    total += matchlen;
+  }
 
-  if( space < 1 )
-    return -EAGAIN;
+  if( keylen + matchlen > 0 )
+  {
+    if( space < 1 )
+      dbBE_Request_deserialize_error( -EAGAIN, key, match )
+
+    if( data[0] != '\n' )
+      dbBE_Request_deserialize_error( -EBADMSG, key, match )
+
+    data += 1;
+    space -= 1;
+    total += 1;
+  }
 
   ssize_t sge_total = 0;
   switch( opcode )
@@ -197,7 +237,7 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
     case DBBE_OPCODE_ITERATOR:
       sge_count = dbBE_SGE_extract_header( NULL, 0, data, space, &sge_out, (size_t*)&sge_total );
       if( sge_count < 0 )
-        sge_total = sge_count;
+        dbBE_Request_deserialize_error( -EAGAIN, key, match )
       break;
     case DBBE_OPCODE_PUT:
       sge_total = dbBE_SGE_deserialize( NULL, 0, data, space, &sge_out, &sge_count );
@@ -208,8 +248,17 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
     {
       int parsed;
       sge_count = sscanf( data, "%p\n%p\n%n", &dsthdl, &dstgroup, &parsed );
-      if( sge_count < 2 )
-        return -EBADMSG;
+      switch( sge_count )
+      {
+        case 2:
+          break;
+        case EOF:
+        case 1:
+        case 0:
+          dbBE_Request_deserialize_error( -EAGAIN, key, match )
+        default:
+          dbBE_Request_deserialize_error( -EBADMSG, key, match )
+      }
       sge_total = parsed;
       break;
     }
@@ -219,15 +268,19 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
+      sge_total = 0;
+      sge_count = 0;
       break;
     default:
-      return -EBADMSG;
+      dbBE_Request_deserialize_error( -ENOSYS, key, match )
   }
 
-  if( sge_total < 0 )
-    return -EBADMSG;
 
-  total += sge_total + 1;
+
+  if( sge_total < 0 )
+    dbBE_Request_deserialize_error( sge_total, key, match )
+
+  total += sge_total;
 
   dbBE_Request_t *req = dbBE_Request_allocate( sge_count );
   req->_opcode = opcode;
@@ -239,7 +292,23 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
   req->_match = match;
   req->_flags = flags;
   req->_sge_count = sge_count;
-  memcpy( req->_sge, sge_out, sizeof(dbBE_sge_t) * sge_count );
+
+  switch( opcode )
+  {
+    case DBBE_OPCODE_MOVE:
+      req->_sge[0].iov_base = dsthdl;
+      req->_sge[0].iov_len = 0;
+      req->_sge[1].iov_base = dstgroup;
+      req->_sge[1].iov_len = 0;
+      break;
+    default:
+      if( sge_count > 0 )
+      {
+        memcpy( req->_sge, sge_out, sizeof(dbBE_sge_t) * sge_count );
+        free( sge_out );
+      }
+      break;
+  }
 
   if( opcode == DBBE_OPCODE_ITERATOR )
   {

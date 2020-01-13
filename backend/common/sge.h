@@ -144,6 +144,8 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
 }
 
 
+#define dbBE_SGE_deserialize_error( rc, in, a ) { if(( (in) == NULL ) && ( (a) != NULL )) { free( (a) ); (a) = NULL; } return rc; }
+
 /*
  * extract SGE-header information from stream
  * intendet to be re-entrant so that partially received headers can be completed
@@ -193,11 +195,9 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
   if( sge == NULL )
     return -ENOMEM;
 
-  *sge_out = sge;
-
-  // sanity check input sge vs. header data
+  // sanity check input sge vs. header data;
   if(( sge_in != NULL ) && (sge_count < i_sge_count))
-    return -E2BIG;
+    return -E2BIG; // no free(sge); this is only if sge_in was provided
 
   size_t consistent = 0;
 
@@ -207,9 +207,9 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
     size_t len;
     plen = sscanf( data, "%ld\n%n", &len, &offset );
     if(( plen < 1 ) || ( (size_t)offset > space ))
-      return -EBADMSG;
+      dbBE_SGE_deserialize_error( -EBADMSG, sge_in, sge );
     if( data[offset-1] != '\n' ) // correctly terminated?
-      return -EAGAIN;
+      dbBE_SGE_deserialize_error( -EAGAIN, sge_in, sge );
 
     sge[i].iov_len = len;
     consistent += len;
@@ -219,10 +219,12 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
   }
   // if the header already exhausted the data, signal to receive more data
   if(( i<i_sge_count ) && ( space < 1 ))
-    return -EAGAIN;
+    dbBE_SGE_deserialize_error( -EAGAIN, sge_in, sge );
 
   if( consistent != total )
-    return -EBADMSG;
+    dbBE_SGE_deserialize_error( -EBADMSG, sge_in, sge );
+
+  *sge_out = sge;
 
   return i_sge_count;
 }
@@ -252,28 +254,30 @@ ssize_t dbBE_SGE_deserialize( dbBE_sge_t *sge_in, const int sge_count_in,
   if( i_sge_count < 0 )
     return i_sge_count;
 
-  *sge_count = i_sge_count;
-
   // adjust to remaining data and space
   data += offset;
   space -= offset;
 
   dbBE_sge_t *sge = *sge_out;
   if( sge == NULL )
-    return -EINVAL;
+    dbBE_SGE_deserialize_error( -EINVAL, sge_in, *sge_out );
 
   total += offset;
   offset = 0;
   for( i=0; (i < i_sge_count); ++i )
   {
     if( space < sge[i].iov_len )
-      return -EAGAIN;
+      dbBE_SGE_deserialize_error( -EAGAIN, sge_in, *sge_out );
     sge[i].iov_base = (void*)data;
 //    ((char*)(sge[i].iov_base))[ sge[i].iov_len ] = '\0';
     data += sge[i].iov_len; // + 1;
     space -= sge[i].iov_len;
     total += sge[i].iov_len;
   }
+  if( i_sge_count > 0 ) // account for the trailing separator in case there was SGE data
+    ++total;
+
+  *sge_count = i_sge_count;
 
   return total;
 }

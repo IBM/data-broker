@@ -53,24 +53,25 @@ int test_header_extract()
   // inconsistent lengths
   rc += TEST( -EBADMSG, dbBE_SGE_extract_header( &ssge, 1, "4\n1\n5\n", 6, &sge, &parsed ));
   rc += TEST( -EBADMSG, dbBE_SGE_extract_header( NULL, 0, "150\n3\n10\n20\n30\n", strlen("150\n3\n10\n20\n30\n"), &sge, &parsed ));
-  free( sge );
+  free( sge ); sge = NULL;
 
   rc += TEST( 1, dbBE_SGE_extract_header( &ssge, 1, "12\n1\n12\n", 8, &sge, &parsed ));
   rc += TEST( parsed, 8 );
   rc += TEST( sge[0].iov_len, 12 );
+  rc += TEST( &ssge, sge );
 
   rc += TEST( 5, dbBE_SGE_extract_header( NULL, 0, data, strlen(data), &sge, &parsed ));
   rc += TEST( parsed, strlen(data) );
   for( i=0; i<5; ++i)
     rc += TEST( sge[i].iov_len, 10 * (i+1) );
-  free( sge );
+  free( sge ); sge = NULL;
 
   rc += TEST( -EAGAIN, dbBE_SGE_extract_header( NULL, 0, "150\n5\n10\n20\n30\n", strlen("150\n5\n10\n20\n30\n"), &sge, &parsed ));
-  rc += TEST( 5, dbBE_SGE_extract_header( sge, 5, data, strlen(data), &sge, &parsed ));
+  rc += TEST( 5, dbBE_SGE_extract_header( sge, 0, data, strlen(data), &sge, &parsed ));
   rc += TEST( parsed, strlen(data) );
   for( i=0; i<5; ++i)
     rc += TEST( sge[i].iov_len, 10 * (i+1) );
-  free( sge );
+  free( sge ); sge = NULL;
 
   return rc;
 }
@@ -119,7 +120,7 @@ int test_deserialize()
 
   int nsgelen = 0;
   dbBE_sge_t *sge = NULL;
-  char *data2 = "16\n2\n10\n6\nHello World more";
+  char *data2 = "16\n2\n10\n6\nHello World more\n";
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, NULL, 0, &sge, &nsgelen ), -EINVAL );
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, 0, &sge, &nsgelen ), -EAGAIN );
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, datalen, NULL, &nsgelen ), -EINVAL );
