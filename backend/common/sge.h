@@ -165,10 +165,13 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
                              dbBE_sge_t **sge_out, size_t *parsed )
 {
   // 4 is the minimum number of bytes to resemble a valid header ( "0\n0\n" )
-  if(( parsed == NULL ) || (data == NULL) || (space < 4 ) ||
+  if(( parsed == NULL ) || (data == NULL) || (space == 0 ) ||
       (( sge_in != NULL ) && ( sge_count < 1 )) || (( sge_in == NULL ) && ( sge_count != 0 )) ||
       ( sge_out == NULL ) || ( parsed == NULL ))
     return -EINVAL;
+
+  if( space < 4 )
+    return -EAGAIN;
 
   int i;
   size_t total = 0;
@@ -230,12 +233,15 @@ ssize_t dbBE_SGE_deserialize( dbBE_sge_t *sge_in, const int sge_count_in,
                               const char *data, size_t space,
                               dbBE_sge_t **sge_out, int *sge_count )
 {
-  if(( data == NULL ) || ( space < 4 ) || ( sge_out == NULL ) || ( sge_count == NULL ))
+  if(( data == NULL ) || ( sge_out == NULL ) || ( sge_count == NULL ))
     return -EINVAL;
 
   if( (( sge_in != NULL ) && ( sge_count_in == 0 )) ||
       (( sge_in == NULL ) && ( sge_count_in > 0 )) )
     return -EINVAL;
+
+  if( space < 4 )
+    return -EAGAIN;
 
   int i;
   size_t total = 0;
@@ -243,17 +249,8 @@ ssize_t dbBE_SGE_deserialize( dbBE_sge_t *sge_in, const int sge_count_in,
   int i_sge_count = 0;
 
   i_sge_count = dbBE_SGE_extract_header( sge_in, sge_count_in, data, space, sge_out, &offset );
-  switch( i_sge_count )
-  {
-    case -EBADMSG:
-      return -EBADMSG;
-    case -EAGAIN:
-      return -EAGAIN;
-    default:
-      if( i_sge_count < 0 )
-        return i_sge_count;
-      break;
-  }
+  if( i_sge_count < 0 )
+    return i_sge_count;
 
   *sge_count = i_sge_count;
 

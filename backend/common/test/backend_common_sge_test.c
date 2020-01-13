@@ -36,10 +36,10 @@ int test_header_extract()
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( NULL, 1, data, strlen(data), &sge, &parsed ));
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 0, data, strlen(data), &sge, &parsed ));
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 1, NULL, strlen(data), &sge, &parsed ));
-  rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 1, data, 3, &sge, &parsed ));
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 1, data, strlen(data), NULL, &parsed ));
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 1, data, strlen(data), &sge, NULL ));
 
+  rc += TEST( -EAGAIN, dbBE_SGE_extract_header( &ssge, 1, data, 3, &sge, &parsed ));
   rc += TEST( -EBADMSG, dbBE_SGE_extract_header( &ssge, 1, "05E\n", 4, &sge, &parsed ));
   rc += TEST( -EBADMSG, dbBE_SGE_extract_header( &ssge, 1, "-40\n", 4, &sge, &parsed ));
   rc += TEST( -EBADMSG, dbBE_SGE_extract_header( &ssge, 1, "405\n", 4, &sge, &parsed ));
@@ -88,7 +88,7 @@ int test_deserialize()
   TEST_BREAK( rc, "Failed to allocate memory. Stopping" );
 
   int sgelen;
-  for( sgelen=1; sgelen<DBBE_SGE_MAX; sgelen += random()%4 + 1)
+  for( sgelen=1; sgelen<DBBE_SGE_MAX; sgelen += random()%16 + 1)
   {
     dbBE_sge_t sge[ sgelen ];
     size_t total = 0;
@@ -121,7 +121,7 @@ int test_deserialize()
   dbBE_sge_t *sge = NULL;
   char *data2 = "16\n2\n10\n6\nHello World more";
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, NULL, 0, &sge, &nsgelen ), -EINVAL );
-  rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, 0, &sge, &nsgelen ), -EINVAL );
+  rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, 0, &sge, &nsgelen ), -EAGAIN );
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, datalen, NULL, &nsgelen ), -EINVAL );
 
   // shortened input data to cause EAGAIN
@@ -134,6 +134,9 @@ int test_deserialize()
   rc += TEST( strncmp( (char*)sge[1].iov_base, "d more", 6 ), 0 );
 
   free( sge );
+  free( data );
+  free( in_data );
+  free( serial );
   return rc;
 }
 
