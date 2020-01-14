@@ -31,6 +31,7 @@ set(DB_BACKEND_TEST_SOURCES
 	backend_common_request_set_test.c
 	backend_common_sge_test.c
 	backend_common_request_test.c
+	backend_common_completion_test.c
 )
 
 foreach(_test ${DB_BACKEND_TEST_SOURCES})

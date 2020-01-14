@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,54 @@ dbBE_Completion_t* dbBE_Completion_create( dbBE_Request_t *request,
   completion->_status = dbr_status;
 
   return completion;
+}
+
+static inline
+ssize_t dbBE_Completion_serialize( const dbBE_Opcode op,
+                                   const dbBE_Completion_t *comp,
+                                   const dbBE_sge_t *sge,
+                                   const int sge_count,
+                                   char *data,
+                                   size_t space )
+{
+  static const ssize_t dbBE_COMPLETION_MIN_SPACE = 18;
+  if((op >= DBBE_OPCODE_MAX) || ( comp == NULL ) || ( data == NULL ) || (space == 0 ))
+    return -EINVAL;
+
+  ssize_t total = 0;
+  total = snprintf( data, space, "%d\n%d\n%"PRId64"\n%p\n%p\n",
+                    op, comp->_status, comp->_rc,
+                    comp->_user, comp->_next );
+  if( total < (ssize_t)dbBE_COMPLETION_MIN_SPACE )
+    return -EBADMSG;
+
+  if( (size_t)total >= space )
+    return -ENOSPC;
+
+  data += total;
+  space -= total;
+
+  ssize_t sge_total = 0;
+  switch( op )
+  {
+    // some completions require data in the SGE
+    case DBBE_OPCODE_GET:
+    case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_DIRECTORY:
+    case DBBE_OPCODE_ITERATOR:
+    case DBBE_OPCODE_NSQUERY:
+      sge_total = dbBE_SGE_serialize( sge, sge_count, data, space );
+      break;
+    default:
+      break;
+  }
+
+  if( sge_total < 0 )
+    return sge_total;
+
+  total += sge_total;
+
+  return total;
 }
 
 
