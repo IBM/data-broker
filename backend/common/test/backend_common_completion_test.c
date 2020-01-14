@@ -89,6 +89,44 @@ int test_deserialize()
 {
   int rc = 0;
 
+  char *data = NULL;
+  data = build_data( data, "2\n0\n0\n(nil)\n(nil)\n60\n3\n10\n20\n30\nabcdeabcdedefghijklmdefghijklmklmnopqrstuvxyzklmnopqrstuvxyz\n" );
+  dbBE_Completion_t *comp = NULL;
+  dbBE_sge_t *sge = NULL;
+  int sge_count;
+
+  rc += TEST( -EINVAL, dbBE_Completion_deserialize( NULL, 150, &comp, &sge, &sge_count ) );
+  rc += TEST( -EINVAL, dbBE_Completion_deserialize( data, 0, &comp, &sge, &sge_count ) );
+  rc += TEST( -EINVAL, dbBE_Completion_deserialize( data, 150, NULL, &sge, &sge_count ) );
+  rc += TEST( -EINVAL, dbBE_Completion_deserialize( data, 150, &comp, NULL, &sge_count ) );
+  rc += TEST( -EINVAL, dbBE_Completion_deserialize( data, 150, &comp, &sge, 0 ) );
+
+  rc += TEST( -EAGAIN, dbBE_Completion_deserialize( data, 1, &comp, &sge, &sge_count ) );
+  rc += TEST( -EAGAIN, dbBE_Completion_deserialize( data, 4, &comp, &sge, &sge_count ) );
+  rc += TEST( -EAGAIN, dbBE_Completion_deserialize( data, 10, &comp, &sge, &sge_count ) );
+  rc += TEST( -EAGAIN, dbBE_Completion_deserialize( data, 18, &comp, &sge, &sge_count ) );
+  rc += TEST( -EAGAIN, dbBE_Completion_deserialize( data, 38, &comp, &sge, &sge_count ) );
+
+  sge = NULL; sge_count = 0;
+  rc += TEST( dbBE_Completion_deserialize( data, strlen( data ), &comp, &sge, &sge_count ), (ssize_t)strlen( data ) );
+  rc += TEST( comp->_status, DBR_SUCCESS );
+  rc += TEST( comp->_rc, 0 );
+  rc += TEST( sge_count, 3 );
+  rc += TEST_NOT( sge, NULL );
+  rc += TEST( dbBE_SGE_get_len( sge, sge_count ), 60 );
+  free( sge );
+  free( comp );
+
+  sge = NULL; sge_count = 0;
+  data = build_data( data, "1\n2\n3057\n0x35450673\n(nil)\n6\n3\n1\n2\n3\naxynmo\n" );
+  rc += TEST( dbBE_Completion_deserialize( data, strlen( data ), &comp, &sge, &sge_count ), 26 );
+  rc += TEST( comp->_status, DBR_ERR_INVALID );
+  rc += TEST( comp->_rc, 3057 );
+  rc += TEST( comp->_user, (void*)0x35450673ull );
+  rc += TEST( sge, NULL );
+  rc += TEST( sge_count, 0 );
+
+  free( data );
   printf( "Deserialize test exiting with rc=%d\n", rc );
   return rc;
 }

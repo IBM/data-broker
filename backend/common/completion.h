@@ -89,4 +89,78 @@ ssize_t dbBE_Completion_serialize( const dbBE_Opcode op,
 }
 
 
+static inline
+ssize_t dbBE_Completion_deserialize( char *data,
+                                     size_t space,
+                                     dbBE_Completion_t **comp_out,
+                                     dbBE_sge_t **sge_out,
+                                     int *sge_count_out )
+{
+  if(( data == NULL ) || (space == 0 ) || ( comp_out == NULL ))
+    return -EINVAL;
+
+  ssize_t total = 0;
+
+  dbBE_Opcode opcode;
+  DBR_Errorcode_t status;
+  int64_t rc;
+  void *user;
+  dbBE_Completion_t *next;
+  int parsed;
+
+  int items = sscanf( data, "%d\n%d\n%"PRId64"\n%p\n%p\n%n",
+            (int*)&opcode,
+            (int*)&status,
+            &rc,
+            &user,
+            &next,
+            &parsed );
+  if( items < 0 )
+    return -EBADMSG;
+
+  if(( items < 5 ) || ( data[ parsed - 1 ] != '\n') || ( space < (size_t)parsed ))
+    return -EAGAIN;
+
+  if( opcode >= DBBE_OPCODE_MAX )
+    return -EBADMSG;
+
+  data += parsed;
+  space -= parsed;
+  total += parsed;
+
+  ssize_t sge_total = 0;
+  switch( opcode )
+  {
+    // some completions require data in the SGE
+    case DBBE_OPCODE_GET:
+    case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_DIRECTORY:
+    case DBBE_OPCODE_ITERATOR:
+    case DBBE_OPCODE_NSQUERY:
+      if(( sge_out == NULL ) || ( sge_count_out == NULL ))
+        return -EINVAL;
+      sge_total = dbBE_SGE_deserialize( *sge_out, *sge_count_out, data, space, sge_out, sge_count_out );
+      break;
+    default:
+      break;
+  }
+
+  if( sge_total < 0 )
+    return sge_total;
+
+  total += sge_total;
+
+  dbBE_Request_t req;
+  req._user = user;
+  dbBE_Completion_t *comp = dbBE_Completion_create( &req, status, rc );
+  if( comp == NULL )
+    return -ENOMEM;
+
+  comp->_next = next;
+
+  *comp_out = comp;
+
+  return total;
+}
+
 #endif /* BACKEND_COMMON_COMPLETION_H_ */
