@@ -74,6 +74,9 @@ int test_serialize()
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
   rc += TEST_NOT( strstr( data, "*" ), NULL );
 
+  rc += TEST( -ENOSPC, dbBE_Request_serialize( req, data, 25 ) ); // too short for req header
+  rc += TEST( -ENOSPC, dbBE_Request_serialize( req, data, 50 ) ); // too short for SGE data
+
   req->_opcode = DBBE_OPCODE_GET;
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
   rc += TEST( strstr( data, partdata ), NULL ); // get mustdn't contain the SGE values
@@ -92,6 +95,11 @@ int test_serialize()
   req->_sge[1].iov_len = 0;
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
   rc += TEST_NOT( strstr( data, "0x123456789\n(nil)\n"), NULL );  // needs to contain destination hdl/group
+
+  rc += TEST( -ENOSPC, dbBE_Request_serialize( req, data, 50 ) );
+  rc += TEST( -ENOSPC, dbBE_Request_serialize( req, data, 65 ) );
+  rc += TEST( -ENOSPC, dbBE_Request_serialize( req, data, 66 ) );
+
 
   req->_opcode = DBBE_OPCODE_REMOVE;
   req->_sge_count = 0;

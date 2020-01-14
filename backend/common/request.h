@@ -85,6 +85,9 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
   if( total < (ssize_t)dbBE_REQUEST_MIN_SPACE )
     return -EBADMSG;
 
+  if( (size_t)total >= space )
+    return -ENOSPC;
+
   data += total;
   space -= total;
 
@@ -120,9 +123,14 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
   if( sge_total < 0 )
     return sge_total;
 
+  if( (size_t)sge_total >= space )
+    return -ENOSPC;
+
   if(( sge_total > 0 ) && ( space > 0 ))
   {
     space -= sge_total;
+    if( space < 2 )
+      return -ENOSPC;
     data += sge_total;
     if( snprintf( data, space, "\n" ) != 1 ) // terminate
       return -EBADMSG;

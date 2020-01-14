@@ -85,6 +85,9 @@ ssize_t dbBE_SGE_serialize_header( const dbBE_sge_t *sge, const int sge_count, c
   if( plen <= 0 )
     return -EBADMSG;
 
+  if( (size_t)plen >= space )
+    return -ENOSPC;
+
   space -= plen;
   data += plen;
 
@@ -98,6 +101,9 @@ ssize_t dbBE_SGE_serialize_header( const dbBE_sge_t *sge, const int sge_count, c
     if( plen <= 0 )
       return -EBADMSG;
 
+    if( (size_t)plen >= space )
+      return -ENOSPC;
+
     space -= plen;
     data += plen;
     total += plen;
@@ -110,7 +116,7 @@ ssize_t dbBE_SGE_serialize_header( const dbBE_sge_t *sge, const int sge_count, c
 static inline
 ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *data, size_t space )
 {
-  if(( data == NULL ) || ( sge == NULL ) || ( sge_count < 1 ) || ( sge_count > DBBE_SGE_MAX ))
+  if(( data == NULL ) || ( sge == NULL ) || ( sge_count < 1 ) || ( sge_count > DBBE_SGE_MAX ) || ( space == 0 ))
     return -EINVAL;
 
   int i;
@@ -118,7 +124,7 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
   // create header
   ssize_t total = dbBE_SGE_serialize_header( sge, sge_count, data, space );
   if( total <= 0 )
-    return -EBADMSG;
+    return total;
 
   space -= total;
   data += total;
@@ -126,6 +132,8 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
   for( i=0; (i < sge_count) && (space > 0); ++i )
   {
     ssize_t plen = sge[i].iov_len;
+    if( (size_t)plen >= space )
+      return -ENOSPC;
     memcpy( data, sge[i].iov_base, plen );
 //    data[plen] = '\n';
 //    ++plen;
@@ -136,7 +144,7 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
   }
 
   if( space == 0 )
-    return -E2BIG;
+    return -ENOSPC;
 
   // data already points to the end of the string, so just make sure we terminate
   data[ 0 ] = '\0';

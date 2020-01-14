@@ -18,6 +18,40 @@
 #include "test_utils.h"
 #include "common/sge.h"
 
+
+int test_serialize()
+{
+  int rc = 0;
+
+  char *rdata = generateLongMsg( 150 );
+  char *data = (char*)malloc( 1000 );
+
+  // setup an SGE with response data
+  dbBE_sge_t sge[3];
+  sge[0].iov_base = rdata; sge[0].iov_len = 10;
+  sge[1].iov_base = &rdata[5]; sge[1].iov_len = 20;
+  sge[2].iov_base = &rdata[10]; sge[2].iov_len = 30;
+
+  rc += TEST( -EINVAL, dbBE_SGE_serialize( NULL, 0, NULL, 0 ) );
+  rc += TEST( -EINVAL, dbBE_SGE_serialize( sge, 0, NULL, 0 ) );
+  rc += TEST( -EINVAL, dbBE_SGE_serialize( sge, 3, NULL, 0 ) );
+  rc += TEST( -EINVAL, dbBE_SGE_serialize( sge, 3, data, 0 ) );
+  rc += TEST( -ENOSPC, dbBE_SGE_serialize( sge, 3, data, 2 ) ); // no space for header
+  rc += TEST( -ENOSPC, dbBE_SGE_serialize( sge, 3, data, 8 ) ); // no space for SGE lengths
+  rc += TEST( -ENOSPC, dbBE_SGE_serialize( sge, 3, data, 25 ) ); // no space for SGE value data
+
+  rc += TEST( dbBE_SGE_serialize( sge, 3, data, 150 ), (ssize_t)strnlen( data, 150 ) );
+  rc += TEST( strncmp( data, "60\n3\n10\n20\n30\n", 14 ), 0 ); // header
+  rc += TEST( strncmp( &data[14], rdata, 10 ), 0 ); // first SGE value
+  rc += TEST( strncmp( &data[14+10], &rdata[5], 20 ), 0 ); // second SGE value
+  rc += TEST( strncmp( &data[14+10+20], &rdata[10], 30 ), 0 ); // third SGE value
+
+
+  free( data );
+  free( rdata );
+  return rc;
+}
+
 int test_header_extract()
 {
   int rc = 0;
@@ -145,6 +179,7 @@ int main( int argc, char *argv[] )
 {
   int rc = 0;
 
+  rc += test_serialize();
   rc += test_header_extract();
   rc += test_deserialize();
 
