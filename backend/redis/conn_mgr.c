@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 #include "logutil.h"
 #include "definitions.h"
-#include "utility.h"
+#include "common/utility.h"
 #include "conn_mgr.h"
 #include "parse.h"
 #include "libdatabroker.h"
@@ -186,7 +186,7 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connectio
     return NULL;
   }
 
-  char *authfile = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
+  char *authfile = dbBE_Extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   LOG( DBG_VERBOSE, stderr, "authfile=%s\n", authfile );
 
   dbBE_Redis_connection_t *new_conn = dbBE_Redis_connection_create( conn_mgr->_config->_rbuf_len );
@@ -1084,7 +1084,7 @@ dbBE_Redis_cluster_info_t* dbBE_Redis_connection_mgr_get_cluster_info( dbBE_Redi
   // do we have single-node Redis server?
   if( cl_info == NULL )
   {
-    char *env_url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+    char *env_url = dbBE_Extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
     if( env_url != NULL )
     {
       cl_info = dbBE_Redis_cluster_info_create_single( env_url );

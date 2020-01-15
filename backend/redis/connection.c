@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 #include <netdb.h>
 
 #include "logutil.h"
-#include "utility.h"
+#include "common/utility.h"
 #include "definitions.h"
 #include "connection.h"
 #include "common/resolve_addr.h"
@@ -317,7 +317,7 @@ int dbBE_Redis_connection_reconnect( dbBE_Redis_connection_t *conn )
   }
 
   conn->_socket = s;
-  char *authfile = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
+  char *authfile = dbBE_Extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   rc = dbBE_Redis_connection_auth( conn, authfile );
 
   if( authfile != NULL )

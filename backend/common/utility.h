@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
  * returns the string value of env_var or the default if it's not set
  */
 static inline
-char* dbBE_Redis_extract_env( const char *env_var, const char *env_default )
+char* dbBE_Extract_env( const char *env_var, const char *env_default )
 {
   char *env = NULL;
   char *envstr = getenv(env_var);

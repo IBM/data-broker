@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 
 
 #include "definitions.h"
-#include "utility.h"
+#include "common/utility.h"
 #include "redis.h"
 #include "result.h"
 #include "cluster_info.h"
@@ -402,7 +402,7 @@ int dbBE_Redis_connect_initial( dbBE_Redis_context_t *ctx )
     return -EINVAL;
   }
 
-  char *env_url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+  char *env_url = dbBE_Extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
   if( env_url == NULL )
   {
     errno = ENODEV;
