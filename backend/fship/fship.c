@@ -88,6 +88,12 @@ int FShip_exit( dbBE_Handle_t be )
   dbBE_FShip_context_t *ctx = (dbBE_FShip_context_t*)be;
   if( ctx != NULL )
   {
+    if( ctx->_connection )
+    {
+      dbBE_Connection_unlink( ctx->_connection );
+      dbBE_Connection_destroy( ctx->_connection );
+    }
+
     if( ctx->_sbuf )
       dbBE_Transport_sr_buffer_free( ctx->_sbuf );
 
@@ -220,5 +226,7 @@ int dbBE_FShip_connect_initial( dbBE_FShip_context_t *ctx )
   ctx->_connection = new_conn;
 
 exit_connect:
+  if( authfile != NULL ) free( authfile );
+  if( env_url != NULL ) free( env_url );
   return rc;
 }
