@@ -25,4 +25,4 @@ install( TARGETS dbbe_network
 	DESTINATION lib
 )
 
-#add_subdirectory(test)
+add_subdirectory(test)

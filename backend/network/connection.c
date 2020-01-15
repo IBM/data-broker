@@ -23,6 +23,9 @@
 #include <stdlib.h> // calloc
 #include <errno.h> // errno
 #include <unistd.h> // close
+#include <sys/types.h> // ..
+#include <sys/stat.h> // ..
+#include <fcntl.h> // ..open
 
 dbBE_Connection_t *dbBE_Connection_create()
 {
@@ -222,13 +225,31 @@ int dbBE_Connection_unlink( dbBE_Connection_t *conn )
 
 int dbBE_Connection_auth( dbBE_Connection_t *conn, const char *authfile )
 {
+  // skip authentication if authfile name is explicitly set to NONE
+  if( strncmp( authfile, "NONE", 5 ) == 0 )
+  {
+    conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
+    return 0;
+  }
+
+  // open the file
+  int auth_fd = open( authfile, O_RDONLY );
+  if( auth_fd < 0 )
+  {
+    perror( authfile );
+    return -1;
+  }
+
+  close( auth_fd );
+
+  conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
   return 0;
 }
 
 
 int dbBE_Connection_destroy( dbBE_Connection_t *conn )
 {
-  if( conn != NULL )
+  if( conn == NULL )
     return -EINVAL;
 
   free( conn );
