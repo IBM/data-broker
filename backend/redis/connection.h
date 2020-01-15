@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ typedef struct dbBE_Redis_connection
 {
   int _socket;
   int _index;
-  dbBE_Redis_address_t *_address;
+  dbBE_Network_address_t *_address;
   dbBE_Data_transport_t *_sr_dev;
   dbBE_Transport_dbuffer_t *_recvbuf;
   dbBE_Redis_s2r_queue_t *_posted_q;
@@ -139,7 +139,7 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
  * connect to a Redis instance given by the destination url
  * it will connect and then return the created Redis address type
  */
-dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
+dbBE_Network_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
                                                   const char *url,
                                                   const char *authfile );
 

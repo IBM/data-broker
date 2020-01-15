@@ -35,20 +35,20 @@
 #include "address.h"
 #include "definitions.h"
 
-dbBE_Redis_address_t* dbBE_Redis_address_allocate()
+dbBE_Network_address_t* dbBE_Network_address_allocate()
 {
-  dbBE_Redis_address_t *addr = (dbBE_Redis_address_t*)malloc( sizeof( dbBE_Redis_address_t ) );
+  dbBE_Network_address_t *addr = (dbBE_Network_address_t*)malloc( sizeof( dbBE_Network_address_t ) );
   if( addr == NULL )
   {
     errno = ENOMEM;
     return NULL;
   }
 
-  memset( addr, 0, sizeof( dbBE_Redis_address_t ) );
+  memset( addr, 0, sizeof( dbBE_Network_address_t ) );
   return addr;
 }
 
-dbBE_Redis_address_t* dbBE_Redis_address_create( const char *host,
+dbBE_Network_address_t* dbBE_Network_address_create( const char *host,
                                                  const char *port )
 {
   struct addrinfo hints, *addrs;
@@ -62,35 +62,35 @@ dbBE_Redis_address_t* dbBE_Redis_address_create( const char *host,
   if( rc != 0 )
     return NULL;
 
-  dbBE_Redis_address_t *addr = dbBE_Redis_address_copy( addrs->ai_addr, addrs->ai_addrlen );
+  dbBE_Network_address_t *addr = dbBE_Network_address_copy( addrs->ai_addr, addrs->ai_addrlen );
 
   freeaddrinfo( addrs );
 
   return addr;
 }
 
-dbBE_Redis_address_t* dbBE_Redis_address_copy( struct sockaddr *in_addr,
+dbBE_Network_address_t* dbBE_Network_address_copy( struct sockaddr *in_addr,
                                                int in_addr_len )
 {
-  dbBE_Redis_address_t *addr = dbBE_Redis_address_allocate();
+  dbBE_Network_address_t *addr = dbBE_Network_address_allocate();
   if( addr != NULL )
     memcpy( &addr->_address, in_addr, in_addr_len );
 
   return addr;
 }
 
-void dbBE_Redis_address_destroy( dbBE_Redis_address_t *addr )
+void dbBE_Network_address_destroy( dbBE_Network_address_t *addr )
 {
   if( addr == NULL )
   {
     errno = EINVAL;
     return;
   }
-  memset( addr, 0, sizeof( dbBE_Redis_address_t ) );
+  memset( addr, 0, sizeof( dbBE_Network_address_t ) );
   free( addr );
 }
 
-const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str, int strmaxlen )
+const char* dbBE_Network_address_to_string( dbBE_Network_address_t *addr, char *str, int strmaxlen )
 {
   if(( str == NULL ) || ( addr == NULL ))
     return NULL;
@@ -106,7 +106,7 @@ const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str,
 }
 
 
-dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str )
+dbBE_Network_address_t* dbBE_Network_address_from_string( const char *str )
 {
   char *tmp = strdup( str );
   char *host = tmp;
@@ -130,12 +130,12 @@ dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str )
   *port = '\0';
   port++;
 
-  dbBE_Redis_address_t *ret = dbBE_Redis_address_create( host, port );
+  dbBE_Network_address_t *ret = dbBE_Network_address_create( host, port );
   free( tmp );
   return ret;
 }
 
-int dbBE_Redis_address_compare_ip( struct sockaddr_in *a,
+int dbBE_Network_address_compare_ip( struct sockaddr_in *a,
                                    struct sockaddr_in *b )
 {
   if( (a == NULL) || (b == NULL) )
@@ -145,10 +145,10 @@ int dbBE_Redis_address_compare_ip( struct sockaddr_in *a,
   return (rc == 0 );
 }
 
-int dbBE_Redis_address_compare( dbBE_Redis_address_t *a,
-                                dbBE_Redis_address_t *b )
+int dbBE_Network_address_compare( dbBE_Network_address_t *a,
+                                dbBE_Network_address_t *b )
 {
-  int rc = ( dbBE_Redis_address_compare_ip( &a->_address, &b->_address ) == 0 );
+  int rc = ( dbBE_Network_address_compare_ip( &a->_address, &b->_address ) == 0 );
   rc &= (a->_address.sin_port == b->_address.sin_port );
   return (rc == 0 );
 }

@@ -30,8 +30,8 @@ int main( int argc, char ** argv )
 {
   int rc = 0;
   dbBE_Redis_connection_t *conn = NULL;
-  dbBE_Redis_address_t *addr = NULL;
-  dbBE_Redis_address_t *addr2 = NULL;
+  dbBE_Network_address_t *addr = NULL;
+  dbBE_Network_address_t *addr2 = NULL;
   dbBE_Redis_sr_buffer_t *sbuf = dbBE_Transport_sr_buffer_allocate( DBBE_REDIS_SR_BUFFER_LEN );
 
   conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );

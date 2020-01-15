@@ -38,7 +38,7 @@ dbBE_Connection_t *dbBE_Connection_create()
 
 
 
-dbBE_Redis_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
+dbBE_Network_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
                                             const char *url,
                                             const char *authfile )
 {
@@ -90,9 +90,9 @@ dbBE_Redis_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
     if( rc == 0 )
     {
       conn->_socket = s;
-      conn->_address = dbBE_Redis_address_copy( iface->ai_addr, iface->ai_addrlen );
+      conn->_address = dbBE_Network_address_copy( iface->ai_addr, iface->ai_addrlen );
       conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
-      dbBE_Redis_address_to_string( conn->_address, conn->_url, DBBE_URL_MAX_LENGTH );
+      dbBE_Network_address_to_string( conn->_address, conn->_url, DBBE_URL_MAX_LENGTH );
       LOG( DBG_VERBOSE, stdout, "Connected to %s\n", url );
       break;
     }
@@ -107,7 +107,7 @@ dbBE_Redis_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
 
   if( conn->_status != DBBE_CONNECTION_STATUS_CONNECTED )
   {
-    dbBE_Redis_address_destroy( conn->_address );
+    dbBE_Network_address_destroy( conn->_address );
     memset( conn->_url, 0, DBBE_URL_MAX_LENGTH );
     conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
     errno = ENOTCONN;
@@ -118,7 +118,7 @@ dbBE_Redis_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
   if( rc != 0 )
   {
     dbBE_Connection_unlink( conn );
-    dbBE_Redis_address_destroy( conn->_address );
+    dbBE_Network_address_destroy( conn->_address );
     return NULL;
   }
 

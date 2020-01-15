@@ -46,7 +46,7 @@ typedef enum
 
 typedef struct dbBE_Connection
 {
-  dbBE_Redis_address_t *_address;
+  dbBE_Network_address_t *_address;
   struct timeval _last_alive;
   int _socket;
   volatile dbBE_Connection_status_t _status;
@@ -92,7 +92,7 @@ dbBE_Connection_t *dbBE_Connection_create();
  * connect to a remote port given by the destination url
  * it will connect and then return the created address type
  */
-dbBE_Redis_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
+dbBE_Network_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
                                             const char *url,
                                             const char *authfile );
 

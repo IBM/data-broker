@@ -104,7 +104,7 @@ int main( int argc, char **argv )
   rc += TEST_NOT( mgr, NULL );
   conn = dbBE_Redis_connection_create( DBBE_REDIS_SR_BUFFER_LEN );
   rc += TEST_NOT( conn, NULL );
-  dbBE_Redis_address_t *addr = dbBE_Redis_connection_link( conn, host, auth );
+  dbBE_Network_address_t *addr = dbBE_Redis_connection_link( conn, host, auth );
   rc += TEST_NOT( addr, NULL );
 
   conn->_index = 0;
