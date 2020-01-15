@@ -21,6 +21,7 @@
 #include "common/request_queue.h"
 #include "common/completion_queue.h"
 #include "transports/sr_buffer.h"
+#include "network/connection.h"
 
 #define DBBE_FSHIP_WORK_QUEUE_DEPTH (4096)
 #define DBBE_FSHIP_BUFFER_SIZE ( 512 * 1024 * 1024 )
@@ -30,6 +31,7 @@ typedef struct
   dbBE_Request_queue_t *_work_q;
   dbBE_Completion_queue_t *_compl_q;
   dbBE_Redis_sr_buffer_t *_sbuf;
+  dbBE_Connection_t *_connection;
 } dbBE_FShip_context_t;
 
 

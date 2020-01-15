@@ -222,7 +222,7 @@ int dbBE_Connection_unlink( dbBE_Connection_t *conn )
 
 int dbBE_Connection_auth( dbBE_Connection_t *conn, const char *authfile )
 {
-  return -ENOSYS;
+  return 0;
 }
 
 
