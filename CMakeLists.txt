@@ -1,5 +1,5 @@
  #
- # Copyright © 2018,2019 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ endif()
 
 project (DataBroker NONE)
 enable_language( C CXX )
+add_definitions( -fPIC )
 
 if(NOT DEFINED APPLE)
   add_definitions(-Werror)
@@ -85,7 +86,7 @@ if( "${BACKEND_LIBS}" STREQUAL "" )
 endif( "${BACKEND_LIBS}" STREQUAL "" )
 
 
-set(TRANSPORT_LIBS dbbe_transport )
+set(TRANSPORT_LIBS dbbe_transport dbbe_network)
 set(DATABROKER_LIB databroker databroker_int)
 
 include_directories(src/util)

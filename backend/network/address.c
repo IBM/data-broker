@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,8 +95,8 @@ const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str,
   if(( str == NULL ) || ( addr == NULL ))
     return NULL;
 
-  char ip[ DBR_SERVER_URL_MAX_LENGTH ];
-  if( inet_ntop( AF_INET, &(addr->_address.sin_addr.s_addr), ip, DBR_SERVER_URL_MAX_LENGTH ) == NULL )
+  char ip[ DBBE_URL_MAX_LENGTH ];
+  if( inet_ntop( AF_INET, &(addr->_address.sin_addr.s_addr), ip, DBBE_URL_MAX_LENGTH ) == NULL )
     return NULL;
 
   // for now just use the sock prefix until there are more/other url types

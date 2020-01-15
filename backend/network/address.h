@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef BACKEND_REDIS_ADDRESS_H_
-#define BACKEND_REDIS_ADDRESS_H_
+#ifndef BACKEND_NETWORK_ADDRESS_H_
+#define BACKEND_NETWORK_ADDRESS_H_
 
 #include <string.h>
 #include <netinet/in.h>
@@ -92,4 +92,4 @@ int dbBE_Redis_address_compare( dbBE_Redis_address_t *a,
  */
 void dbBE_Redis_address_destroy( dbBE_Redis_address_t *addr );
 
-#endif /* BACKEND_REDIS_ADDRESS_H_ */
+#endif /* BACKEND_NETWORK_ADDRESS_H_ */
