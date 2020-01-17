@@ -186,7 +186,7 @@ dbBE_Network_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *con
 
   int s;
   int rc = ENOTCONN;
-  struct addrinfo *addrs = dbBE_Common_resolve_address( url );
+  struct addrinfo *addrs = dbBE_Common_resolve_address( url, 0 );
 
   if( addrs == NULL )
   {

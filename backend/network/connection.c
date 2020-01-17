@@ -57,7 +57,7 @@ dbBE_Network_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
 
   int s;
   int rc = ENOTCONN;
-  struct addrinfo *addrs = dbBE_Common_resolve_address( url );
+  struct addrinfo *addrs = dbBE_Common_resolve_address( url, 0 );
 
   if( addrs == NULL )
   {

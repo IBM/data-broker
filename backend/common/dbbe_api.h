@@ -521,11 +521,6 @@ typedef struct dbBE_api
  */
 extern const dbBE_api_t g_dbBE;
 
-/**********************************************************************
- * A set of helper functions to handle requests, completions, or SGEs
- */
-
-
 /**
  *@}
  */
