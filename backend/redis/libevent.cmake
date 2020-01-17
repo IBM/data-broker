@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -31,12 +31,26 @@ endif( NOT LIBEVENT_INCLUDE_DIR )
 
 message( "Found libevent headers in: ${LIBEVENT_INCLUDE_DIR}" )
 
-find_library( LIBEVENT_LIBRARIES NAMES event
+find_library( LIBEVENT_BASELIB NAMES event
 	PATH_SUFFIXES lib
 )
 
-if( NOT LIBEVENT_LIBRARIES )
+if( NOT LIBEVENT_BASELIB )
  message( FATAL_ERROR "Libevent library not found" )
-endif( NOT LIBEVENT_LIBRARIES )
+endif( NOT LIBEVENT_BASELIB )
+
+
+find_library( LIBEVENT_PTHREAD NAMES event_pthreads
+	PATH_SUFFIXES lib
+)
+
+if( NOT LIBEVENT_PTHREAD )
+	message( FATAL_ERROR "Libevent not build with pthread support or libevent_pthreads not found" )
+endif( NOT LIBEVENT_PTHREAD )
+
+set( LIBEVENT_LIBRARIES
+	${LIBEVENT_BASELIB}
+	${LIBEVENT_PTHREAD}
+)
 
 message( "Found libevent: ${LIBEVENT_LIBRARIES}" )
