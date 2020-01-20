@@ -48,6 +48,9 @@ int dbrFShip_main_context_destroy( dbrFShip_main_context_t *ctx )
   if( ctx->_data_buf )
     dbBE_Transport_sr_buffer_free( ctx->_data_buf );
 
+  if( ctx->_conn_queue )
+    dbBE_Connection_queue_destroy( ctx->_conn_queue );
+
   free( ctx );
 
   return 0;
@@ -64,15 +67,14 @@ dbrFShip_main_context_t* dbrFShip_main_context_create( dbrFShip_config_t *cfg )
 
   memcpy( &ctx->_cfg, cfg, sizeof( dbrFShip_config_t ) );
 
-  dbrMain_context_t *mctx = dbrCheckCreateMainCTX();
+  ctx->_mctx = dbrCheckCreateMainCTX();
   if( ctx->_mctx == NULL )
   {
     free( ctx );
     return NULL;
   }
 
-  ctx->_mctx = mctx;
-
+  ctx->_conn_queue = dbBE_Connection_queue_create( DBR_FSHIP_CONNECTIONS_LIMIT );
   ctx->_data_buf = dbBE_Transport_sr_buffer_allocate( cfg->_max_mem );
   if( ctx->_data_buf == NULL )
   {
@@ -90,7 +92,7 @@ int main( int argc, char **argv )
     return 1;
 
   // daemonize if (-d)
-  if(( argc >= 2 ) && ( strncmp( argv[1], "-d", 2) == 0 ))
+  if( cfg._daemon != 0 )
   {
     pid_t pid = fork();
     if( pid < 0 )
@@ -115,8 +117,12 @@ int main( int argc, char **argv )
   pthread_t listener;
 
   dbrFShip_threadio_t tio;
+  memset( &tio, 0, sizeof( tio ));
   tio._evbase = evbase;
   tio._threadrc = 0;
+  tio._cfg = &context->_cfg;
+  tio._conn_queue = context->_conn_queue;
+  tio._keep_running = 1;
 
   if( pthread_create( &listener, NULL, dbrFShip_listen_start, &tio ) != 0 )
   {
@@ -130,7 +136,10 @@ int main( int argc, char **argv )
   {
     dbBE_Connection_t *active = dbBE_Connection_queue_pop( tio._conn_queue );
     if( active == NULL )
+    {
+      event_base_loop( evbase, EVLOOP_ONCE );
       continue;
+    }
 
     // find the corresponding client context
     dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)active->_context;
@@ -197,7 +206,13 @@ void usage()
 
 int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg )
 {
+  if( cfg == NULL )
+    return -EINVAL;
+
   int option;
+  cfg->_daemon = 0;
+  cfg->_listenaddr = "localhost";
+  cfg->_max_mem = 512; // reserve 512M by default
   while(( option = getopt(argc, argv, "dhl:M:")) != -1 )
   {
     // locally check common options; callback for extra options
@@ -276,7 +291,7 @@ void* dbrFShip_listen_start( void *arg )
 
   int s;
 
-  char *url = dbBE_Extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+  char *url = tio->_cfg->_listenaddr;
   struct addrinfo *addrs = dbBE_Common_resolve_address( url, 0 );
   struct addrinfo *cur = addrs;
   while( cur != NULL )
@@ -320,7 +335,7 @@ void* dbrFShip_listen_start( void *arg )
     if( nes > 0 )
     {
       dbBE_Connection_t *connection = dbBE_Connection_create();
-      connection->_socket = s;
+      connection->_socket = nes;
       connection->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
       connection->_address = dbBE_Network_address_copy( &naddr, naddrlen );
       if( dbBE_Network_address_to_string( connection->_address, connection->_url, DBBE_URL_MAX_LENGTH ) == NULL )
@@ -333,7 +348,10 @@ void* dbrFShip_listen_start( void *arg )
       if( cctx == NULL )
         return NULL;
 
+      // bidirectional linking between connection and its context
       cctx->_conn = connection;
+      connection->_context = (void*)cctx;
+      gettimeofday( &connection->_last_alive, NULL );
 
       dbrFShip_event_info_t *evinfo = (dbrFShip_event_info_t*)malloc( sizeof( dbrFShip_event_info_t ));
       if( evinfo == NULL )
@@ -342,7 +360,7 @@ void* dbrFShip_listen_start( void *arg )
       evinfo->_queue = tio->_conn_queue;
 
       // add to libevent socket polling
-      struct event* ev = event_new( evbase, nes, EV_READ, dbrFShip_connection_wakeup, NULL );
+      struct event* ev = event_new( evbase, nes, EV_READ, dbrFShip_connection_wakeup, evinfo );
       if( ev == NULL )
         return NULL;
 
@@ -350,6 +368,7 @@ void* dbrFShip_listen_start( void *arg )
       timeout.tv_sec = 1;
       timeout.tv_usec = 0;
       event_add( ev, &timeout );
+      event_base_loop( evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
     }
   }
 

@@ -23,6 +23,8 @@
 #include "network/connection_queue.h"
 #include "transports/sr_buffer.h"
 
+#define DBR_FSHIP_CONNECTIONS_LIMIT ( 1024 )
+
 typedef struct dbrFShip_config
 {
   char *_listenaddr;
@@ -42,6 +44,7 @@ typedef struct dbrFShip_main_context
   dbrFShip_config_t _cfg;
   dbrMain_context_t *_mctx;
   dbrFShip_client_context_t **_cctx;
+  dbBE_Connection_queue_t *_conn_queue;
   dbBE_Redis_sr_buffer_t *_data_buf;
 } dbrFShip_main_context_t;
 
@@ -51,6 +54,7 @@ typedef struct dbrFShip_threadio
   struct event_base *_evbase;  // shared libevent base
   volatile int _keep_running; // running indicator of accept thread
   dbBE_Connection_queue_t *_conn_queue; // connection queue with activated connections
+  dbrFShip_config_t *_cfg; // base configuration of the service
   int _threadrc; // return value of accept thread
 } dbrFShip_threadio_t;
 
