@@ -46,11 +46,12 @@ typedef enum
 
 typedef struct dbBE_Connection
 {
-  dbBE_Network_address_t *_address;
-  struct timeval _last_alive;
-  int _socket;
-  volatile dbBE_Connection_status_t _status;
-  char _url[ DBBE_URL_MAX_LENGTH ];
+  dbBE_Network_address_t *_address; ///< network address associated with the connection
+  struct timeval _last_alive;  ///< timestamp of last activity on the connection to detect timeouts
+  void *_context;  ///< an arbitrary context that can be assigned to the connection
+  int _socket; ///< the socket number
+  volatile dbBE_Connection_status_t _status;  ///< status indicator to handle transitions
+  char _url[ DBBE_URL_MAX_LENGTH ]; ///< the network address represented as a URL
 } dbBE_Connection_t;
 
 
