@@ -33,7 +33,7 @@
 
 #define DBBE_PROTO_SOCKET "sock:"
 
-static inline
+static
 struct addrinfo* dbBE_Common_resolve_address_socket( const char *server_string, const int passive )
 {
   struct addrinfo hints, *addrs;
@@ -87,6 +87,7 @@ struct addrinfo* dbBE_Common_resolve_address_socket( const char *server_string, 
 
 }
 
+static
 struct addrinfo* dbBE_Common_resolve_address( const char *server_string, const int passive )
 {
   if( server_string == NULL )
@@ -118,6 +119,7 @@ struct addrinfo* dbBE_Common_resolve_address( const char *server_string, const i
   return NULL;
 }
 
+static
 void dbBE_Common_release_addrinfo( struct addrinfo **addrs )
 {
   if(( addrs ) && ( *addrs ))
