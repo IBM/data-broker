@@ -1,5 +1,5 @@
  #
- # Copyright © 2018, 2019 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -53,3 +53,4 @@ install( TARGETS databroker_int
 )
 
 add_subdirectory( test )
+add_subdirectory( fship_srv )
