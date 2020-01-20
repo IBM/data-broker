@@ -38,6 +38,7 @@ typedef struct dbBE_Connection_queue
   volatile dbBE_Connection_t **_connections;
   unsigned _queue_size;
   pthread_mutex_t _mutex;
+  pthread_cond_t _wakeup;
 } dbBE_Connection_queue_t;
 
 
@@ -62,6 +63,7 @@ dbBE_Connection_queue_t* dbBE_Connection_queue_create( const int size )
   queue->_queue_size = size;
 
   pthread_mutex_init( &queue->_mutex, NULL );
+  pthread_cond_init( &queue->_wakeup, NULL );
   return queue;
 }
 
@@ -71,6 +73,7 @@ int dbBE_Connection_queue_destroy( dbBE_Connection_queue_t *queue )
   if( queue == NULL )
     return -EINVAL;
 
+  pthread_cond_destroy( &queue->_wakeup );
   pthread_mutex_destroy( &queue->_mutex );
   free( queue->_connections );
   memset( queue, 0, sizeof( dbBE_Connection_queue_t ) );
@@ -80,7 +83,7 @@ int dbBE_Connection_queue_destroy( dbBE_Connection_queue_t *queue )
 }
 
 static inline
-dbBE_Connection_t* dbBE_Connection_queue_pop( dbBE_Connection_queue_t *queue )
+dbBE_Connection_t* dbBE_Connection_queue_pop_ext( dbBE_Connection_queue_t *queue, int blocking )
 {
   uint64_t head, tail;
 
@@ -97,6 +100,14 @@ deleted_slot_retry:
   {
     head = 0;  // use the empty queue status to reset the counters
     tail = 0;
+
+    // if blocking operation is requested, then this will wait for conditional var signalled by push()
+    if( blocking )
+    {
+      pthread_cond_wait( &queue->_wakeup, &queue->_mutex );
+      goto deleted_slot_retry;
+    }
+
     pthread_mutex_unlock( &queue->_mutex );
     return NULL;
   }
@@ -122,6 +133,18 @@ deleted_slot_retry:
 }
 
 static inline
+dbBE_Connection_t* dbBE_Connection_queue_pop( dbBE_Connection_queue_t *queue )
+{
+  return dbBE_Connection_queue_pop_ext( queue, 0 );
+}
+
+static inline
+dbBE_Connection_t* dbBE_Connection_queue_pop_wait( dbBE_Connection_queue_t *queue )
+{
+  return dbBE_Connection_queue_pop_ext( queue, 1 );
+}
+
+static inline
 int dbBE_Connection_queue_push( dbBE_Connection_queue_t *queue,
                                       dbBE_Connection_t *conn )
 {
@@ -142,6 +165,7 @@ int dbBE_Connection_queue_push( dbBE_Connection_queue_t *queue,
   queue->_connections[ head ] = conn;
   ++dbBE_Connection_queue_head( queue );
 
+  pthread_cond_signal( &queue->_wakeup );
   pthread_mutex_unlock( &queue->_mutex );
 
   return 0;
