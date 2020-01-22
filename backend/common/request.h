@@ -101,6 +101,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     case DBBE_OPCODE_DIRECTORY:
       sge_total = dbBE_SGE_serialize_header( req->_sge, req->_sge_count, data, space );
       break;
+    case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_PUT:
       sge_total = dbBE_SGE_serialize( req->_sge, req->_sge_count, data, space );
       break;
@@ -111,7 +112,6 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
       break;
     case DBBE_OPCODE_REMOVE:
     case DBBE_OPCODE_CANCEL:
-    case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:
@@ -247,6 +247,21 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
       if( sge_count < 0 )
         dbBE_Request_deserialize_error( -EAGAIN, key, match )
       break;
+    case DBBE_OPCODE_NSCREATE:
+    {
+      if( (sge_total = dbBE_SGE_deserialize( NULL, 0, data, space, &sge_out, &sge_count )) < 0 )
+        break;
+      if( sge_count < 1 )
+        dbBE_Request_deserialize_error( -EBADMSG, key, match );
+      if( sge_out[0].iov_base != NULL )
+      {
+        void *ptr = NULL;
+        if( sscanf( sge_out[0].iov_base, "%p", &ptr ) < 1 )
+          dbBE_Request_deserialize_error( -EBADMSG, key, match );
+        sge_out[0].iov_base = ptr;
+      }
+      break;
+    }
     case DBBE_OPCODE_PUT:
       sge_total = dbBE_SGE_deserialize( NULL, 0, data, space, &sge_out, &sge_count );
       break;
@@ -272,7 +287,6 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
     }
     case DBBE_OPCODE_REMOVE:
     case DBBE_OPCODE_CANCEL:
-    case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_NSATTACH:
     case DBBE_OPCODE_NSDETACH:
     case DBBE_OPCODE_NSDELETE:

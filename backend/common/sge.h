@@ -43,6 +43,8 @@
 typedef struct iovec dbBE_sge_t;
 
 
+// NULLptr encoding: len = -1; data = empty, e.g. single SGE with NULL: 0\n1\n-1\n\n
+
 
 /**
  * @brief calculate the total size of an SGE list
@@ -94,10 +96,16 @@ ssize_t dbBE_SGE_serialize_header( const dbBE_sge_t *sge, const int sge_count, c
   ssize_t total = plen;
   for( i=0; (i < sge_count) && (space > 0); ++i )
   {
-    if(( sge[i].iov_len == 0 ) && (sge[i].iov_base == NULL ))
+    if( (( sge[i].iov_len != 0 ) && (sge[i].iov_base == NULL )) ||
+        (( sge[i].iov_len == 0 ) && (sge[i].iov_base != NULL )) )
       return -EBADMSG;
 
-    plen = snprintf( data, space, "%ld\n", sge[i].iov_len );
+    // NULL-ptr encoding: len=0; ptr=NULL;
+    ssize_t itemlen = (ssize_t)sge[i].iov_len;
+    if(( sge[i].iov_len == 0 ) && (sge[i].iov_base == NULL ))
+      itemlen = -1;
+
+    plen = snprintf( data, space, "%ld\n", itemlen );
     if( plen <= 0 )
       return -EBADMSG;
 
@@ -134,7 +142,8 @@ ssize_t dbBE_SGE_serialize(const dbBE_sge_t *sge, const int sge_count, char *dat
     ssize_t plen = sge[i].iov_len;
     if( (size_t)plen >= space )
       return -ENOSPC;
-    memcpy( data, sge[i].iov_base, plen );
+    if( sge[i].iov_base != NULL )
+      memcpy( data, sge[i].iov_base, plen );
 //    data[plen] = '\n';
 //    ++plen;
 
@@ -190,7 +199,7 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
 
   int plen = sscanf( data, "%"PRId64"\n%d\n%n", &total, &i_sge_count, &offset );
   if(( plen < 2 ) || (offset < 0) || ((size_t)offset > space)
-      || (i_sge_count < 1) || (total<4) || (space < (unsigned)i_sge_count * 2)) // at least one digit+\n need to be available in data
+      || (i_sge_count < 1) || (space < (unsigned)i_sge_count * 2)) // at least one digit+\n need to be available in data
     return -EBADMSG;
 
   data += offset;
@@ -212,15 +221,15 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
   for( i=0; (i < i_sge_count) && (space > 1); ++i )
   {
     // scan the length
-    size_t len;
+    ssize_t len;
     plen = sscanf( data, "%ld\n%n", &len, &offset );
     if(( plen < 1 ) || ( (size_t)offset > space ))
       dbBE_SGE_deserialize_error( -EBADMSG, sge_in, sge );
     if( data[offset-1] != '\n' ) // correctly terminated?
       dbBE_SGE_deserialize_error( -EAGAIN, sge_in, sge );
 
-    sge[i].iov_len = len;
-    consistent += len;
+    sge[i].iov_len = (size_t)len;
+    consistent += ( len == -1 ) ? 0 : len; // cover NULL-ptr case
     data += offset;
     space -= offset;
     *parsed += (size_t)offset;
@@ -274,15 +283,25 @@ ssize_t dbBE_SGE_deserialize( dbBE_sge_t *sge_in, const int sge_count_in,
   offset = 0;
   for( i=0; (i < i_sge_count); ++i )
   {
-    if( space < sge[i].iov_len )
-      dbBE_SGE_deserialize_error( -EAGAIN, sge_in, *sge_out );
-    sge[i].iov_base = (void*)data;
+    if( sge[i].iov_len == (size_t)-1 ) // NULL-ptr
+    {
+      sge[i].iov_len = 0;
+      sge[i].iov_base = NULL;
+    }
+    else
+    {
+      if( space < sge[i].iov_len )
+        dbBE_SGE_deserialize_error( -EAGAIN, sge_in, *sge_out );
+      sge[i].iov_base = (void*)data;
+    }
 //    ((char*)(sge[i].iov_base))[ sge[i].iov_len ] = '\0';
     data += sge[i].iov_len; // + 1;
     space -= sge[i].iov_len;
     total += sge[i].iov_len;
   }
-  if( i_sge_count > 0 ) // account for the trailing separator in case there was SGE data
+  // account for the trailing separator unless it was only a NULL-ptr sge
+  if(( i_sge_count > 1 ) ||
+      (( i_sge_count == 1 ) && ( sge[0].iov_base != NULL )) )
     ++total;
 
   *sge_count = i_sge_count;

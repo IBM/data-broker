@@ -45,15 +45,24 @@ int test_serialize()
   req->_opcode = DBBE_OPCODE_PUT; // EINVAL because uninitialized SGEs
   rc += TEST( -EINVAL, dbBE_Request_serialize( req, data, 1000 ) );
 
-  req->_sge_count = 1; // EBADMSG because NULL SGEs
+  req->_sge_count = 1; // EBADMSG because bad SGE entries
+  req->_sge[0].iov_base = NULL;
+  req->_sge[0].iov_len = 1;
+  rc += TEST( -EBADMSG, dbBE_Request_serialize( req, data, 1000 ) );
+
+  req->_sge[0].iov_base = partdata;
+  req->_sge[0].iov_len = 0;
   rc += TEST( -EBADMSG, dbBE_Request_serialize( req, data, 1000 ) );
 
   req->_sge[0].iov_base = putdata;
   req->_sge[0].iov_len = 4;
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
   rc += TEST_NOT( strstr( data, partdata ), NULL );
+  rc += TEST_NOT( strstr( data, "4\n1\n4\n"), NULL );
 
-  req->_sge_count = 2; // EBADMSG because NULL SGEs
+  req->_sge_count = 2; // EBADMSG because bad SGEs
+  req->_sge[1].iov_base = NULL;
+  req->_sge[1].iov_len = 1;
   rc += TEST( -EBADMSG, dbBE_Request_serialize( req, data, 1000 ) );
 
   req->_sge_count = 1;
@@ -122,10 +131,28 @@ int test_serialize()
 
   req->_opcode = DBBE_OPCODE_DIRECTORY;
   req->_sge_count = 1;
-  req->_sge[0].iov_base = NULL;
+  req->_sge[0].iov_base = partdata;
   req->_sge[0].iov_len = 100;
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
   rc += TEST_NOT( strstr( data, "100\n1\n100\n" ), NULL ); // must contain SGE-header with length limit but no actual ptr
+
+  req->_opcode = DBBE_OPCODE_NSCREATE;
+  req->_sge_count = 1;
+  req->_sge[0].iov_base = NULL;
+  req->_sge[0].iov_len = 0;
+  rc += TEST( dbBE_Request_serialize( req, data, 1000), (ssize_t)strnlen( data, 1000 ) );
+  rc += TEST_NOT( strstr( data, "0\n1\n-1\n\n"), NULL ); // must contain serialized NULL ptr in SGE
+
+  req->_opcode = DBBE_OPCODE_NSATTACH;
+  req->_sge_count = 0;
+  req->_sge[0].iov_base = NULL;
+  req->_sge[0].iov_len = 0;
+  rc += TEST( dbBE_Request_serialize( req, data, 1000), (ssize_t)strnlen( data, 1000 ) );
+
+  req->_opcode = DBBE_OPCODE_NSDETACH;
+  rc += TEST( dbBE_Request_serialize( req, data, 1000), (ssize_t)strnlen( data, 1000 ) );
+  req->_opcode = DBBE_OPCODE_NSDELETE;
+  rc += TEST( dbBE_Request_serialize( req, data, 1000), (ssize_t)strnlen( data, 1000 ) );
 
 
   req->_opcode = DBBE_OPCODE_ITERATOR;
@@ -271,11 +298,15 @@ int test_deserialize()
   data = build_data( data, "8\n(nil)\n(nil)\n(nil)\n(nil)\n9\n0\n0\nNamespa");
   rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), -EAGAIN );
   data = build_data( data, "8\n(nil)\n(nil)\n(nil)\n(nil)\n9\n0\n0\nNamespace\n");
+  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), -EAGAIN );
+  data = build_data( data, "8\n(nil)\n(nil)\n(nil)\n(nil)\n9\n0\n0\nNamespace\n0\n1\n-1\n\n");
   rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), (ssize_t)strlen( data ) );
   rc += TEST( req->_opcode, DBBE_OPCODE_NSCREATE );
   rc += TEST( req->_ns_hdl, NULL );
   rc += TEST( req->_user, NULL );
-  rc += TEST( req->_sge_count, 0 );
+  rc += TEST( req->_sge_count, 1 );
+  rc += TEST( req->_sge[0].iov_base, NULL );
+  rc += TEST( req->_sge[0].iov_len, 0 );
   rc += TEST( strncmp( req->_key, "Namespace", 9) , 0 );
   rc += TEST( dbBE_Request_free( req ), 0 );
 
