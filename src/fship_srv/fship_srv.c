@@ -184,6 +184,9 @@ int main( int argc, char **argv )
       return -1;
     }
     dbBE_Request_queue_push( cctx->_pending, be_req );
+    dbBE_Completion_t *comp = NULL;
+    while( (comp = g_dbBE.test_any( context->_mctx->_be_ctx )) == NULL ) {}
+    LOG( DBG_ALL, stderr, "Completion\n" );
   }
 
   pthread_join( listener, NULL );
