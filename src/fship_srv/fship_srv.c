@@ -24,6 +24,7 @@
 #include "lib/backend.h"
 
 #include "common/request_queue.h"
+#include "common/completion.h"
 
 #include <errno.h> // errno
 #include <unistd.h> // fork
@@ -34,10 +35,12 @@
 #include <event2/thread.h> // evthread_use_pthreads
 #include <string.h> // strncmp
 
-int dbrFShip_main_context_destroy( dbrFShip_main_context_t *ctx )
+#define DBR_MCTX_RC( a, rc ) ( (rc) == 0 ? (a) : (rc) )
+
+int dbrFShip_main_context_destroy( dbrFShip_main_context_t *ctx, const int rc )
 {
   if( ctx == NULL )
-    return -EINVAL;
+    return DBR_MCTX_RC( -EINVAL, rc );
 
   if( ctx->_mctx )
     dbrMain_exit();
@@ -45,15 +48,19 @@ int dbrFShip_main_context_destroy( dbrFShip_main_context_t *ctx )
   if( ctx->_cctx )
     free( ctx->_cctx );
 
-  if( ctx->_data_buf )
-    dbBE_Transport_sr_buffer_free( ctx->_data_buf );
+  if( ctx->_r_buf )
+    dbBE_Transport_sr_buffer_free( ctx->_r_buf );
+
+  if( ctx->_s_buf )
+    dbBE_Transport_sr_buffer_free( ctx->_s_buf );
 
   if( ctx->_conn_queue )
     dbBE_Connection_queue_destroy( ctx->_conn_queue );
 
   free( ctx );
+  dbrMain_exit();
 
-  return 0;
+  return DBR_MCTX_RC( 0, rc );
 }
 
 dbrFShip_main_context_t* dbrFShip_main_context_create( dbrFShip_config_t *cfg )
@@ -75,13 +82,19 @@ dbrFShip_main_context_t* dbrFShip_main_context_create( dbrFShip_config_t *cfg )
   }
 
   ctx->_conn_queue = dbBE_Connection_queue_create( DBR_FSHIP_CONNECTIONS_LIMIT );
-  ctx->_data_buf = dbBE_Transport_sr_buffer_allocate( cfg->_max_mem );
-  if( ctx->_data_buf == NULL )
+  ctx->_r_buf = dbBE_Transport_sr_buffer_allocate( cfg->_max_mem >> 1 );
+  if( ctx->_r_buf == NULL )
   {
-    dbrFShip_main_context_destroy( ctx );
+    dbrFShip_main_context_destroy( ctx, -ENOMEM );
     return NULL;
   }
 
+  ctx->_s_buf = dbBE_Transport_sr_buffer_allocate( cfg->_max_mem >> 1 );
+  if( ctx->_s_buf == NULL )
+  {
+    dbrFShip_main_context_destroy( ctx, -ENOMEM );
+    return NULL;
+  }
   return ctx;
 }
 
@@ -126,76 +139,153 @@ int main( int argc, char **argv )
 
   if( pthread_create( &listener, NULL, dbrFShip_listen_start, &tio ) != 0 )
   {
-    dbrFShip_main_context_destroy( context );
-    exit( -1 );
+    return dbrFShip_main_context_destroy( context, -ECHILD );
   }
 
 
   // loop
+  int rc = 0;
   while( 1 )
   {
-    dbBE_Connection_t *active = dbBE_Connection_queue_pop( tio._conn_queue );
-    if( active == NULL )
-    {
-      event_base_loop( evbase, EVLOOP_ONCE );
-      continue;
-    }
+    rc = dbrFShip_inbound( &tio, context );
+    if( rc < 0 )
+      break;
 
-    // find the corresponding client context
-    dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)active->_context;
-    if( cctx == NULL ) // unknown connection context
-    {
-      LOG( DBG_ERR, stderr, "FATAL: Found active connection without valid connection context.\n" )
-      return -1;
-    }
-
-
-    // recv() +  deserialize()
-    dbBE_Request_t *req = NULL;
-    ssize_t parsed = -EAGAIN;
-    ssize_t total = 0;
-    while( parsed == -EAGAIN )
-    {
-      ssize_t rcvd = recv( cctx->_conn->_socket,
-                           dbBE_Transport_sr_buffer_get_available_position( context->_data_buf ),
-                           dbBE_Transport_sr_buffer_remaining( context->_data_buf ),
-                           0 );
-      if( rcvd < 0 )
-        return -1;
-      dbBE_Transport_sr_buffer_add_data( context->_data_buf, rcvd, 0 );
-
-      parsed = dbBE_Request_deserialize( dbBE_Transport_sr_buffer_get_processed_position( context->_data_buf ),
-                                         dbBE_Transport_sr_buffer_available( context->_data_buf ),
-                                         &req );
-      if( parsed > 0 )
-      {
-        total += parsed;
-        dbBE_Transport_sr_buffer_advance( context->_data_buf, parsed );
-      }
-    }
-
-    //   create request()
-//    int64_t rc;
-    req->_user = cctx;
-    dbBE_Request_handle_t be_req = g_dbBE.post( context->_mctx->_be_ctx, req, 0 );
-    if( be_req == NULL )
-    {
-      // todo: create error response with DBR_ERR_BE_POST
-      return -1;
-    }
-    dbBE_Request_queue_push( cctx->_pending, be_req );
-    dbBE_Completion_t *comp = NULL;
-    while( (comp = g_dbBE.test_any( context->_mctx->_be_ctx )) == NULL ) {}
-    LOG( DBG_ALL, stderr, "Completion\n" );
+    rc = dbrFShip_outbound( &tio, context );
+    if( rc < 0 )
+      break;
   }
 
   pthread_join( listener, NULL );
-  dbrMain_exit();
 
   if( tio._threadrc != 0 )
     LOG( DBG_ERR, stderr, "Listener thread exited with rc=%d\n", tio._threadrc );
 
-  return dbrFShip_main_context_destroy( context );
+  return dbrFShip_main_context_destroy( context, rc );
+}
+
+int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context )
+{
+  // check for new inbound requests
+  //
+  if( context->_total_pending > 0 )
+    event_base_loop( tio->_evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
+  else
+    event_base_loop( tio->_evbase, 0 );
+
+  dbBE_Connection_t *active = dbBE_Connection_queue_pop( tio->_conn_queue );
+  if( active == NULL )
+    return 0;
+
+  // find the corresponding client context
+  dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)active->_context;
+  if( cctx == NULL ) // unknown connection context
+  {
+    LOG( DBG_ERR, stderr, "FATAL: Found active connection without valid connection context.\n" )
+    return -1;
+  }
+
+
+  // recv() +  deserialize()
+  dbBE_Request_t *req = NULL;
+  ssize_t parsed = -EAGAIN;
+  ssize_t total = 0;
+  while( parsed == -EAGAIN )
+  {
+    ssize_t rcvd = recv( cctx->_conn->_socket,
+                         dbBE_Transport_sr_buffer_get_available_position( context->_r_buf ),
+                         dbBE_Transport_sr_buffer_remaining( context->_r_buf ),
+                         0 );
+    if(( rcvd == 0 ) && ( errno == EAGAIN ))
+      continue;
+
+    if( rcvd < 0 )
+      return -1;
+    dbBE_Transport_sr_buffer_add_data( context->_r_buf, rcvd, 0 );
+
+    parsed = dbBE_Request_deserialize( dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ),
+                                       dbBE_Transport_sr_buffer_available( context->_r_buf ),
+                                       &req );
+    if( parsed > 0 )
+    {
+      total += parsed;
+      dbBE_Transport_sr_buffer_advance( context->_r_buf, parsed );
+    }
+  }
+
+  //   create request()
+//    int64_t rc;
+  dbrFShip_request_ctx_t *rctx = (dbrFShip_request_ctx_t*)calloc( 1, sizeof( dbrFShip_request_ctx_t ));
+  if( rctx == NULL )
+    return -ENOMEM;
+  rctx->_user_in = req->_user;
+  rctx->_cctx = cctx;
+  rctx->_req = req;
+  req->_user = rctx;
+  dbBE_Request_handle_t be_req = g_dbBE.post( context->_mctx->_be_ctx, req, 0 );
+  if( be_req == NULL )
+  {
+    // todo: create error response with DBR_ERR_BE_POST
+    return -1;
+  }
+  ++context->_total_pending;
+  return dbrFShip_request_ctx_queue_push( cctx->_pending, rctx );
+}
+
+int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context )
+{
+  // check for completions
+
+  dbBE_Completion_t *comp = NULL;
+  if( (comp = g_dbBE.test_any( context->_mctx->_be_ctx )) == NULL )
+    return 0;
+
+  dbrFShip_request_ctx_t *rctx = (dbrFShip_request_ctx_t*)comp->_user;
+  if( rctx == NULL )
+    return -EPROTO;
+
+  // restore user ptr
+  comp->_user = rctx->_user_in;
+
+  ssize_t serlen = dbBE_Completion_serialize( rctx->_req->_opcode, comp, rctx->_req->_sge, rctx->_req->_sge_count,
+                                              dbBE_Transport_sr_buffer_get_available_position( context->_s_buf ),
+                                              dbBE_Transport_sr_buffer_remaining( context->_s_buf ) );
+  if( serlen < 0 )
+    return (int)serlen;
+
+  dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 1 );
+
+  ssize_t sent = -EAGAIN;
+  ssize_t total = 0;
+  while(( sent == -EAGAIN ) && ( total < (ssize_t)dbBE_Transport_sr_buffer_available( context->_s_buf )) )
+  {
+    sent = send( rctx->_cctx->_conn->_socket,
+                 dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ),
+                 dbBE_Transport_sr_buffer_available( context->_s_buf ),
+                 0 );
+    if( sent < 0 )
+      return -1;
+    dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
+
+    total += sent;
+  }
+
+  // clean Request from rctx-queue (note: out-of-order completion possible, therefore assume we can't just q_pop())
+  dbBE_Request_free( rctx->_req );
+  dbrFShip_client_context_t *cctx = rctx->_cctx;
+  rctx->_req = NULL;
+  rctx->_cctx = NULL;
+  rctx->_user_in = NULL;
+  if( rctx == cctx->_pending->_head )
+  {
+    rctx = dbrFShip_request_ctx_queue_pop( cctx->_pending );
+    if( rctx != NULL )
+      free( rctx );
+  }
+
+  --context->_total_pending;
+
+  return 0;
 }
 
 void usage()
@@ -240,7 +330,6 @@ int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg )
   }
   return 0;
 }
-
 
 void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *arg )
 {
@@ -353,6 +442,7 @@ void* dbrFShip_listen_start( void *arg )
 
       // bidirectional linking between connection and its context
       cctx->_conn = connection;
+      cctx->_pending = dbrFShip_request_ctx_queue_create();
       connection->_context = (void*)cctx;
       gettimeofday( &connection->_last_alive, NULL );
 
@@ -363,7 +453,7 @@ void* dbrFShip_listen_start( void *arg )
       evinfo->_queue = tio->_conn_queue;
 
       // add to libevent socket polling
-      struct event* ev = event_new( evbase, nes, EV_READ, dbrFShip_connection_wakeup, evinfo );
+      struct event* ev = event_new( evbase, nes, EV_READ | EV_ET, dbrFShip_connection_wakeup, evinfo );
       if( ev == NULL )
         return NULL;
 
@@ -371,7 +461,6 @@ void* dbrFShip_listen_start( void *arg )
       timeout.tv_sec = 1;
       timeout.tv_usec = 0;
       event_add( ev, &timeout );
-      event_base_loop( evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
     }
   }
 

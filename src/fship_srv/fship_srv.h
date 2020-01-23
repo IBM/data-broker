@@ -32,12 +32,23 @@ typedef struct dbrFShip_config
   size_t _max_mem;
 } dbrFShip_config_t;
 
+struct dbrFShip_client_context;
+
+typedef struct dbrFShip_request_ctx
+{
+  struct dbrFShip_request_ctx *_next; // queueing
+  void *_user_in; // save the inbound user ptr since we're re-using that for our purposes here
+  struct dbrFShip_client_context *_cctx; // client context to link request to client
+  dbBE_Request_t *_req; // posted request info
+} dbrFShip_request_ctx_t;
+
+#include "fship_request_queue.h"
+
 typedef struct dbrFShip_client_context
 {
   dbBE_Connection_t *_conn;
-  dbBE_Request_queue_t *_pending;
+  dbrFShip_request_ctx_queue_t *_pending;
 } dbrFShip_client_context_t;
-
 
 typedef struct dbrFShip_main_context
 {
@@ -45,7 +56,9 @@ typedef struct dbrFShip_main_context
   dbrMain_context_t *_mctx;
   dbrFShip_client_context_t **_cctx;
   dbBE_Connection_queue_t *_conn_queue;
-  dbBE_Redis_sr_buffer_t *_data_buf;
+  dbBE_Redis_sr_buffer_t *_r_buf;
+  dbBE_Redis_sr_buffer_t *_s_buf;
+  int _total_pending;
 } dbrFShip_main_context_t;
 
 
@@ -64,9 +77,11 @@ typedef struct dbrFShip_event_info
   dbBE_Connection_queue_t *_queue;
 } dbrFShip_event_info_t;
 
-
 void* dbrFShip_listen_start( void *arg );
 int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg );
+
+int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context );
+int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context );
 
 
 #endif /* SRC_FSHIP_SRV_FSHIP_SRV_H_ */
