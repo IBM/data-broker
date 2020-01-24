@@ -17,6 +17,7 @@
 set( LIBDBBE_NETWORK_SOURCE
 	address.c
 	connection.c
+	socket_io.c
 )
 add_library(dbbe_network STATIC ${LIBDBBE_NETWORK_SOURCE})
 
