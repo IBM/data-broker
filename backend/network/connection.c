@@ -155,6 +155,9 @@ dbBE_Connection_recoverable_t dbBE_Connection_recoverable( dbBE_Connection_t *co
   if( dbBE_Connection_RTR( conn ) )
     return DBBE_CONNECTION_RECOVERED;
 
+  if( conn == NULL )
+    return DBBE_CONNECTION_UNRECOVERABLE;
+
   struct timeval now;
   gettimeofday( &now, NULL );
   if(( now.tv_sec - conn->_last_alive.tv_sec ) < DBBE_RECONNECT_TIMEOUT )

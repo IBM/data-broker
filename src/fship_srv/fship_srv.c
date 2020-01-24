@@ -211,6 +211,8 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
       total += parsed;
       dbBE_Transport_sr_buffer_advance( context->_r_buf, parsed );
     }
+    if(( parsed < 0 ) && ( parsed != -EAGAIN ))
+      return -1;
   }
 
   //   create request()
