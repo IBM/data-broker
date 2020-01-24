@@ -138,6 +138,7 @@ int test_serialize()
 
   req->_opcode = DBBE_OPCODE_NSCREATE;
   req->_sge_count = 1;
+  req->_match = NULL;
   req->_sge[0].iov_base = NULL;
   req->_sge[0].iov_len = 0;
   rc += TEST( dbBE_Request_serialize( req, data, 1000), (ssize_t)strnlen( data, 1000 ) );
