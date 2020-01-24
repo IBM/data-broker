@@ -18,8 +18,11 @@
 #include "logutil.h"
 #include "common/utility.h"
 #include "common/dbbe_api.h"
+#include "common/sge.h"
+#include "common/completion.h"
 #include "network/definitions.h"
 #include "network/connection.h"
+#include "network/socket_io.h"
 #include "fship.h"
 
 const dbBE_api_t g_dbBE =
@@ -32,6 +35,14 @@ const dbBE_api_t g_dbBE =
     };
 
 int dbBE_FShip_connect_initial( dbBE_FShip_context_t *ctx );
+
+dbBE_Completion_t* dbBE_FShip_complete_error( dbBE_Request_t *req,
+                                              dbBE_Completion_t *cmpl,
+                                              DBR_Errorcode_t err )
+{
+  cmpl->_status = err;
+  return cmpl;
+}
 
 dbBE_Handle_t FShip_initialize( void )
 {
@@ -56,7 +67,6 @@ dbBE_Handle_t FShip_initialize( void )
     FShip_exit( be );
     return NULL;
   }
-
   be->_compl_q = compl_q;
 
   dbBE_Redis_sr_buffer_t *sbuf = dbBE_Transport_sr_buffer_allocate( DBBE_FSHIP_BUFFER_SIZE );
@@ -66,6 +76,27 @@ dbBE_Handle_t FShip_initialize( void )
     FShip_exit( be );
     return NULL;
   }
+  be->_sbuf = sbuf;
+
+  dbBE_Redis_sr_buffer_t *rbuf = dbBE_Transport_sr_buffer_allocate( DBBE_FSHIP_BUFFER_SIZE );
+  if( rbuf == NULL )
+  {
+    LOG( DBG_ERR, stderr, "dbBE_FShip_context_t::initialize: Failed to allocate recv buffer.\n" );
+    FShip_exit( be );
+    return NULL;
+  }
+  be->_rbuf = rbuf;
+
+
+
+  dbBE_Transport_sge_buffer_t *sge_buf = dbBE_Transport_sge_buffer_create();
+  if( sge_buf == NULL )
+  {
+    LOG( DBG_ERR, stderr, "dbBE_FShip_context_t::initialize: Failed to allocate sge-buffer.\n" );
+    FShip_exit( be );
+    return NULL;
+  }
+  be->_sge_buf = sge_buf;
 
   int rc;
   if( ( rc = dbBE_FShip_connect_initial( be )) != 0 )
@@ -93,6 +124,12 @@ int FShip_exit( dbBE_Handle_t be )
       dbBE_Connection_unlink( ctx->_connection );
       dbBE_Connection_destroy( ctx->_connection );
     }
+
+    if( ctx->_sge_buf )
+      dbBE_Transport_sge_buffer_destroy( ctx->_sge_buf );
+
+    if( ctx->_rbuf )
+      dbBE_Transport_sr_buffer_free( ctx->_rbuf );
 
     if( ctx->_sbuf )
       dbBE_Transport_sr_buffer_free( ctx->_sbuf );
@@ -126,17 +163,52 @@ dbBE_Request_handle_t FShip_post( dbBE_Handle_t be,
                                   dbBE_Request_t *request,
                                   int trigger )
 {
+  if(( be == NULL ) || ( request == NULL ))
+    return NULL;
+
   // sanity checking
   if( dbBE_FShip_sanity_check( request ) != 0 )
     return NULL;
 
   // connection check
+  dbBE_FShip_context_t *fctx = (dbBE_FShip_context_t*)be;
+  if(( fctx->_connection == NULL ) && ( dbBE_FShip_connect_initial( fctx ) != 0 ))
+    return NULL;
+
+  if(( ! dbBE_Connection_RTS( fctx->_connection ) ) &&
+      (( dbBE_Connection_recoverable( fctx->_connection ) == DBBE_CONNECTION_RECOVERABLE ) &&
+          ( dbBE_Connection_reconnect( fctx->_connection ) != 0 )) )
+    return NULL;
 
   // serialize + (wait?)
+  if( dbBE_Request_queue_push( fctx->_work_q, request ) != 0 )
+    return NULL;
 
-  // fship
+  // add to buffer
+  dbBE_sge_t *sge = dbBE_Transport_sge_buffer_get_current( fctx->_sge_buf );
+  sge->iov_base = dbBE_Transport_sr_buffer_get_available_position( fctx->_sbuf );
 
-  return NULL;
+  ssize_t serlen = dbBE_Request_serialize( dbBE_Request_queue_pop( fctx->_work_q ),
+                                           dbBE_Transport_sr_buffer_get_start( fctx->_sbuf ),
+                                           dbBE_Transport_sr_buffer_get_size( fctx->_sbuf ));
+  if( serlen < 0 )
+    return NULL;
+
+  sge->iov_len = serlen;
+  dbBE_Transport_sge_buffer_add( fctx->_sge_buf, 1 );
+
+  // make sure to trigger if a certain threshold of sbuf is full
+  trigger = (( trigger != 0 ) || ( dbBE_Transport_sr_buffer_full( fctx->_sbuf, dbBE_Transport_sr_buffer_get_size( fctx->_sbuf ) << 3 ) ));
+
+  if( trigger )
+  {
+    // fship
+    ssize_t slen = dbBE_Socket_send( fctx->_connection->_socket, fctx->_sge_buf );
+    if( slen < 0 )
+      return NULL;
+  }
+
+  return (dbBE_Request_handle_t)request;
 }
 
 
@@ -175,9 +247,57 @@ dbBE_Completion_t* FShip_test( dbBE_Handle_t be,
 
 dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
 {
+  if( be == NULL )
+    return NULL;
+
+  dbBE_FShip_context_t *fctx = (dbBE_FShip_context_t*)be;
+  if(( ! dbBE_Connection_RTS( fctx->_connection ) ) &&
+      (( dbBE_Connection_recoverable( fctx->_connection ) == DBBE_CONNECTION_RECOVERABLE ) &&
+          ( dbBE_Connection_reconnect( fctx->_connection ) != 0 )) )
+    return NULL;
+
+  dbBE_Completion_t *cmpl = NULL;
+  ssize_t parsed = -EAGAIN;
+  ssize_t total = 0;
+
   // receive any potential replies
+  ssize_t rcvd = dbBE_Socket_recv( fctx->_connection->_socket, fctx->_rbuf );
+  if(( rcvd == 0 ) && ( errno == EAGAIN ))
+    return NULL;
+
+  if( rcvd < 0 )
+    return NULL;
+
+  dbBE_Transport_sr_buffer_add_data( fctx->_rbuf, rcvd, 0 );
+
   // deserialize
+  dbBE_sge_t *sge = NULL;
+  int sge_count = 0;
+  parsed = dbBE_Completion_deserialize( dbBE_Transport_sr_buffer_get_processed_position( fctx->_rbuf ),
+                                        dbBE_Transport_sr_buffer_available( fctx->_rbuf ),
+                                        &cmpl, &sge, &sge_count );
+  if( parsed > 0 )
+  {
+    total += parsed;
+    dbBE_Transport_sr_buffer_advance( fctx->_rbuf, parsed );
+  }
+  else
+    return NULL;
+
   // process (SGE placements)
+  dbBE_Request_t *req = (dbBE_Request_t*)cmpl->_user;
+  int i;
+  if( sge_count != req->_sge_count )
+    dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
+
+  for( i=0; i<sge_count; ++i)
+  {
+    if( sge[i].iov_len == req->_sge[i].iov_len )
+      memcpy( req->_sge[i].iov_base, sge[i].iov_base, sge[i].iov_len );
+    else
+      dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
+  }
+
   // queue to completion queue
 
   return NULL;
