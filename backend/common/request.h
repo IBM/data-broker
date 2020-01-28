@@ -79,7 +79,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
             key != NULL ? strnlen(key, DBR_MAX_KEY_LEN) : 0,
             req->_match != NULL ? strnlen(req->_match, DBR_MAX_KEY_LEN) : 0,
             req->_flags,
-            key,
+            key != NULL ? key : "",
             req->_match != NULL ? req->_match : "" );
 
   if( total < (ssize_t)dbBE_REQUEST_MIN_SPACE )
