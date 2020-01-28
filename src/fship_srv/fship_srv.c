@@ -307,7 +307,7 @@ int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg )
   int option;
   cfg->_daemon = 0;
   cfg->_listenaddr = "localhost";
-  cfg->_max_mem = 512; // reserve 512M by default
+  cfg->_max_mem = 512 * 1024 * 1024; // reserve 512M by default
   while(( option = getopt(argc, argv, "dhl:M:")) != -1 )
   {
     // locally check common options; callback for extra options
@@ -323,7 +323,7 @@ int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg )
         cfg->_listenaddr = optarg;
         break;
       case 'M': // max memory for data buffering
-        cfg->_max_mem = strtol( optarg, NULL, 10 );
+        cfg->_max_mem = strtol( optarg, NULL, 10 ) * 1024 * 1024;
         break;
       default:
         usage();
