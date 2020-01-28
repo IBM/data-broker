@@ -271,6 +271,7 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
     return NULL;
 
   dbBE_Transport_sr_buffer_add_data( fctx->_rbuf, rcvd, 0 );
+  dbBE_Transport_sr_buffer_get_available_position( fctx->_rbuf )[0] = '\0'; // terminate just in case there's old stuff
   LOG( DBG_ALL, stderr, "received: %"PRId64": %s\n", rcvd, dbBE_Transport_sr_buffer_get_start( fctx->_rbuf ) );
 
   // deserialize
