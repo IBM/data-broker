@@ -45,7 +45,7 @@ ssize_t dbBE_Socket_send( const int socket,
   {
     rc = sendmsg( socket, &msg, 0 );
 
-    if( rc < 0 ) break;
+    if( rc < 0 ) { ssize = rc; break; }
     if(( rc > 0 ) && ( rc + ssize < total ))
     {
       ssize_t offset = rc;
@@ -84,16 +84,27 @@ ssize_t dbBE_Socket_send( const int socket,
 
   dbBE_Transport_sge_buffer_reset( sge_buf );
 
-  return rc;
+  LOG( DBG_ALL, stderr, "SEND: rc=%"PRId64"\n", ssize );
+  return ssize;
 }
 
 ssize_t dbBE_Socket_recv( const int socket,
                           dbBE_Redis_sr_buffer_t *buf )
 {
+  char *b = dbBE_Transport_sr_buffer_get_available_position( buf );
+  size_t l = dbBE_Transport_sr_buffer_remaining( buf );
 
-  ssize_t rcvd = recv( socket,
-                       dbBE_Transport_sr_buffer_get_available_position( buf ),
-                       dbBE_Transport_sr_buffer_remaining( buf ),
-                       0 );
+  if( l == 0 )
+  {
+    LOG( DBG_ERR, stderr, "Receive buffer exhausted. No space left\n" );
+    return -EINVAL;
+  }
+
+  LOG( DBG_ALL, stderr, "RECV( %d ): %p:%"PRId64"\n", socket, b, l );
+
+  ssize_t rcvd = recv( socket, b, l, 0 );
+
+  LOG( DBG_ALL, stderr, "RECV( %d ): rc = %"PRId64"\n", socket, rcvd );
+
   return rcvd;
 }
