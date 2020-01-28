@@ -262,6 +262,8 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
 
   // receive any potential replies
   ssize_t rcvd = dbBE_Socket_recv( fctx->_connection->_socket, fctx->_rbuf );
+
+  // todo: rcvd==0 --> remote endpoint shut down
   if(( rcvd == 0 ) && ( errno == EAGAIN ))
     return NULL;
 
@@ -269,6 +271,7 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
     return NULL;
 
   dbBE_Transport_sr_buffer_add_data( fctx->_rbuf, rcvd, 0 );
+  LOG( DBG_ALL, stderr, "received: %"PRId64": %s\n", rcvd, dbBE_Transport_sr_buffer_get_start( fctx->_rbuf ) );
 
   // deserialize
   dbBE_sge_t *sge = NULL;
@@ -280,6 +283,8 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
   {
     total += parsed;
     dbBE_Transport_sr_buffer_advance( fctx->_rbuf, parsed );
+    if( dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ) == 0 )
+      dbBE_Transport_sr_buffer_reset( fctx->_rbuf );
   }
   else
     return NULL;
@@ -300,7 +305,7 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
 
   // queue to completion queue
 
-  return NULL;
+  return cmpl;
 }
 
 
