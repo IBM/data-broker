@@ -58,7 +58,7 @@ typedef struct dbrFShip_main_context
   dbBE_Connection_queue_t *_conn_queue;
   dbBE_Redis_sr_buffer_t *_r_buf;
   dbBE_Redis_sr_buffer_t *_s_buf;
-  int _total_pending;
+  volatile int _total_pending;
 } dbrFShip_main_context_t;
 
 
@@ -83,5 +83,7 @@ int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg );
 int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context );
 int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context );
 
+dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_client_context_t *cctx );
+int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx );
 
 #endif /* SRC_FSHIP_SRV_FSHIP_SRV_H_ */

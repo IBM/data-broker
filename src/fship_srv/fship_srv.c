@@ -15,6 +15,8 @@
  *
  */
 
+#define DEBUG_LEVEL DBG_VERBOSE
+
 #include "logutil.h"
 #include "common/utility.h"
 #include <libdatabroker.h>
@@ -25,6 +27,7 @@
 
 #include "common/request_queue.h"
 #include "common/completion.h"
+#include "network/socket_io.h"
 
 #include <errno.h> // errno
 #include <unistd.h> // fork
@@ -171,7 +174,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
   if( context->_total_pending > 0 )
     event_base_loop( tio->_evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
   else
-    event_base_loop( tio->_evbase, 0 );
+    event_base_loop( tio->_evbase, EVLOOP_ONCE );
 
   dbBE_Connection_t *active = dbBE_Connection_queue_pop( tio->_conn_queue );
   if( active == NULL )
@@ -192,24 +195,31 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
   ssize_t total = 0;
   while( parsed == -EAGAIN )
   {
-    ssize_t rcvd = recv( cctx->_conn->_socket,
-                         dbBE_Transport_sr_buffer_get_available_position( context->_r_buf ),
-                         dbBE_Transport_sr_buffer_remaining( context->_r_buf ),
-                         0 );
-    if(( rcvd == 0 ) && ( errno == EAGAIN ))
-      continue;
-
+    LOG( DBG_ALL, stderr, "BUF: avail=%"PRId64"; rem=%"PRId64"; size=%"PRId64"\n", dbBE_Transport_sr_buffer_available( context->_r_buf ),
+         dbBE_Transport_sr_buffer_remaining( context->_r_buf ),
+         dbBE_Transport_sr_buffer_get_size( context->_r_buf ) );
+    ssize_t rcvd = dbBE_Socket_recv( cctx->_conn->_socket, context->_r_buf );
     if( rcvd < 0 )
       return -1;
-    dbBE_Transport_sr_buffer_add_data( context->_r_buf, rcvd, 0 );
 
-    parsed = dbBE_Request_deserialize( dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ),
-                                       dbBE_Transport_sr_buffer_available( context->_r_buf ),
-                                       &req );
-    if( parsed > 0 )
+    if( rcvd > 0 )
     {
-      total += parsed;
-      dbBE_Transport_sr_buffer_advance( context->_r_buf, parsed );
+      dbBE_Transport_sr_buffer_add_data( context->_r_buf, rcvd, 0 );
+      dbBE_Transport_sr_buffer_get_available_position( context->_r_buf )[0] = '\0'; // terminate to avoid contamination from previous serializations
+      parsed = dbBE_Request_deserialize( dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ),
+                                         dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
+                                         &req );
+      LOG( DBG_ALL, stderr, "Received %ld %s _ deserialzed=%ld\n", dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
+           dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ),
+           parsed );
+      ++context->_total_pending; // as soon as there's anything received, assume a pending request
+      if( parsed > 0 )
+      {
+        total += parsed;
+        dbBE_Transport_sr_buffer_advance( context->_r_buf, parsed );
+        if( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) == 0 )
+          dbBE_Transport_sr_buffer_reset( context->_r_buf );
+      }
     }
     if(( parsed < 0 ) && ( parsed != -EAGAIN ))
       return -1;
@@ -217,20 +227,14 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
 
   //   create request()
 //    int64_t rc;
-  dbrFShip_request_ctx_t *rctx = (dbrFShip_request_ctx_t*)calloc( 1, sizeof( dbrFShip_request_ctx_t ));
-  if( rctx == NULL )
-    return -ENOMEM;
-  rctx->_user_in = req->_user;
-  rctx->_cctx = cctx;
-  rctx->_req = req;
-  req->_user = rctx;
+  dbrFShip_request_ctx_t *rctx = dbrFShip_create_request( req, cctx );
   dbBE_Request_handle_t be_req = g_dbBE.post( context->_mctx->_be_ctx, req, 0 );
+  LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
   if( be_req == NULL )
   {
     // todo: create error response with DBR_ERR_BE_POST
     return -1;
   }
-  ++context->_total_pending;
   return dbrFShip_request_ctx_queue_push( cctx->_pending, rctx );
 }
 
@@ -249,42 +253,49 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   // restore user ptr
   comp->_user = rctx->_user_in;
 
+  // adjust the response SGE to prevent returning more data than available
+  if( comp->_rc > 0 )
+  {
+    size_t rtotal = (size_t)comp->_rc;
+    int i;
+    while(( i < rctx->_req->_sge_count ) && ( rtotal > 0 ))
+    {
+      if( rtotal <= rctx->_req->_sge[i].iov_len )
+        rctx->_req->_sge[i].iov_len = rtotal;
+      rtotal -= rctx->_req->_sge[i].iov_len;
+      ++i;
+    }
+    rctx->_req->_sge_count = i; // the amount of SGE needs to be adjusted
+  }
+
   ssize_t serlen = dbBE_Completion_serialize( rctx->_req->_opcode, comp, rctx->_req->_sge, rctx->_req->_sge_count,
                                               dbBE_Transport_sr_buffer_get_available_position( context->_s_buf ),
                                               dbBE_Transport_sr_buffer_remaining( context->_s_buf ) );
+  LOG( DBG_ALL, stderr, "Completion serialize: op=%d; len=%"PRId64"\n", rctx->_req->_opcode, serlen );
   if( serlen < 0 )
     return (int)serlen;
 
-  dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 1 );
+  dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 0 );
+
+  LOG( DBG_ALL, stderr, "Sending %ld %s\n", dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
+       dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ) );
 
   ssize_t sent = -EAGAIN;
-  ssize_t total = 0;
-  while(( sent == -EAGAIN ) && ( total < (ssize_t)dbBE_Transport_sr_buffer_available( context->_s_buf )) )
+  while(( sent == -EAGAIN ) && ( (ssize_t)dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > 0) )
   {
     sent = send( rctx->_cctx->_conn->_socket,
                  dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ),
-                 dbBE_Transport_sr_buffer_available( context->_s_buf ),
+                 dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
                  0 );
     if( sent < 0 )
       return -1;
     dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
-
-    total += sent;
   }
+
+  dbBE_Transport_sr_buffer_reset( context->_s_buf );
 
   // clean Request from rctx-queue (note: out-of-order completion possible, therefore assume we can't just q_pop())
-  dbBE_Request_free( rctx->_req );
-  dbrFShip_client_context_t *cctx = rctx->_cctx;
-  rctx->_req = NULL;
-  rctx->_cctx = NULL;
-  rctx->_user_in = NULL;
-  if( rctx == cctx->_pending->_head )
-  {
-    rctx = dbrFShip_request_ctx_queue_pop( cctx->_pending );
-    if( rctx != NULL )
-      free( rctx );
-  }
-
+  dbrFShip_completion_cleanup( rctx );
   --context->_total_pending;
 
   return 0;
@@ -335,7 +346,7 @@ int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg )
 
 void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *arg )
 {
-  LOG( DBG_TRACE, stderr, "Triggered callback for socket=%d, ev_type=%d, arg=%p\n", socket, ev_type, arg );
+  LOG( DBG_TRACE, stderr, "FShip: Triggered callback for socket=%d, ev_type=%d, arg=%p\n", socket, ev_type, arg );
 
   dbrFShip_event_info_t *info = (dbrFShip_event_info_t*)arg;
   if( info == NULL )
@@ -353,23 +364,25 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
     return;
   }
 
+  if( socket != conn->_socket )
+    LOG( DBG_ERR, stderr, "Event socket doesn't match event info %d != %d\n", socket, conn->_socket );
+
   LOG( DBG_TRACE, stderr,
        "Triggered callback for connection=%p, socket=%d, ev_type=%d\n",
        conn, conn->_socket, ev_type );
-  if((( ev_type & EV_TIMEOUT ) != 0 ) && (( ev_type & EV_READ ) == 0 ))
-  {
-    LOG( DBG_VERBOSE, stderr, "Connection timeout detected (sock=%d).\n", conn->_socket );
-  }
-  else if( ( ev_type & EV_READ ) != 0 )
+  if( ( ev_type & EV_READ ) != 0 )
   {
     LOG( DBG_TRACE, stderr, "Connection activated (sock=%d)\n", conn->_socket );
+    dbBE_Connection_queue_push( queue, conn );
+  }
+  else if(( ev_type & EV_TIMEOUT ) != 0 )
+  {
+    LOG( DBG_VERBOSE, stderr, "FShip_event: Event timeout detected (sock=%d).\n", conn->_socket );
   }
   else
   {
-    LOG( DBG_ERR, stderr, "event_mgr_callback: invalid event type triggered.\n" );
+    LOG( DBG_ERR, stderr, "FShip_event: invalid event type triggered.\n" );
   }
-
-  dbBE_Connection_queue_push( queue, conn );
 }
 
 void* dbrFShip_listen_start( void *arg )
@@ -455,7 +468,7 @@ void* dbrFShip_listen_start( void *arg )
       evinfo->_queue = tio->_conn_queue;
 
       // add to libevent socket polling
-      struct event* ev = event_new( evbase, nes, EV_READ | EV_ET, dbrFShip_connection_wakeup, evinfo );
+      struct event* ev = event_new( evbase, nes, EV_READ | EV_PERSIST | EV_ET, dbrFShip_connection_wakeup, evinfo );
       if( ev == NULL )
         return NULL;
 
@@ -467,4 +480,83 @@ void* dbrFShip_listen_start( void *arg )
   }
 
   return tio;
+}
+
+dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_client_context_t *cctx )
+{
+  dbrFShip_request_ctx_t* rctx = (dbrFShip_request_ctx_t*)calloc( 1, sizeof( dbrFShip_request_ctx_t ));
+  if( rctx == NULL )
+    return NULL;
+  rctx->_user_in = req->_user;
+  rctx->_cctx = cctx;
+  rctx->_req = req;
+  req->_user = rctx;
+
+  switch( req->_opcode )
+  {
+    case DBBE_OPCODE_GET:
+    case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_NSQUERY:
+    case DBBE_OPCODE_DIRECTORY:
+    case DBBE_OPCODE_ITERATOR:
+      // since these requests come with an SGE header, we need to create space to store the data
+      if( req->_sge_count > 0 )
+      {
+        char *req_buf = (char*)malloc( dbBE_SGE_get_len( req->_sge, req->_sge_count ) );
+        if( req_buf == NULL )
+          goto error;
+        int i;
+        size_t offset = 0;
+        for( i = 0; i < req->_sge_count; ++i )
+        {
+          req->_sge[i].iov_base = &req_buf[ offset ];
+          offset += req->_sge[i].iov_len;
+        }
+      }
+      break;
+    default:
+      break;
+  }
+
+  return rctx;
+
+error:
+  free( rctx );
+  return NULL;
+}
+
+int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx )
+{
+  if(( rctx == NULL ) || ( rctx->_req == NULL ) || ( rctx->_cctx == NULL ))
+    return -EINVAL;
+
+  dbBE_Request_t *req = rctx->_req;
+  dbrFShip_client_context_t *cctx = rctx->_cctx;
+
+  switch( req->_opcode )
+  {
+    case DBBE_OPCODE_GET:
+    case DBBE_OPCODE_READ:
+    case DBBE_OPCODE_NSQUERY:
+    case DBBE_OPCODE_DIRECTORY:
+    case DBBE_OPCODE_ITERATOR:
+      // an SGE buffer was created, so we have to free it here
+      if( req->_sge_count > 0 )
+        free( req->_sge[0].iov_base );
+      break;
+    default:
+      break;
+  }
+
+  dbBE_Request_free( req );
+  rctx->_req = NULL;
+  rctx->_cctx = NULL;
+  rctx->_user_in = NULL;
+  if( rctx == cctx->_pending->_head )
+  {
+    rctx = dbrFShip_request_ctx_queue_pop( cctx->_pending );
+    if( rctx != NULL )
+      free( rctx );
+  }
+  return 0;
 }
