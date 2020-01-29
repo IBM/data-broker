@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -174,6 +174,9 @@ int dbBE_Request_set_delete( dbBE_Request_set_t *set,
   if(( set == NULL ) || ( request == NULL ))
     return 0;
 
+  if( dbBE_Request_set_empty( set ) )
+    return 0;
+
   size_t slot;
   for( slot = 0; slot < set->_size; ++slot )
     if( set->_set[ slot ] == request )
@@ -182,6 +185,7 @@ int dbBE_Request_set_delete( dbBE_Request_set_t *set,
       --set->_fill;
       return 1;
     }
+
 
   return 0;
 }
