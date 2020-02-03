@@ -18,7 +18,9 @@
 #ifndef BACKEND_NETWORK_CONNECTION_QUEUE_H_
 #define BACKEND_NETWORK_CONNECTION_QUEUE_H_
 
+#include "logutil.h"
 #include "network/connection.h"
+
 
 #include <inttypes.h>
 #include <stddef.h>
@@ -85,11 +87,12 @@ int dbBE_Connection_queue_destroy( dbBE_Connection_queue_t *queue )
 static inline
 dbBE_Connection_t* dbBE_Connection_queue_pop_ext( dbBE_Connection_queue_t *queue, int blocking )
 {
-  uint64_t head, tail;
+  volatile uint64_t head, tail;
 
   if( queue == NULL )
     return NULL;
 
+  LOG( DBG_TRACE, stderr, "Connection queue: %"PRId64":%"PRId64"\n", dbBE_Connection_queue_head( queue ), dbBE_Connection_queue_tail( queue ) );
   pthread_mutex_lock( &queue->_mutex );
 
 deleted_slot_retry:
@@ -112,10 +115,16 @@ deleted_slot_retry:
     return NULL;
   }
 
-  dbBE_Connection_t *conn = (dbBE_Connection_t*)queue->_connections[ tail % queue->_queue_size ];
-  queue->_connections[ tail % queue->_queue_size ] = NULL;
+  // repeated check of the tail because there maybe holes in the queue caused by removals
+  dbBE_Connection_t *conn = NULL;
+  while(( conn == NULL ) && ( tail < head ))
+  {
+    conn = (dbBE_Connection_t*)queue->_connections[ tail % queue->_queue_size ];
+    queue->_connections[ tail % queue->_queue_size ] = NULL;
+    ++tail;
+  }
 
-  ++dbBE_Connection_queue_tail( queue );
+  dbBE_Connection_queue_tail( queue ) = tail;
 
   // reset counters if queue is empty now
   if( dbBE_Connection_queue_head( queue ) == dbBE_Connection_queue_tail( queue ) )
@@ -153,11 +162,12 @@ int dbBE_Connection_queue_push( dbBE_Connection_queue_t *queue,
 
   pthread_mutex_lock( &queue->_mutex );
 
-  uint64_t head = dbBE_Connection_queue_head( queue );
-  uint64_t tail = dbBE_Connection_queue_tail( queue );
+  volatile uint64_t head = dbBE_Connection_queue_head( queue );
+  volatile uint64_t tail = dbBE_Connection_queue_tail( queue );
 
   if(( head - tail >= queue->_queue_size ) || ( queue->_connections[ head ] != NULL ))
   {
+    LOG( DBG_WARN, stderr, "connection queue full or inconsistent\n" )
     pthread_mutex_unlock( &queue->_mutex );
     return -ENOMEM;
   }
@@ -167,6 +177,8 @@ int dbBE_Connection_queue_push( dbBE_Connection_queue_t *queue,
 
   pthread_cond_signal( &queue->_wakeup );
   pthread_mutex_unlock( &queue->_mutex );
+
+  LOG( DBG_TRACE, stderr, "queue push: %"PRId64":%"PRId64"\n", dbBE_Connection_queue_head( queue ), dbBE_Connection_queue_tail( queue ) );
 
   return 0;
 }
