@@ -71,10 +71,14 @@ ssize_t dbBE_Completion_serialize( const dbBE_Opcode op,
     // some completions require data in the SGE
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
-    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_ITERATOR:
     case DBBE_OPCODE_NSQUERY:
       sge_total = dbBE_SGE_serialize( sge, sge_count, data, space );
+      break;
+    case DBBE_OPCODE_DIRECTORY:
+      if( sge_count < 1 )
+        return -ENOSPC;
+      sge_total = dbBE_SGE_serialize( sge, 1, data, space ); // the second sge entry is not relevant for the response
       break;
     default:
       break;
@@ -83,10 +87,26 @@ ssize_t dbBE_Completion_serialize( const dbBE_Opcode op,
   if( sge_total < 0 )
     return sge_total;
 
+  if( (size_t)sge_total >= space )
+    return -ENOSPC;
+
+  if(( sge_total > 0 ) && ( space > 0 ))
+  {
+    space -= sge_total;
+    if( space < 2 )
+      return -ENOSPC;
+    data += sge_total;
+    if( snprintf( data, space, "\n" ) != 1 ) // terminate
+      return -EBADMSG;
+    ++sge_total;
+  }
+
   total += sge_total;
 
   return total;
 }
+
+#define dbBE_Completion_deserialize_error( rc, a ) { if( a != NULL ) free( a ); return rc; }
 
 
 static inline
@@ -140,6 +160,15 @@ ssize_t dbBE_Completion_deserialize( char *data,
       if(( sge_out == NULL ) || ( sge_count_out == NULL ))
         return -EINVAL;
       sge_total = dbBE_SGE_deserialize( *sge_out, *sge_count_out, data, space, sge_out, sge_count_out );
+      if( sge_total > 0 )
+      {
+        if( (size_t)sge_total == space )
+          dbBE_Completion_deserialize_error( -EAGAIN, sge_out );
+        if( data[ sge_total ] != '\n' )
+          dbBE_Completion_deserialize_error( -EBADMSG, sge_out );
+        data[ sge_total ] = '\0';  // separator was \n
+        ++sge_total;
+      }
       break;
     default:
       break;

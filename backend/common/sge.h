@@ -295,14 +295,18 @@ ssize_t dbBE_SGE_deserialize( dbBE_sge_t *sge_in, const int sge_count_in,
       sge[i].iov_base = (void*)data;
     }
 //    ((char*)(sge[i].iov_base))[ sge[i].iov_len ] = '\0';
-    data += sge[i].iov_len; // + 1;
+    data += sge[i].iov_len;
     space -= sge[i].iov_len;
     total += sge[i].iov_len;
   }
   // account for the trailing separator unless it was only a NULL-ptr sge
-  if(( i_sge_count > 1 ) ||
-      (( i_sge_count == 1 ) && ( sge[0].iov_base != NULL )) )
-    ++total;
+//  if(( i_sge_count > 1 ) ||
+//      (( i_sge_count == 1 ) && ( sge[0].iov_base != NULL )) )
+//  {
+//    if( space == 0 ) // the trailing \n needs to be in the buffer, otherwise it needs another recv call
+//      dbBE_SGE_deserialize_error( -EAGAIN, sge_in, *sge_out );
+//    ++total;
+//  }
 
   *sge_count = i_sge_count;
 

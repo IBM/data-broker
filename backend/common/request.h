@@ -98,8 +98,14 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_NSQUERY:
     case DBBE_OPCODE_ITERATOR:
-    case DBBE_OPCODE_DIRECTORY:
       sge_total = dbBE_SGE_serialize_header( req->_sge, req->_sge_count, data, space );
+      break;
+    case DBBE_OPCODE_DIRECTORY:
+      if( req->_sge_count != 2 )
+        return -EBADMSG;
+      sge_total = snprintf( data, space, "%"PRId64"\n%p\n%"PRId64"",
+                            req->_sge[0].iov_len, req->_sge[0].iov_base,
+                            req->_sge[1].iov_len );
       break;
     case DBBE_OPCODE_NSCREATE:
     case DBBE_OPCODE_PUT:
@@ -142,7 +148,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
   return total;
 }
 
-#define dbBE_Request_deserialize_error( rc, a, b ) { if( a != NULL ) free( a ); if( b != NULL ) free( b ); return rc; }
+#define dbBE_Request_deserialize_error( rc, a, b, c ) { if( a != NULL ) free( a ); if( b != NULL ) free( b ); if( c != NULL ) free( c ); return rc; }
 
 static inline
 ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **request )
@@ -207,13 +213,13 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
   }
 
   if( space < matchlen )
-    dbBE_Request_deserialize_error( -EAGAIN, key, match )
+    dbBE_Request_deserialize_error( -EAGAIN, key, match, NULL )
 
   if( matchlen > 0 )
   {
     match = (char*)malloc( matchlen + 1 );
     if( match == NULL )
-      dbBE_Request_deserialize_error( -ENOMEM, key, match )
+      dbBE_Request_deserialize_error( -ENOMEM, key, match, NULL )
     strncpy( match, data, matchlen );
     match[matchlen] = '\0';
 
@@ -225,10 +231,10 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
   if( keylen + matchlen > 0 )
   {
     if( space < 1 )
-      dbBE_Request_deserialize_error( -EAGAIN, key, match )
+      dbBE_Request_deserialize_error( -EAGAIN, key, match, NULL )
 
     if( data[0] != '\n' )
-      dbBE_Request_deserialize_error( -EBADMSG, key, match )
+      dbBE_Request_deserialize_error( -EBADMSG, key, match, NULL )
 
     data += 1;
     space -= 1;
@@ -241,29 +247,60 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_NSQUERY:
-    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_ITERATOR:
       sge_count = dbBE_SGE_extract_header( NULL, 0, data, space, &sge_out, (size_t*)&sge_total );
       if( sge_count < 0 )
-        dbBE_Request_deserialize_error( -EAGAIN, key, match )
+        dbBE_Request_deserialize_error( -EAGAIN, key, match, sge_out )
+      break;
+    case DBBE_OPCODE_DIRECTORY:
+      sge_out = (dbBE_sge_t*)calloc( 2, sizeof( dbBE_sge_t) );
+      if( sge_out == NULL )
+        dbBE_Request_deserialize_error( -ENOMEM, key, match, NULL );
+
+      sge_total = sscanf( data, "%"PRId64"\n%p\n%"PRId64"\n%n", &sge_out[0].iov_len, &sge_out[0].iov_base, &sge_out[1].iov_len, &parsed );
+      if( sge_total < 0 )
+      {
+        free( sge_out );
+        break;
+      }
+      if( sge_total < 3 )
+      {
+        free( sge_out );
+        sge_total = -EAGAIN;
+      }
+      else
+      {
+        sge_out[1].iov_base = NULL;
+        sge_count = 2;
+        sge_total = parsed;
+      }
       break;
     case DBBE_OPCODE_NSCREATE:
     {
       if( (sge_total = dbBE_SGE_deserialize( NULL, 0, data, space, &sge_out, &sge_count )) < 0 )
         break;
       if( sge_count < 1 )
-        dbBE_Request_deserialize_error( -EBADMSG, key, match );
+        dbBE_Request_deserialize_error( -EBADMSG, key, match, sge_out );
       if( sge_out[0].iov_base != NULL )
       {
         void *ptr = NULL;
         if( sscanf( sge_out[0].iov_base, "%p", &ptr ) < 1 )
-          dbBE_Request_deserialize_error( -EBADMSG, key, match );
+          dbBE_Request_deserialize_error( -EBADMSG, key, match, sge_out );
         sge_out[0].iov_base = ptr;
       }
       break;
     }
     case DBBE_OPCODE_PUT:
       sge_total = dbBE_SGE_deserialize( NULL, 0, data, space, &sge_out, &sge_count );
+      if( sge_total > 0 )
+      {
+        if( (size_t)sge_total == space )
+          dbBE_Request_deserialize_error( -EAGAIN, key, match, sge_out );
+        if( data[ sge_total ] != '\n' )
+          dbBE_Request_deserialize_error( -EBADMSG, key, match, sge_out );
+        data[ sge_total ] = '\0';  // separator was \n
+        ++sge_total;
+      }
       break;
     case DBBE_OPCODE_MOVE:
       // param[in]      dbBE_sge_t           _sge[0] = contains destination storage group
@@ -278,9 +315,9 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
         case EOF:
         case 1:
         case 0:
-          dbBE_Request_deserialize_error( -EAGAIN, key, match )
+          dbBE_Request_deserialize_error( -EAGAIN, key, match, NULL )
         default:
-          dbBE_Request_deserialize_error( -EBADMSG, key, match )
+          dbBE_Request_deserialize_error( -EBADMSG, key, match, NULL )
       }
       sge_total = parsed;
       break;
@@ -294,13 +331,13 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
       sge_count = 0;
       break;
     default:
-      dbBE_Request_deserialize_error( -ENOSYS, key, match )
+      dbBE_Request_deserialize_error( -ENOSYS, key, match, NULL )
   }
 
 
 
   if( sge_total < 0 )
-    dbBE_Request_deserialize_error( sge_total, key, match )
+    dbBE_Request_deserialize_error( sge_total, key, match, sge_out )
 
   total += sge_total;
 
