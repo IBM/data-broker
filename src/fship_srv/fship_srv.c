@@ -159,6 +159,8 @@ int main( int argc, char **argv )
       break;
   }
 
+  tio._keep_running = 0;
+  pthread_cancel( listener );
   pthread_join( listener, NULL );
 
   if( tio._threadrc != 0 )
@@ -199,8 +201,13 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
          dbBE_Transport_sr_buffer_remaining( context->_r_buf ),
          dbBE_Transport_sr_buffer_get_size( context->_r_buf ) );
     ssize_t rcvd = dbBE_Socket_recv( cctx->_conn->_socket, context->_r_buf );
-    if( rcvd < 0 )
-      return -1;
+    if( rcvd <= 0 )
+    {
+      LOG( DBG_INFO, stderr, "Connection shutdown detected for socket %d; rc=%"PRId64"\n", cctx->_conn->_socket, rcvd );
+      // make sure the connection is no longer part of the connection queue
+      dbrFShip_client_remove( context->_conn_queue, &cctx );
+      return 0;
+    }
 
     if( rcvd > 0 )
     {
@@ -377,7 +384,20 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
   }
   else if(( ev_type & EV_TIMEOUT ) != 0 )
   {
+    char buf[2];
     LOG( DBG_VERBOSE, stderr, "FShip_event: Event timeout detected (sock=%d).\n", conn->_socket );
+    ssize_t rcvd = recv( conn->_socket, buf, 1, MSG_PEEK | MSG_DONTWAIT );
+    switch( rcvd )
+    {
+      case 0:
+        dbrFShip_client_remove( info->_queue, &info->_cctx );
+        break;
+      case 1:
+        dbBE_Connection_queue_push( queue, conn );
+        break;
+      default:
+        break;
+    }
   }
   else
   {
@@ -466,11 +486,14 @@ void* dbrFShip_listen_start( void *arg )
         return NULL;
       evinfo->_cctx = cctx;
       evinfo->_queue = tio->_conn_queue;
+      cctx->_event = evinfo;
 
       // add to libevent socket polling
       struct event* ev = event_new( evbase, nes, EV_READ | EV_PERSIST | EV_ET, dbrFShip_connection_wakeup, evinfo );
       if( ev == NULL )
         return NULL;
+
+      evinfo->_event = ev;
 
       struct timeval timeout;
       timeout.tv_sec = 1;
@@ -479,6 +502,8 @@ void* dbrFShip_listen_start( void *arg )
     }
   }
 
+  LOG( DBG_INFO, stderr, "Closing listener\n" );
+  close( s );
   return tio;
 }
 
@@ -497,7 +522,6 @@ dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_c
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_NSQUERY:
-    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_ITERATOR:
       // since these requests come with an SGE header, we need to create space to store the data
       if( req->_sge_count > 0 )
@@ -512,6 +536,14 @@ dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_c
           req->_sge[i].iov_base = &req_buf[ offset ];
           offset += req->_sge[i].iov_len;
         }
+      }
+      break;
+    case DBBE_OPCODE_DIRECTORY:
+      {
+        char *req_buf = (char*)malloc( req->_sge[0].iov_len );
+        if( req_buf == NULL )
+          goto error;
+        req->_sge[0].iov_base = req_buf;
       }
       break;
     default:
@@ -538,12 +570,14 @@ int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx )
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_NSQUERY:
-    case DBBE_OPCODE_DIRECTORY:
     case DBBE_OPCODE_ITERATOR:
       // an SGE buffer was created, so we have to free it here
       if( req->_sge_count > 0 )
         free( req->_sge[0].iov_base );
       break;
+    case DBBE_OPCODE_DIRECTORY:
+      if( req->_sge[0].iov_base != NULL )
+        free( req->_sge[0].iov_base );
     default:
       break;
   }
@@ -558,5 +592,27 @@ int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx )
     if( rctx != NULL )
       free( rctx );
   }
+  return 0;
+}
+
+// clean up and free client context
+int dbrFShip_client_remove( dbBE_Connection_queue_t *queue,
+                            dbrFShip_client_context_t **in_out_cctx )
+{
+  if(( queue == NULL ) || ( in_out_cctx == NULL ) || ( *in_out_cctx == NULL ))
+    return -EINVAL;
+
+  dbrFShip_client_context_t *cctx = *in_out_cctx;
+
+  if( cctx->_event != NULL )
+  {
+    event_del( cctx->_event->_event );
+    event_free( cctx->_event->_event );
+    free( cctx->_event );
+  }
+  dbBE_Connection_queue_remove_connection( queue, cctx->_conn );
+  dbBE_Connection_destroy( cctx->_conn );
+  free( cctx );
+  *in_out_cctx = NULL;
   return 0;
 }

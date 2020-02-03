@@ -44,10 +44,12 @@ typedef struct dbrFShip_request_ctx
 
 #include "fship_request_queue.h"
 
+struct dbrFShip_event_info;
 typedef struct dbrFShip_client_context
 {
   dbBE_Connection_t *_conn;
   dbrFShip_request_ctx_queue_t *_pending;
+  struct dbrFShip_event_info *_event;
 } dbrFShip_client_context_t;
 
 typedef struct dbrFShip_main_context
@@ -75,6 +77,7 @@ typedef struct dbrFShip_event_info
 {
   dbrFShip_client_context_t *_cctx;
   dbBE_Connection_queue_t *_queue;
+  struct event *_event;
 } dbrFShip_event_info_t;
 
 void* dbrFShip_listen_start( void *arg );
@@ -85,5 +88,7 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
 
 dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_client_context_t *cctx );
 int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx );
+int dbrFShip_client_remove( dbBE_Connection_queue_t *queue,
+                            dbrFShip_client_context_t **in_out_cctx );
 
 #endif /* SRC_FSHIP_SRV_FSHIP_SRV_H_ */
