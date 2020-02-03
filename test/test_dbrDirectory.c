@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,6 +126,7 @@ int main( int argc, char ** argv )
     LOG( DBG_ALL, stderr, "Returned only %d/%d\n", n, DBR_SCAN_TEST_ITER );
 
   // limit the directory to half the number of keys
+  memset( tbuf, 0, DBR_SCAN_TEST_ITER * 64 );
   rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_EMPTY, DBR_SCAN_TEST_ITER >> 1,
                             tbuf, DBR_SCAN_TEST_ITER * 32, &rsize ), DBR_SUCCESS );
   n = 0;
@@ -139,7 +140,7 @@ int main( int argc, char ** argv )
   }
   rc += TEST_NOT( n == DBR_SCAN_TEST_ITER >> 1, 0 );
   if( rc )
-    LOG( DBG_ALL, stderr, "Returned only %d/%d\n", n, DBR_SCAN_TEST_ITER );
+    LOG( DBG_ALL, stderr, "Returned %d/%d, expected %d\n", n, DBR_SCAN_TEST_ITER, DBR_SCAN_TEST_ITER >> 1 );
 
 
   // delete the name space
