@@ -180,11 +180,19 @@ dbBE_Request_handle_t FShip_post( dbBE_Handle_t be,
           ( dbBE_Connection_reconnect( fctx->_connection ) != 0 )) )
     return NULL;
 
-  // serialize + (wait?)
+  // create and store request context to find after completion
+  dbBE_FShip_request_context_t *rctx = (dbBE_FShip_request_context_t*)calloc( 1, sizeof( dbBE_FShip_request_context_t ) );
+  if( rctx == NULL )
+    return NULL;
+  rctx->_request = request;
+  rctx->_ulp_user = request->_user;
+  request->_user = rctx;
+
+  // queue the request
   if( dbBE_Request_queue_push( fctx->_work_q, request ) != 0 )
     return NULL;
 
-  // add to buffer
+  // serialize
   dbBE_sge_t *sge = dbBE_Transport_sge_buffer_get_current( fctx->_sge_buf );
   sge->iov_base = dbBE_Transport_sr_buffer_get_available_position( fctx->_sbuf );
 
@@ -262,6 +270,11 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
 
   // receive any potential replies
   ssize_t rcvd = dbBE_Socket_recv( fctx->_connection->_socket, fctx->_rbuf );
+  if( rcvd == 0 )
+  {
+    dbBE_Connection_unlink( fctx->_connection );
+    return NULL;
+  }
 
   // todo: rcvd==0 --> remote endpoint shut down
   if(( rcvd == 0 ) && ( errno == EAGAIN ))
@@ -290,15 +303,34 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
   else
     return NULL;
 
+  // restore request reference and upper layer user ptr
+  dbBE_FShip_request_context_t *rctx = (dbBE_FShip_request_context_t*)cmpl->_user;
+  if( rctx == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Found completion with NULL-ptr request context\n" );
+    return NULL;
+  }
+
+  dbBE_Request_t *req = (dbBE_Request_t*)rctx->_request;
+  if( req == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Found completion with NULL-ptr request\n" );
+    return NULL;
+  }
+  req->_user = rctx->_ulp_user;
+  cmpl->_user = rctx->_ulp_user;
+
   // process (SGE placements)
-  dbBE_Request_t *req = (dbBE_Request_t*)cmpl->_user;
-  int i;
-  if( sge_count != req->_sge_count )
+  if( sge_count < 0 )
+    dbBE_FShip_complete_error( req, cmpl, DBR_ERR_BE_GENERAL );
+
+  if( sge_count > req->_sge_count )
     dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
 
+  int i;
   for( i=0; i<sge_count; ++i)
   {
-    if( sge[i].iov_len == req->_sge[i].iov_len )
+    if( sge[i].iov_len <= req->_sge[i].iov_len )
       memcpy( req->_sge[i].iov_base, sge[i].iov_base, sge[i].iov_len );
     else
       dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );

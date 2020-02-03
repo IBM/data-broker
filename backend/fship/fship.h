@@ -38,6 +38,12 @@ typedef struct
 } dbBE_FShip_context_t;
 
 
+typedef struct
+{
+  dbBE_Request_t *_request;
+  void *_ulp_user;
+} dbBE_FShip_request_context_t;
+
 dbBE_Handle_t FShip_initialize( void );
 
 int FShip_exit( dbBE_Handle_t be );
