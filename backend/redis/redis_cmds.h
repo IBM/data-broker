@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -429,7 +429,6 @@ int dbBE_Redis_command_lpop_create( dbBE_Redis_request_t *req,
   return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
 }
 
-
 int dbBE_Redis_command_lindex_create( dbBE_Redis_request_t *req,
                                       dbBE_Redis_sr_buffer_t *buf,
                                       dbBE_sge_t *cmd )
@@ -446,9 +445,24 @@ int dbBE_Redis_command_lindex_create( dbBE_Redis_request_t *req,
   sge[ req->_step->_array_len ].iov_base = NULL;
   sge[ req->_step->_array_len ].iov_len = 0;
 
+  // insert the index to fetch (extracted from the flags value)
+  int64_t uindex = req->_user->_flags >> 4;
+  int uindex_len = uindex == 0 ? 1 : (int64_t)( log10( uindex )) + 1;
+  char *lindex = dbBE_Transport_sr_buffer_get_available_position( buf );
+  int lindex_len = snprintf( lindex, dbBE_Transport_sr_buffer_remaining( buf ),
+                             "$%d\r\n%ld\r\n", uindex_len, uindex );
+  if(( lindex_len < 0 ) || ( ( dbBE_Transport_sr_buffer_add_data( buf, lindex_len, 1 ) != (size_t)lindex_len ) ))
+    goto error;
+
   sge[0].iov_base = key;
   sge[0].iov_len = keylen;
+  sge[1].iov_base = lindex;
+  sge[1].iov_len = lindex_len;
   return dbBE_Redis_command_create_sgeN_uncheck( req->_step, sge, cmd );
+
+error:
+  dbBE_Transport_sr_buffer_rewind_available_to( buf, key );
+  return -E2BIG;
 }
 
 int dbBE_Redis_command_del_create( dbBE_Redis_request_t *req,
