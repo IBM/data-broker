@@ -208,8 +208,9 @@ typedef enum
    * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
    * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
    * *  param[in]      int64_t              _flags ignored
-   * *  param[in]      int                  _sge_count = 1
-   * *  param[in] @ref dbBE_sge_t[]         _sge[] = memory region to receive a comma-separated list of available tuple names
+   * *  param[in]      int                  _sge_count = 2
+   * *  param[in] @ref dbBE_sge_t[]         _sge[0] = memory region to receive a comma-separated list of available tuple names
+   *                                        _sge[1].iov_len = count limiter
    *
    * The specs for the put-completion are:
    * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
@@ -232,8 +233,8 @@ typedef enum
    * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to name of new namespace
    * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
    * *  param[in]      int64_t              _flags ignored
-   * *  param[in]      int                  _sge_count = 0 (potentially used for grouplist spec if more than single storage group used)
-   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty (potentially used for grouplist spec if more than single storage group used)
+   * *  param[in]      int                  _sge_count = 1
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = grouplist spec if more than single storage group used
    *
    * The specs for the put-completion are:
    * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
