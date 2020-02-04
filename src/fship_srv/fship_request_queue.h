@@ -104,5 +104,14 @@ int dbrFShip_request_ctx_queue_destroy( dbrFShip_request_ctx_queue_t *q )
   return 0;
 }
 
+static inline
+dbrFShip_request_ctx_t* dbrFShip_request_ctx_find( dbrFShip_request_ctx_queue_t *q,
+                                                   void *_user_hdl )
+{
+  dbrFShip_request_ctx_t *t = q->_head;
+  while(( t != NULL ) && ( t->_user_in != _user_hdl ))
+    t = t->_next;
+  return t;
+}
 
 #endif /* SRC_FSHIP_SRV_FSHIP_REQUEST_QUEUE_H_ */
