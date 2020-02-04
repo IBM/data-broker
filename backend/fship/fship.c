@@ -181,12 +181,21 @@ dbBE_Request_handle_t FShip_post( dbBE_Handle_t be,
     return NULL;
 
   // create and store request context to find after completion
-  dbBE_FShip_request_context_t *rctx = (dbBE_FShip_request_context_t*)calloc( 1, sizeof( dbBE_FShip_request_context_t ) );
-  if( rctx == NULL )
-    return NULL;
-  rctx->_request = request;
-  rctx->_ulp_user = request->_user;
-  request->_user = rctx;
+  dbBE_FShip_request_context_t *rctx = NULL;
+  if( request->_opcode != DBBE_OPCODE_CANCEL )
+  {
+    rctx = (dbBE_FShip_request_context_t*)calloc( 1, sizeof( dbBE_FShip_request_context_t ) );
+    if( rctx == NULL )
+      return NULL;
+    rctx->_request = request;
+    rctx->_ulp_user = request->_user;
+    request->_user = rctx;
+  }
+  else
+  {
+    // cancellations already have the rctx of the request included as _user
+    rctx = request->_user;
+  }
 
   // queue the request
   if( dbBE_Request_queue_push( fctx->_work_q, request ) != 0 )
@@ -228,20 +237,21 @@ int FShip_cancel( dbBE_Handle_t be,
   if( c == NULL )
     return -ENOMEM;
 
-  char kbuffer[16];
-  c->_key = kbuffer;
-  if( snprintf( c->_key, 16, "%p", (void*)request ) < 0 ) // serialize request hdl
-  {
-    free( c );
-    return -EBADMSG;
-  }
+  dbBE_Request_t *ber = (dbBE_Request_t*)request;
+
+  c->_opcode = DBBE_OPCODE_CANCEL;
+  c->_ns_hdl = ber->_ns_hdl;
+  c->_key = "";
+  c->_user = ber->_user;
+
+  LOG( DBG_ALL, stderr, "Cancellation: %p with rctx %p\n", request, ber->_user )
 
   // post cancellation request
   dbBE_Request_handle_t cancel = FShip_post( be, c, 1 );
-
-  // wait for cancel to complete
-  dbBE_Completion_t *compl = NULL;
-  while( ( compl = FShip_test( be, cancel )) == NULL );
+  if( cancel == c )
+    free( c );
+  else
+    return DBR_ERR_BE_GENERAL;
 
   return 0;
 }
@@ -270,15 +280,15 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
 
   // receive any potential replies
   ssize_t rcvd = dbBE_Socket_recv( fctx->_connection->_socket, fctx->_rbuf );
+  if(( rcvd == 0 ) && ( errno == EAGAIN ))
+    return NULL;
+
   if( rcvd == 0 )
   {
     dbBE_Connection_unlink( fctx->_connection );
     return NULL;
   }
 
-  // todo: rcvd==0 --> remote endpoint shut down
-  if(( rcvd == 0 ) && ( errno == EAGAIN ))
-    return NULL;
 
   if( rcvd < 0 )
     return NULL;
@@ -336,8 +346,6 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
       dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
   }
 
-  // queue to completion queue
-
   return cmpl;
 }
 
@@ -380,6 +388,8 @@ int dbBE_FShip_connect_initial( dbBE_FShip_context_t *ctx )
     dbBE_Connection_destroy( new_conn );
     goto exit_connect;
   }
+
+  dbBE_Connection_noblock( new_conn );
 
   ctx->_connection = new_conn;
 
