@@ -123,5 +123,9 @@ int dbBE_Connection_auth( dbBE_Connection_t *conn, const char *authfile );
  */
 int dbBE_Connection_destroy( dbBE_Connection_t *conn );
 
+/*
+ * change the operational mode of the underlying socket to non-blocking
+ */
+int dbBE_Connection_noblock( dbBE_Connection_t *conn );
 
 #endif /* BACKEND_COMMON_CONNECTION_H_ */

@@ -261,3 +261,8 @@ int dbBE_Connection_destroy( dbBE_Connection_t *conn )
   free( conn );
   return 0;
 }
+
+int dbBE_Connection_noblock( dbBE_Connection_t *conn )
+{
+  return fcntl( conn->_socket, F_SETFL, O_NONBLOCK );
+}
