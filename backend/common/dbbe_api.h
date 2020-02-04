@@ -150,6 +150,9 @@ typedef enum
    *
    * The specs of the request are:
    * *  param[in] _opcode = DBBE_OPCODE_READ
+   * *   .... <same as GET>
+   * *  param[in] _flags                     Request flags + index of tuple data to retrieve anything other than the first entry
+   *                                         (index needs to be shifted left by DBR_READ_FLAGS_INDEX_SHIFT)
    *
    * @see DBBE_OPCODE_GET
    */

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,18 +90,18 @@ dbBE_Redis_command_stage_spec_t* dbBE_Redis_command_stages_spec_init()
 
   /*
    * read
-   * - LINDEX ns_name::t_name 0
+   * - LINDEX ns_name::t_name <index>
    */
   op = DBBE_OPCODE_READ;
   stage = 0;
   index = op * DBBE_REDIS_COMMAND_STAGE_MAX + stage;
   s = &specs[ index ];
-  s->_array_len = 1;
+  s->_array_len = 2;
   s->_resp_cnt = 1;
   s->_final = 1;
   s->_result = 1;
   s->_expect = dbBE_REDIS_TYPE_CHAR; // will return char buffer
-  strcpy( s->_command, "*3\r\n$6\r\nLINDEX\r\n%0$1\r\n0\r\n" );
+  strcpy( s->_command, "*3\r\n$6\r\nLINDEX\r\n%0%1" );
   s->_stage = stage;
 
   /*

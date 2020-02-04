@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,6 +88,9 @@ typedef enum {
   DBR_FLAGS_PARTIAL = 2, /**< Read/Get return success even if the provided buffer was too small. In this case the returned size is set to the size of the value in storage */
   DBR_FLAGS_MAX
 } DBR_Request_flags_t;
+
+// number of bits to shift the flags input to extract a potential index for read() commands
+#define DBR_READ_FLAGS_INDEX_SHIFT (4)
 
 /**
  * @typedef DBR_Handle_t
