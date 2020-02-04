@@ -234,13 +234,27 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
 
   //   create request()
 //    int64_t rc;
-  dbrFShip_request_ctx_t *rctx = dbrFShip_create_request( req, cctx );
-  dbBE_Request_handle_t be_req = g_dbBE.post( context->_mctx->_be_ctx, req, 0 );
-  LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
-  if( be_req == NULL )
+  dbrFShip_request_ctx_t *rctx = NULL;
+  if( req->_opcode == DBBE_OPCODE_CANCEL )
   {
-    // todo: create error response with DBR_ERR_BE_POST
-    return -1;
+    rctx = dbrFShip_find_request( cctx, req );
+    if( rctx != NULL )
+    {
+      g_dbBE.cancel( context->_mctx->_be_ctx, rctx->_req );
+      LOG( DBG_TRACE, stderr, "canceling %d\n", rctx->_req->_opcode );
+    }
+    return 0;
+  }
+  else
+  {
+    rctx = dbrFShip_create_request( req, cctx );
+    dbBE_Request_handle_t be_req = g_dbBE.post( context->_mctx->_be_ctx, req, 0 );
+    LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
+    if( be_req == NULL )
+    {
+      // todo: create error response with DBR_ERR_BE_POST
+      return -1;
+    }
   }
   return dbrFShip_request_ctx_queue_push( cctx->_pending, rctx );
 }
@@ -261,7 +275,7 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   comp->_user = rctx->_user_in;
 
   // adjust the response SGE to prevent returning more data than available
-  if( comp->_rc > 0 )
+  if(( comp->_rc > 0 ) && ( rctx->_req->_opcode != DBBE_OPCODE_PUT ))
   {
     size_t rtotal = (size_t)comp->_rc;
     int i;
@@ -578,6 +592,7 @@ int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx )
     case DBBE_OPCODE_DIRECTORY:
       if( req->_sge[0].iov_base != NULL )
         free( req->_sge[0].iov_base );
+      // intentionally no break;
     default:
       break;
   }
@@ -615,4 +630,12 @@ int dbrFShip_client_remove( dbBE_Connection_queue_t *queue,
   free( cctx );
   *in_out_cctx = NULL;
   return 0;
+}
+
+
+dbrFShip_request_ctx_t* dbrFShip_find_request( dbrFShip_client_context_t *cctx,
+                                               dbBE_Request_t *req )
+{
+  // input req is the cancellation request from remote that contains the orig-user handle to cancel
+  return dbrFShip_request_ctx_find( cctx->_pending, req->_user );
 }

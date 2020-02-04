@@ -90,5 +90,7 @@ dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_c
 int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx );
 int dbrFShip_client_remove( dbBE_Connection_queue_t *queue,
                             dbrFShip_client_context_t **in_out_cctx );
+dbrFShip_request_ctx_t* dbrFShip_find_request( dbrFShip_client_context_t *cctx,
+                                               dbBE_Request_t *req );
 
 #endif /* SRC_FSHIP_SRV_FSHIP_SRV_H_ */
