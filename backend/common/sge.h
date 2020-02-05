@@ -96,8 +96,7 @@ ssize_t dbBE_SGE_serialize_header( const dbBE_sge_t *sge, const int sge_count, c
   ssize_t total = plen;
   for( i=0; (i < sge_count) && (space > 0); ++i )
   {
-    if( (( sge[i].iov_len != 0 ) && (sge[i].iov_base == NULL )) ||
-        (( sge[i].iov_len == 0 ) && (sge[i].iov_base != NULL )) )
+    if(( sge[i].iov_len != 0 ) && (sge[i].iov_base == NULL ))
       return -EBADMSG;
 
     // NULL-ptr encoding: len=0; ptr=NULL;
@@ -240,6 +239,10 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
 
   if( consistent != total )
     dbBE_SGE_deserialize_error( -EBADMSG, sge_in, sge );
+
+  // step back one because we parsed a double \n at the end if the total SGE length was 0
+  if(( total == 0 ) && ( data[-1] == '\n' ) && ( data[-2] == '\n' ))
+    --*parsed;
 
   *sge_out = sge;
 

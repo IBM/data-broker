@@ -275,19 +275,30 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   comp->_user = rctx->_user_in;
 
   // adjust the response SGE to prevent returning more data than available
-  if(( comp->_rc > 0 ) && ( rctx->_req->_opcode != DBBE_OPCODE_PUT ))
-  {
-    size_t rtotal = (size_t)comp->_rc;
-    int i;
-    while(( i < rctx->_req->_sge_count ) && ( rtotal > 0 ))
+  if( comp->_rc >= 0 )
+    switch( rctx->_req->_opcode )
     {
-      if( rtotal <= rctx->_req->_sge[i].iov_len )
-        rctx->_req->_sge[i].iov_len = rtotal;
-      rtotal -= rctx->_req->_sge[i].iov_len;
-      ++i;
+      case DBBE_OPCODE_GET:
+      case DBBE_OPCODE_READ:
+      case DBBE_OPCODE_NSQUERY:
+      case DBBE_OPCODE_DIRECTORY:
+      case DBBE_OPCODE_ITERATOR:
+      {
+        size_t rtotal = (size_t)comp->_rc;
+        int i = 0;
+        do
+        {
+          if( rtotal <= rctx->_req->_sge[i].iov_len )
+            rctx->_req->_sge[i].iov_len = rtotal;
+          rtotal -= rctx->_req->_sge[i].iov_len;
+          ++i;
+        } while(( i < rctx->_req->_sge_count ) && ( rtotal > 0));
+        rctx->_req->_sge_count = i; // the amount of SGE needs to be adjusted
+        break;
+      }
+      default:
+        break;
     }
-    rctx->_req->_sge_count = i; // the amount of SGE needs to be adjusted
-  }
 
   ssize_t serlen = dbBE_Completion_serialize( rctx->_req->_opcode, comp, rctx->_req->_sge, rctx->_req->_sge_count,
                                               dbBE_Transport_sr_buffer_get_available_position( context->_s_buf ),
