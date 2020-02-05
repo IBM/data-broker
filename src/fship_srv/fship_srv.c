@@ -217,7 +217,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
                                          dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
                                          &req );
       LOG( DBG_ALL, stderr, "Received %ld %s _ deserialzed=%ld\n", dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
-           dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ),
+           (dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) < 100 ? dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ) : "long" ),
            parsed );
       ++context->_total_pending; // as soon as there's anything received, assume a pending request
       if( parsed > 0 )
@@ -299,18 +299,24 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 0 );
 
   LOG( DBG_ALL, stderr, "Sending %ld %s\n", dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
-       dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ) );
+       (dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) < 100 ? dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ) : "long" ) );
 
-  ssize_t sent = -EAGAIN;
-  while(( sent == -EAGAIN ) && ( (ssize_t)dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > 0) )
+  ssize_t sent = 0;
+  while(( sent >= 0 ) && ( (ssize_t)dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > 0) )
   {
     sent = send( rctx->_cctx->_conn->_socket,
                  dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ),
                  dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
                  0 );
     if( sent < 0 )
-      return -1;
+    {
+      LOG( DBG_ERR, stderr, "Send error. Incomplete response rc=%"PRId64": %s\n", sent, strerror( errno ) );
+      // don't break or exit here; buffer cleanup suggested
+    }
     dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
+    LOG( DBG_ALL, stderr, "sent %"PRId64"/%"PRId64"/%"PRId64"\n",
+         sent, dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
+         dbBE_Transport_sr_buffer_available( context->_s_buf ));
   }
 
   dbBE_Transport_sr_buffer_reset( context->_s_buf );
