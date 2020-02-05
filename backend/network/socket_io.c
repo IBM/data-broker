@@ -45,7 +45,16 @@ ssize_t dbBE_Socket_send( const int socket,
   {
     rc = sendmsg( socket, &msg, 0 );
 
-    if( rc < 0 ) { ssize = rc; break; }
+    if( rc < 0 )
+    {
+      if( errno == EAGAIN )
+      {
+        rc = 0;
+        continue;
+      }
+      ssize = rc;
+      break;
+    }
     if(( rc > 0 ) && ( rc + ssize < total ))
     {
       ssize_t offset = rc;
