@@ -39,7 +39,7 @@ int dbBE_Request_free( dbBE_Request_t *req )
   if( req == NULL )
     return -EINVAL;
 
-  if( req->_key != NULL ) free( req->_key );
+  if(( req->_key != NULL ) && ( req->_opcode != DBBE_OPCODE_ITERATOR )) free( req->_key );
   if( req->_match != NULL ) free( req->_match );
 
   memset( req, 0, sizeof( dbBE_Request_t ) + sizeof( dbBE_sge_t ) * req->_sge_count );
@@ -66,7 +66,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     key = (DBR_Tuple_name_t)req->_sge[0].iov_base;
     if( key == NULL )
       return -ENOMEM;
-    if( snprintf( key, sizeof( uintptr_t ) + 1, "%p", (void*)req->_key ) < (int)sizeof( uintptr_t ) )
+    if( snprintf( key, sizeof( uintptr_t ) + 1, "%p", (void*)req->_key ) < 1 )
       return -EBADMSG;
   }
 
