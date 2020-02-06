@@ -15,7 +15,9 @@
  *
  */
 
-#define DEBUG_LEVEL DBG_VERBOSE
+#ifndef DEBUG_LEVEL
+#define DEBUG_LEVEL DBG_INFO
+#endif
 
 #include "logutil.h"
 #include "common/utility.h"
@@ -197,7 +199,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
   ssize_t total = 0;
   while( parsed == -EAGAIN )
   {
-    LOG( DBG_ALL, stderr, "BUF: avail=%"PRId64"; rem=%"PRId64"; size=%"PRId64"\n", dbBE_Transport_sr_buffer_available( context->_r_buf ),
+    LOG( DBG_TRACE, stderr, "BUF: avail=%"PRId64"; rem=%"PRId64"; size=%"PRId64"\n", dbBE_Transport_sr_buffer_available( context->_r_buf ),
          dbBE_Transport_sr_buffer_remaining( context->_r_buf ),
          dbBE_Transport_sr_buffer_get_size( context->_r_buf ) );
     ssize_t rcvd = dbBE_Socket_recv( cctx->_conn->_socket, context->_r_buf );
@@ -216,7 +218,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
       parsed = dbBE_Request_deserialize( dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ),
                                          dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
                                          &req );
-      LOG( DBG_ALL, stderr, "Received %ld %s _ deserialzed=%ld\n", dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
+      LOG( DBG_TRACE, stderr, "Received %ld %s _ deserialzed=%ld\n", dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
            (dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) < 100 ? dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ) : "long" ),
            parsed );
       ++context->_total_pending; // as soon as there's anything received, assume a pending request
@@ -306,13 +308,13 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   ssize_t serlen = dbBE_Completion_serialize( rctx->_req->_opcode, comp, rctx->_req->_sge, rctx->_req->_sge_count,
                                               dbBE_Transport_sr_buffer_get_available_position( context->_s_buf ),
                                               dbBE_Transport_sr_buffer_remaining( context->_s_buf ) );
-  LOG( DBG_ALL, stderr, "Completion serialize: op=%d; len=%"PRId64"\n", rctx->_req->_opcode, serlen );
+  LOG( DBG_TRACE, stderr, "Completion serialize: op=%d; len=%"PRId64"\n", rctx->_req->_opcode, serlen );
   if( serlen < 0 )
     return (int)serlen;
 
   dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 0 );
 
-  LOG( DBG_ALL, stderr, "Sending %ld %s\n", dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
+  LOG( DBG_TRACE, stderr, "Sending %ld %s\n", dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
        (dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) < 100 ? dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ) : "long" ) );
 
   ssize_t sent = 0;
@@ -328,7 +330,7 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
       // don't break or exit here; buffer cleanup suggested
     }
     dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
-    LOG( DBG_ALL, stderr, "sent %"PRId64"/%"PRId64"/%"PRId64"\n",
+    LOG( DBG_TRACE, stderr, "sent %"PRId64"/%"PRId64"/%"PRId64"\n",
          sent, dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
          dbBE_Transport_sr_buffer_available( context->_s_buf ));
   }
@@ -502,12 +504,12 @@ void* dbrFShip_listen_start( void *arg )
       if( dbBE_Network_address_to_string( connection->_address, connection->_url, DBBE_URL_MAX_LENGTH ) == NULL )
       {
         LOG( DBG_ERR, stderr, "Network address translation to URL failed.\n" );
-        return NULL;
+        break;
       }
 
       dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)calloc( 1, sizeof( dbrFShip_client_context_t ));
       if( cctx == NULL )
-        return NULL;
+        break;
 
       // bidirectional linking between connection and its context
       cctx->_conn = connection;
@@ -517,7 +519,7 @@ void* dbrFShip_listen_start( void *arg )
 
       dbrFShip_event_info_t *evinfo = (dbrFShip_event_info_t*)malloc( sizeof( dbrFShip_event_info_t ));
       if( evinfo == NULL )
-        return NULL;
+        break;
       evinfo->_cctx = cctx;
       evinfo->_queue = tio->_conn_queue;
       cctx->_event = evinfo;
@@ -525,7 +527,7 @@ void* dbrFShip_listen_start( void *arg )
       // add to libevent socket polling
       struct event* ev = event_new( evbase, nes, EV_READ | EV_PERSIST | EV_ET, dbrFShip_connection_wakeup, evinfo );
       if( ev == NULL )
-        return NULL;
+        break;
 
       evinfo->_event = ev;
 
@@ -533,6 +535,8 @@ void* dbrFShip_listen_start( void *arg )
       timeout.tv_sec = 1;
       timeout.tv_usec = 0;
       event_add( ev, &timeout );
+
+      LOG( DBG_INFO, stderr, "New client connection on socket=%d\n", connection->_socket );
     }
   }
 
@@ -578,6 +582,7 @@ dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_c
         if( req_buf == NULL )
           goto error;
         req->_sge[0].iov_base = req_buf;
+        req->_sge[1].iov_base = NULL;
       }
       break;
     default:

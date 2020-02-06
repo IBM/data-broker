@@ -244,7 +244,7 @@ int FShip_cancel( dbBE_Handle_t be,
   c->_key = "";
   c->_user = ber->_user;
 
-  LOG( DBG_ALL, stderr, "Cancellation: %p with rctx %p\n", request, ber->_user )
+  LOG( DBG_TRACE, stderr, "Cancellation: %p with rctx %p\n", request, ber->_user )
 
   // post cancellation request
   dbBE_Request_handle_t cancel = FShip_post( be, c, 1 );
@@ -295,7 +295,8 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
 
   dbBE_Transport_sr_buffer_add_data( fctx->_rbuf, rcvd, 0 );
   dbBE_Transport_sr_buffer_get_available_position( fctx->_rbuf )[0] = '\0'; // terminate just in case there's old stuff
-  LOG( DBG_ALL, stderr, "received: %"PRId64": %s\n", rcvd, dbBE_Transport_sr_buffer_get_start( fctx->_rbuf ) );
+  LOG( DBG_TRACE, stderr, "received: %"PRId64"/%"PRId64": %s\n", rcvd, dbBE_Transport_sr_buffer_available( fctx->_rbuf ),
+       (dbBE_Transport_sr_buffer_available( fctx->_rbuf ) < 100 ? dbBE_Transport_sr_buffer_get_start( fctx->_rbuf ) : "long" ) );
 
   // deserialize
   dbBE_sge_t *sge = NULL;

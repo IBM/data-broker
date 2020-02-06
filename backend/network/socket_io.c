@@ -92,8 +92,6 @@ ssize_t dbBE_Socket_send( const int socket,
 #endif
 
   dbBE_Transport_sge_buffer_reset( sge_buf );
-
-  LOG( DBG_ALL, stderr, "SEND: rc=%"PRId64"\n", ssize );
   return ssize;
 }
 
@@ -109,11 +107,11 @@ ssize_t dbBE_Socket_recv( const int socket,
     return -EINVAL;
   }
 
-  LOG( DBG_ALL, stderr, "RECV( %d ): %p:%"PRId64"\n", socket, b, l );
+  LOG( DBG_TRACE, stderr, "RECV( %d ): %p:%"PRId64"\n", socket, b, l );
 
   ssize_t rcvd = recv( socket, b, l, 0 );
 
-  LOG( DBG_ALL, stderr, "RECV( %d ): rc = %"PRId64"\n", socket, rcvd );
+  LOG( DBG_TRACE, stderr, "RECV( %d ): rc = %"PRId64"\n", socket, rcvd );
 
   return rcvd;
 }
