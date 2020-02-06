@@ -344,6 +344,8 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
       memcpy( req->_sge[i].iov_base, sge[i].iov_base, sge[i].iov_len );
     else
       dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
+    if( sge[i].iov_len < req->_sge[i].iov_len )
+      ((char*)req->_sge[i].iov_base)[ sge[i].iov_len ] = '\0'; // do some kind of termination because there are some APIs that expect strings in this place
   }
 
   return cmpl;
