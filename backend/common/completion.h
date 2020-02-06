@@ -120,7 +120,7 @@ ssize_t dbBE_Completion_deserialize( char *data,
                                      dbBE_sge_t **sge_out,
                                      int *sge_count_out )
 {
-  if(( data == NULL ) || (space == 0 ) || ( comp_out == NULL ))
+  if(( data == NULL ) || (space == 0 ) || ( comp_out == NULL ) || ( sge_out == NULL ) || (sge_count_out == NULL ))
     return -EINVAL;
 
   ssize_t total = 0;

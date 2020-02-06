@@ -19,7 +19,6 @@
 #ifndef BACKEND_COMMON_REQUEST_H_
 #define BACKEND_COMMON_REQUEST_H_
 
-
 /**
  * @brief allocate a new request struct including SGE-space
  *
@@ -66,7 +65,7 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     key = (DBR_Tuple_name_t)req->_sge[0].iov_base;
     if( key == NULL )
       return -ENOMEM;
-    if( snprintf( key, sizeof( uintptr_t ) + 1, "%p", (void*)req->_key ) < 1 )
+    if( snprintf( key, sizeof( uintptr_t ) * 2 + 2, "%p", (void*)req->_key ) < 1 )
       return -EBADMSG;
   }
 
@@ -103,8 +102,8 @@ ssize_t dbBE_Request_serialize(const dbBE_Request_t *req, char *data, size_t spa
     case DBBE_OPCODE_DIRECTORY:
       if( req->_sge_count != 2 )
         return -EBADMSG;
-      sge_total = snprintf( data, space, "%"PRId64"\n%p\n%"PRId64"",
-                            req->_sge[0].iov_len, req->_sge[0].iov_base,
+      sge_total = snprintf( data, space, "%"PRId64"\n%"PRId64"",
+                            req->_sge[0].iov_len,
                             req->_sge[1].iov_len );
       break;
     case DBBE_OPCODE_NSCREATE:
@@ -167,7 +166,7 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
   unsigned keylen, matchlen;
   int64_t flags;
   int sge_count;
-  dbBE_sge_t *sge_out;
+  dbBE_sge_t *sge_out = NULL;
 
   int items = sscanf( data, "%d\n%p\n%p\n%p\n%p\n%d\n%d\n%"PRId64"\n%n",
             (int*)&opcode,
@@ -257,17 +256,14 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
       if( sge_out == NULL )
         dbBE_Request_deserialize_error( -ENOMEM, key, match, NULL );
 
-      sge_total = sscanf( data, "%"PRId64"\n%p\n%"PRId64"\n%n", &sge_out[0].iov_len, &sge_out[0].iov_base, &sge_out[1].iov_len, &parsed );
+      sge_total = sscanf( data, "%"PRId64"\n%"PRId64"\n%n", &sge_out[0].iov_len, &sge_out[1].iov_len, &parsed );
       if( sge_total < 0 )
       {
         free( sge_out );
         break;
       }
-      if( sge_total < 3 )
-      {
-        free( sge_out );
-        sge_total = -EAGAIN;
-      }
+      if( sge_total < 2 )
+        dbBE_Request_deserialize_error( -EAGAIN, key, match, sge_out )
       else
       {
         sge_out[1].iov_base = NULL;
@@ -288,6 +284,7 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
           dbBE_Request_deserialize_error( -EBADMSG, key, match, sge_out );
         sge_out[0].iov_base = ptr;
       }
+      ++sge_total; // account for terminating \n
       break;
     }
     case DBBE_OPCODE_PUT:

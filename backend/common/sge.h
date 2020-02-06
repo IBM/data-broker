@@ -240,7 +240,8 @@ int dbBE_SGE_extract_header( dbBE_sge_t *sge_in, int sge_count, const char *data
   if( consistent != total )
     dbBE_SGE_deserialize_error( -EBADMSG, sge_in, sge );
 
-  // step back one because we parsed a double \n at the end if the total SGE length was 0
+  // if the total SGE length was 0, step back one because we parsed a double \n at the end
+  // i.e. we only had one NULL ptr encoded
   if(( total == 0 ) && ( data[-1] == '\n' ) && ( data[-2] == '\n' ))
     --*parsed;
 

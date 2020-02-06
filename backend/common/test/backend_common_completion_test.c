@@ -108,10 +108,14 @@ int test_deserialize()
   rc += TEST( -EAGAIN, dbBE_Completion_deserialize( data, 38, &comp, &sge, &sge_count ) );
 
   sge = NULL; sge_count = 0;
-  rc += TEST( dbBE_Completion_deserialize( data, strlen( data ), &comp, &sge, &sge_count ), (ssize_t)strlen( data ) );
+  ssize_t slen = strlen( data );
+  rc += TEST_RC( dbBE_Completion_deserialize( data, strlen( data ), &comp, &sge, &sge_count ), (ssize_t)strlen( data ) + 1, slen );
   rc += TEST( comp->_status, DBR_SUCCESS );
   rc += TEST( comp->_rc, 0 );
   rc += TEST( sge_count, 3 );
+  rc += TEST( strncmp( sge[0].iov_base, "abcdeabcdedefghijklmdefghijklmklmnopqrstuvxyzklmnopqrstuvxyz", 61 ), 0 );
+  rc += TEST( strncmp( sge[1].iov_base, "defghijklmdefghijklmklmnopqrstuvxyzklmnopqrstuvxyz", 51 ), 0 );
+  rc += TEST( strncmp( sge[2].iov_base, "klmnopqrstuvxyzklmnopqrstuvxyz", 31 ), 0 );
   rc += TEST_NOT( sge, NULL );
   rc += TEST( dbBE_SGE_get_len( sge, sge_count ), 60 );
   free( sge );

@@ -154,7 +154,7 @@ int test_deserialize()
 
   int nsgelen = 0;
   dbBE_sge_t *sge = NULL;
-  char *data2 = "16\n2\n10\n6\nHello World more\n";
+  char *data2 = "16\n2\n10\n6\nHello World more";
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, NULL, 0, &sge, &nsgelen ), -EINVAL );
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, 0, &sge, &nsgelen ), -EAGAIN );
   rc += TEST( dbBE_SGE_deserialize( NULL, 0, serial, datalen, NULL, &nsgelen ), -EINVAL );

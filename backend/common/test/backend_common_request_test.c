@@ -50,9 +50,11 @@ int test_serialize()
   req->_sge[0].iov_len = 1;
   rc += TEST( -EBADMSG, dbBE_Request_serialize( req, data, 1000 ) );
 
+  // zero-length data is just fine
   req->_sge[0].iov_base = partdata;
   req->_sge[0].iov_len = 0;
-  rc += TEST( -EBADMSG, dbBE_Request_serialize( req, data, 1000 ) );
+  rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
+  rc += TEST_NOT( strstr( data, "0\n1\n0\n"), NULL );
 
   req->_sge[0].iov_base = putdata;
   req->_sge[0].iov_len = 4;
@@ -130,11 +132,13 @@ int test_serialize()
   rc += TEST_NOT( strstr( data, "100\n1\n100\n"), NULL ); // contains the SGE header
 
   req->_opcode = DBBE_OPCODE_DIRECTORY;
-  req->_sge_count = 1;
+  req->_sge_count = 2;
   req->_sge[0].iov_base = partdata;
   req->_sge[0].iov_len = 100;
+  req->_sge[1].iov_base = NULL;
+  req->_sge[1].iov_len = 10;
   rc += TEST( dbBE_Request_serialize( req, data, 1000 ), (ssize_t)strnlen( data, 1000 ) );
-  rc += TEST_NOT( strstr( data, "100\n1\n100\n" ), NULL ); // must contain SGE-header with length limit but no actual ptr
+  rc += TEST_NOT( strstr( data, "100\n10\n" ), NULL ); // contains buf size and count limit
 
   req->_opcode = DBBE_OPCODE_NSCREATE;
   req->_sge_count = 1;
@@ -207,7 +211,7 @@ int test_deserialize()
   data = build_data( data, "1\n(nil)\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n");
   rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), -EAGAIN );
   data = build_data( data, "1\n0x0123456789\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n6\n1\n6\nWorld!\n");
-  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), (ssize_t)strlen( data ) );
+  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), (ssize_t)strlen( data ) + 1 );  // +1 because the SGE termination \n -> \0 for data
   rc += TEST( req->_opcode, DBBE_OPCODE_PUT );
   rc += TEST( req->_ns_hdl, (dbBE_NS_Handle_t)0x0123456789ull );
   rc += TEST( req->_user, NULL );
@@ -282,17 +286,20 @@ int test_deserialize()
   rc += TEST( dbBE_Request_free( req ), 0 );
 
   // serialized DIRECTORY
-  data = build_data( data, "7\n0x0123456789\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n6\n1\n");
+  data = build_data( data, "7\n0x0123456789\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n6\n");
   rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), -EAGAIN );
-  data = build_data( data, "7\n0x0123456789\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n60\n1\n60\n");
-  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), (ssize_t)strlen( data ) );
+  data = build_data( data, "7\n0x0123456789\n(nil)\n(nil)\n(nil)\n5\n1\n0\nHello*\n60\n10\n");
+  ssize_t slen = strlen( data );
+  rc += TEST_RC( dbBE_Request_deserialize( data, strlen( data ), &req ), (ssize_t)strlen( data ), slen );
   rc += TEST( req->_opcode, DBBE_OPCODE_DIRECTORY );
   rc += TEST( req->_ns_hdl, (dbBE_NS_Handle_t)0x0123456789ull );
   rc += TEST( req->_user, NULL );
-  rc += TEST( req->_sge_count, 1 );
+  rc += TEST( req->_sge_count, 2 );
   rc += TEST( strncmp( req->_key, "Hello", 6) , 0 );
-  rc += TEST( req->_sge[0].iov_len, 60 );
+  rc += TEST( req->_sge[0].iov_len, 60 ); // data len
   rc += TEST( req->_sge[0].iov_base, NULL );
+  rc += TEST( req->_sge[1].iov_len, 10 ); // count
+  rc += TEST( req->_sge[1].iov_base, NULL );
   rc += TEST( dbBE_Request_free( req ), 0 );
 
   // serialized NSCREATE
@@ -308,6 +315,16 @@ int test_deserialize()
   rc += TEST( req->_sge_count, 1 );
   rc += TEST( req->_sge[0].iov_base, NULL );
   rc += TEST( req->_sge[0].iov_len, 0 );
+  rc += TEST( strncmp( req->_key, "Namespace", 9) , 0 );
+  rc += TEST( dbBE_Request_free( req ), 0 );
+  data = build_data( data, "8\n(nil)\n(nil)\n(nil)\n(nil)\n9\n0\n0\nNamespace\n8\n1\n8\n0x056345\n");
+  rc += TEST( dbBE_Request_deserialize( data, strlen( data ), &req ), (ssize_t)strlen( data ) );
+  rc += TEST( req->_opcode, DBBE_OPCODE_NSCREATE );
+  rc += TEST( req->_ns_hdl, NULL );
+  rc += TEST( req->_user, NULL );
+  rc += TEST( req->_sge_count, 1 );
+  rc += TEST( req->_sge[0].iov_base, (void*)0x056345 );
+  rc += TEST( req->_sge[0].iov_len, 8 );
   rc += TEST( strncmp( req->_key, "Namespace", 9) , 0 );
   rc += TEST( dbBE_Request_free( req ), 0 );
 
