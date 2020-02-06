@@ -282,7 +282,6 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
       case DBBE_OPCODE_READ:
       case DBBE_OPCODE_NSQUERY:
       case DBBE_OPCODE_DIRECTORY:
-      case DBBE_OPCODE_ITERATOR:
       {
         size_t rtotal = (size_t)comp->_rc;
         int i = 0;
@@ -296,6 +295,10 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
         rctx->_req->_sge_count = i; // the amount of SGE needs to be adjusted
         break;
       }
+      case DBBE_OPCODE_ITERATOR:
+        // returns new iterator in comp->_rc and the sge[] is a key+len
+        rctx->_req->_sge[0].iov_len = strnlen( (char*)rctx->_req->_sge[0].iov_base, rctx->_req->_sge[0].iov_len );
+        break;
       default:
         break;
     }
