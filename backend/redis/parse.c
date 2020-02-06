@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1726,10 +1726,15 @@ int dbBE_Redis_process_iterator( dbBE_Redis_request_t **in_out_request,
   dbBE_Redis_request_t *request = *in_out_request;
   rc = dbBE_Redis_process_general( request, result );
 
+  dbBE_Redis_iterator_t *it = request->_status.iterator._it;
+  if( it == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Fatal error in iterator backend: found request with NULL-ptr iterator reference\n" );
+    return -EPROTO;
+  }
+
   if( rc == 0 )
   {
-    dbBE_Redis_iterator_t *it = request->_status.iterator._it;
-
     // browse through array and extract: new cursor and keys into cache
     // parse the result array and create key delete requests
     dbBE_Redis_result_t *subresult = &result->_data._array._data[1];
@@ -1788,6 +1793,13 @@ int dbBE_Redis_process_iterator( dbBE_Redis_request_t **in_out_request,
       dbBE_Redis_s2r_queue_push( post_queue, request );
       *in_out_request = NULL;
     }
+  }
+  else
+  {
+    // error: complete the cursor
+    it->_connection = NULL;
+    snprintf( it->_cursor, 4, "0" );
+    return_error_clean_result( -EILSEQ, result );
   }
   return rc;
 }
