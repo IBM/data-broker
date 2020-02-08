@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -13,8 +13,6 @@
  # See the License for the specific language governing permissions and
  # limitations under the License.
  #
-
-include( ${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake )
 
 # prepare this RPATH stuff in case we need rpath in the test executables
 # SET(CMAKE_SKIP_BUILD_RPATH  FALSE)

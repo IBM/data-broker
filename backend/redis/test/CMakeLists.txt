@@ -1,5 +1,5 @@
  #
- # Copyright © 2018,2019 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  # limitations under the License.
  #
 
-include( ${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake )
+find_package( libevent )
 
 # prepare this RPATH stuff in case we need rpath in the test executables
 # SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
@@ -47,8 +47,8 @@ foreach(_test ${DB_BACKEND_TEST_SOURCES})
   get_filename_component(TEST_NAME ${_test} NAME_WE)
   add_executable(${TEST_NAME} ${_test})
   add_dependencies(${TEST_NAME} dbbe_redis ${TRANSPORT_LIBS})
-  target_link_libraries(${TEST_NAME} dbbe_redis ${TRANSPORT_LIBS} -lm ${LIBEVENT_LIBRARIES} )
-  target_include_directories(${TEST_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/test ${LIBEVENT_INCLUDE_DIR})
+  target_link_libraries(${TEST_NAME} PRIVATE dbbe_redis ${TRANSPORT_LIBS} ${libevent_LIBRARY} -lm )
+  target_include_directories(${TEST_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/test )
   add_test(DBBE_${TEST_NAME} ${TEST_NAME} )
   install(TARGETS ${TEST_NAME} RUNTIME
           DESTINATION test )
