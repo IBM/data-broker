@@ -33,6 +33,8 @@
 #include <libdatabroker.h>
 #include <sys/uio.h>
 
+#define DBR_BACKEND_ENV "DBR_BACKEND"
+
 /**
  * @typedef dbBE_Handle_t
  * @brief   Handle to the back-end-specific structure
@@ -581,10 +583,10 @@ typedef struct dbBE_api
  * to reference the back-end
  *
  * @todo Considering that each user lib has a global context already, we could probably
- *       get rid if this g_dbBE and have the user lib keep track. This would enable
+ *       get rid if this dbBE and have the user lib keep track. This would enable
  *       an option to use multiple back-ends concurrently.
  */
-extern const dbBE_api_t g_dbBE;
+extern const dbBE_api_t dbBE;
 
 /**********************************************************************
  * A set of helper functions to handle requests, completions, or SGEs

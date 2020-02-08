@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,29 +15,80 @@
  *
  */
 
+#include "logutil.h"
+#include "backend.h"
+#include "common/utility.h"
+
 #include <stddef.h>
 #include <errno.h>
+#include <dlfcn.h>
 
-#include "backend.h"
 
-static dbBE_Handle_t gBE_Context = NULL;
+static dbrBackend_t *gBE = NULL;
 
-dbBE_Handle_t* dbrlib_backend_get_handle(void)
+dbrBackend_t* dbrlib_backend_get_handle(void)
 {
   // check backend context and initialize
-  if( gBE_Context == NULL )
+  dbrBackend_t *be = NULL;
+  if( gBE == NULL )
   {
-    gBE_Context = g_dbBE.initialize( );
+    char *to_str = dbBE_Extract_env( DBR_BACKEND_ENV, "libdbbe_redis.so" );
+    if( to_str == NULL )
+    {
+      LOG( DBG_ERR, stderr, "libdatabroker: failed to get backend environment variable.\n" );
+      goto error;
+    }
+
+    be = (dbrBackend_t*)calloc( 1, sizeof( dbrBackend_t ));
+    if( be == NULL )
+      return NULL;
+
+    if( (be->_library = dlopen( to_str, RTLD_LAZY )) == NULL )
+    {
+      LOG( DBG_ERR, stderr, "libdatabroker: failed to load Backend Library %s. Looked for in %s\n", to_str, getenv("LD_LIBRARY_PATH") );
+      goto error;
+    }
+    dlerror();
+    if( (be->_api = dlsym( be->_library, "dbBE" )) == NULL )
+    {
+      LOG( DBG_ERR, stderr, "libdatabroker: symbol 'dbBE' not defined in %s\n", to_str );
+      goto error;
+    }
+
+    be->_context = be->_api->initialize( );
+    gBE = be;
   }
-  return gBE_Context;
+  return gBE;
+
+error:
+  if( be != NULL )
+  {
+    if( be->_api != NULL ) be->_api = NULL;
+    if( be->_library != NULL )
+    {
+      dlclose( be->_library );
+      be->_library = NULL;
+    }
+    free( be );
+    be = NULL;
+    gBE = NULL;
+  }
+  return (dbBE_Handle_t)be;
 }
 
-int dbrlib_backend_delete( dbBE_Handle_t* handle )
+int dbrlib_backend_delete( dbrBackend_t *be )
 {
-  if( handle == NULL )
+  if( be == NULL )
     return -EINVAL;
 
-  int rc = g_dbBE.exit( handle );
-  gBE_Context = NULL;
+  int rc = 0;
+  if( be->_api != NULL )
+    rc = be->_api->exit( be->_context );
+
+  if( be->_library != NULL )
+    rc = dlclose( be->_library );
+
+  free( be );
+  gBE = NULL;
   return rc;
 }

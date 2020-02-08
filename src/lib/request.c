@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -281,6 +281,7 @@ DBR_Request_handle_t dbrPost_request_ext( dbrRequestContext_t *rctx, const int w
   if( rctx == NULL || rctx->_ctx == NULL || rctx->_ctx->_reverse == NULL )
     return NULL;
 
+  dbrBackend_t *be = rctx->_ctx->_reverse->_be_ctx;
   dbrRequestContext_t *chain = rctx;
   int rcount = 0;
   while( chain != NULL )
@@ -306,7 +307,7 @@ DBR_Request_handle_t dbrPost_request_ext( dbrRequestContext_t *rctx, const int w
     int trigger = (( chain->_next == NULL ) && ( with_trigger )) || ( rcount == 0 );
     dbBE_Request_handle_t be_handle = NULL;
     do {
-      be_handle = g_dbBE.post( chain->_ctx->_be_ctx, &chain->_req, trigger );
+      be_handle = be->_api->post( be->_context, &chain->_req, trigger );
     } while(( be_handle == NULL ) && ( errno == EAGAIN ));
 
       if( be_handle == NULL )

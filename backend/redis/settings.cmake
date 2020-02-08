@@ -17,5 +17,4 @@
 find_package(libevent REQUIRED)
 
 set( BE_NAME redis )
-set( BACKEND_LIBS dbbe_${BE_NAME} )
-set( BACKEND_DEPS ${LIBEVENT_LIBRARIES} )
+set( BACKEND_DEPS libevent )

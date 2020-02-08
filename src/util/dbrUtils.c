@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018, 2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,9 +78,8 @@ dbrMain_context_t* dbrCheckCreateMainCTX(void)
     if( gMain_context->_be_ctx == NULL )
     {
       LOG( DBG_ERR, stderr, "libdatabroker: failed to create/connect backend.\n" );
-      free( gMain_context );
-      gMain_context = NULL;
       pthread_mutex_unlock( &gMain_creation_lock );
+      dbrMain_exit();
       return NULL;
     }
 
