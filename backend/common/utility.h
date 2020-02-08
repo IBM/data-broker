@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef BACKEND_REDIS_UTILITY_H_
-#define BACKEND_REDIS_UTILITY_H_
+#ifndef BACKEND_COMMON_UTILITY_H_
+#define BACKEND_COMMON_UTILITY_H_
 
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +28,7 @@
  * returns the string value of env_var or the default if it's not set
  */
 static inline
-char* dbBE_Redis_extract_env( const char *env_var, const char *env_default )
+char* dbBE_Extract_env( const char *env_var, const char *env_default )
 {
   char *env = NULL;
   char *envstr = getenv(env_var);
@@ -46,4 +46,4 @@ char* dbBE_Redis_extract_env( const char *env_var, const char *env_default )
 
 
 
-#endif /* BACKEND_REDIS_UTILITY_H_ */
+#endif /* BACKEND_COMMON_UTILITY_H_ */
