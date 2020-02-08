@@ -23,6 +23,10 @@
 #include <errno.h>
 #include <dlfcn.h>
 
+#ifndef DEFAULT_BE
+#define DEFAULT_BE_LIB "libdbbe_redis.so"
+#endif
+
 
 static dbrBackend_t *gBE = NULL;
 
@@ -32,7 +36,7 @@ dbrBackend_t* dbrlib_backend_get_handle(void)
   dbrBackend_t *be = NULL;
   if( gBE == NULL )
   {
-    char *to_str = dbBE_Extract_env( DBR_BACKEND_ENV, "libdbbe_redis.so" );
+    char *to_str = dbBE_Extract_env( DBR_BACKEND_ENV, DEFAULT_BE_LIB );
     if( to_str == NULL )
     {
       LOG( DBG_ERR, stderr, "libdatabroker: failed to get backend environment variable.\n" );

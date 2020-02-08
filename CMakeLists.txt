@@ -49,6 +49,11 @@ if( DEFINED WITH_DATA_ADAPTERS )
   add_definitions( -DDBR_DATA_ADAPTERS )
 endif( DEFINED WITH_DATA_ADAPTERS )
 
+if( NOT DEFINED DEFAULT_BE)
+  set( DEFAULT_BE redis )
+  add_definitions( -DDEFAULT_BE_LIB="libdbbe_${DEFAULT_BE}.so" )
+endif( NOT DEFINED DEFAULT_BE)
+
 # to later find libevent via find_package()
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/backend/redis")
 

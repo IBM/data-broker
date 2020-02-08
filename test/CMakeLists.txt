@@ -41,7 +41,9 @@ foreach(_test ${DBR_TEST_SOURCES})
   add_executable(${TEST_NAME} ${_test})
   add_dependencies(${TEST_NAME} ${DATABROKER_LIB})
   target_link_libraries(${TEST_NAME} ${DATABROKER_LIB} ${EXTRA_LIB} )
-  add_test(DBR_${TEST_NAME} ${TEST_NAME} )
+  add_test(NAME DBR_${TEST_NAME}
+           COMMAND ${TEST_NAME}
+          WORKING_DIRECTORY "$<TARGET_LINKER_FILE_DIR:dbbe_${DEFAULT_BE}>" )
   install(TARGETS ${TEST_NAME} RUNTIME
           DESTINATION test )
 endforeach()
