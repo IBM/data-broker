@@ -25,7 +25,7 @@
 #include "network/socket_io.h"
 #include "fship.h"
 
-const dbBE_api_t g_dbBE =
+const dbBE_api_t dbBE =
     { .initialize = FShip_initialize,
       .exit = FShip_exit,
       .post = FShip_post,
@@ -288,7 +288,6 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
     dbBE_Connection_unlink( fctx->_connection );
     return NULL;
   }
-
 
   if( rcvd < 0 )
     return NULL;
