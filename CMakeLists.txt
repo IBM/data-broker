@@ -15,7 +15,7 @@
  #
 
 enable_testing()
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 if (APPLE)
   cmake_policy(SET CMP0042 OLD)
@@ -48,12 +48,17 @@ endif( DEFINED VOIDTAG )
 
 if( DEFINED WITH_DATA_ADAPTERS )
   add_definitions( -DDBR_DATA_ADAPTERS )
-  set( DL_LIB -ldl )
 endif( DEFINED WITH_DATA_ADAPTERS )
 
-if( NOT DEFINED DEFAULT_BE )
-  set(DEFAULT_BE redis )
-endif( NOT DEFINED DEFAULT_BE )
+if( NOT DEFINED DEFAULT_BE)
+  set( DEFAULT_BE redis )
+  add_definitions( -DDEFAULT_BE_LIB="libdbbe_${DEFAULT_BE}.so" )
+endif( NOT DEFINED DEFAULT_BE)
+
+# to later find libevent via find_package()
+LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/backend/redis")
+
+set( EXTRA_LIB -ldl -lm )
 
 set( BACKEND_LIBS "" )
 # accummulate the list of available backend directories
@@ -67,24 +72,16 @@ foreach( subdir ${dirlist} )
   if( IS_DIRECTORY ${subdir} )
     # extract the last compontent of the path to get the back-end name
     get_filename_component( CURRENT_BE ${subdir} NAME )
-    message("Checking: " ${subdir} " BE: " ${CURRENT_BE} )
+    message("Checking: " ${subdir} )
 
-    # set the back-end to build according to DEFAULT_BE settings
+    # list the number of backends
     if( EXISTS ${subdir}/settings.cmake )
-      if( ${CURRENT_BE} STREQUAL ${DEFAULT_BE} )
-        message( "FOUND BE: " ${DEFAULT_BE} )
-        include( ${subdir}/settings.cmake )
-      endif( ${CURRENT_BE} STREQUAL ${DEFAULT_BE} )
+      message( "FOUND BE: " ${CURRENT_BE} )
     endif( EXISTS ${subdir}/settings.cmake )
 
   endif( IS_DIRECTORY ${subdir} )
 
 endforeach( subdir ${dirlist})
-
-if( "${BACKEND_LIBS}" STREQUAL "" )
-  message( FATAL_ERROR "No BACKEND LIBS found/defined. Was looking for " ${DEFAULT_BE} )
-endif( "${BACKEND_LIBS}" STREQUAL "" )
-
 
 set(TRANSPORT_LIBS dbbe_transport dbbe_network)
 set(DATABROKER_LIB databroker databroker_int)
@@ -96,8 +93,6 @@ include_directories(backend)
 add_subdirectory(bindings)
 add_subdirectory(backend)
 
-message( "BACKEND LIBRARY:" ${BACKEND_LIBS} )
-set(TEST_BACKEND ${BACKEND_LIBS} )
 set(BACKEND_LIST ${BACKEND_LIBS} )
 
 add_subdirectory(src)

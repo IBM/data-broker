@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ int main( int argc, char ** argv )
   dbBE_Redis_namespace_t *ns = NULL;
   dbBE_Redis_namespace_t *sns = NULL;
 
-  rc += TEST_NOT_RC( g_dbBE.initialize(), NULL, BE );
+  rc += TEST_NOT_RC( dbBE.initialize(), NULL, BE );
   rc += TEST_NOT_RC( dbBE_Redis_namespace_create("KEYSPACE"), NULL, ns );
   rc += TEST_NOT_RC( dbBE_Redis_namespace_create("NEWSPACE"), NULL, sns );
 
@@ -58,13 +58,13 @@ int main( int argc, char ** argv )
   sprintf( req->_sge[0].iov_base, "WORLD" );
 
   // put data in
-  dbBE_Request_handle_t *rhandle = g_dbBE.post( BE, req, 1 );
+  dbBE_Request_handle_t *rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting PUT" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -86,13 +86,13 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 128;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting READ" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -116,13 +116,13 @@ int main( int argc, char ** argv )
   req->_sge[1].iov_base = DBR_GROUP_EMPTY;
   req->_sge[1].iov_len = sizeof( DBR_GROUP_EMPTY );
 
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting MOVE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -145,13 +145,13 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 128;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting GET" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -176,13 +176,13 @@ int main( int argc, char ** argv )
   sprintf( req->_sge[0].iov_base, "WORLD" );
 
   // put data in
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting PUT" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -206,13 +206,13 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting REMOVE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -237,13 +237,13 @@ int main( int argc, char ** argv )
   req->_sge[0].iov_len = 5;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSCREATE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -274,13 +274,13 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSATTACH" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -305,13 +305,13 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSDETACH" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -334,13 +334,13 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSDELETE" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -359,13 +359,13 @@ int main( int argc, char ** argv )
   req->_sge_count = 0;
 
   // get data out
-  rhandle = g_dbBE.post( BE, req, 1 );
+  rhandle = dbBE.post( BE, req, 1 );
   rc += TEST_NOT_INFO( rhandle, NULL, "Posting NSDETACH" );
   if( rhandle != NULL )
   {
     dbBE_Completion_t *comp = NULL;
     while( comp == NULL )
-      comp = g_dbBE.test_any( BE );
+      comp = dbBE.test_any( BE );
     rc += TEST_NOT( comp, NULL );
     if( comp != NULL )
     {
@@ -383,7 +383,7 @@ int main( int argc, char ** argv )
 
   // intentionnally will cause 'use-after-free' warning when running with something like valgrind
   rc += TEST( dbBE_Redis_namespace_destroy( ns ), -EBADF );
-  g_dbBE.exit( BE );
+  dbBE.exit( BE );
 
   printf( "Test exiting with rc=%d\n", rc );
 

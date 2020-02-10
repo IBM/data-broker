@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,6 +70,33 @@ int ReadTest_e( DBR_Handle_t cs_hdl,
 
   return rc;
 }
+
+int ReadTest_index( DBR_Handle_t cs_hdl,
+                    DBR_Tuple_name_t tupname,
+                    int rindex,
+                    const char *instr,
+                    const size_t len,
+                    DBR_Errorcode_t expect )
+{
+  int rc = 0;
+  DBR_Errorcode_t ret = DBR_SUCCESS;
+
+  char *out = (char*)malloc( len + 16 );
+  int64_t out_size = len + 16;
+
+  memset( out, 0, out_size );
+
+  rc += TEST_RC( dbrRead( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NOWAIT + (rindex << DBR_READ_FLAGS_INDEX_SHIFT) ), expect, ret );
+  if( expect == DBR_SUCCESS )
+  {
+    rc += TEST( out_size, (int64_t)len );
+    rc += TEST( memcmp( instr, out, len ), 0 );
+  }
+  free( out );
+
+  return rc;
+}
+
 
 #define ReadTest( a, b, c, d ) ReadTest_e( a, b, c, d, DBR_SUCCESS )
 
@@ -151,6 +178,8 @@ int main( int argc, char ** argv )
   TEST_LOG( rc, "PUT " );
 
   rc += ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 );
+  rc += ReadTest_index( cs_hdl, "testTup", 1, "HelloWorld2", 11, DBR_SUCCESS );
+  rc += ReadTest_index( cs_hdl, "testTup", 5, "", 11, DBR_ERR_UNAVAIL );
   rc += ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 );
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.WithEnter", "0123456\r\n78901234567890", 23 );

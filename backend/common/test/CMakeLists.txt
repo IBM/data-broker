@@ -14,8 +14,6 @@
  # limitations under the License.
  #
 
-include( ${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake )
-
 # prepare this RPATH stuff in case we need rpath in the test executables
 # SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 # SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 

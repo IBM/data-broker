@@ -1,5 +1,5 @@
  #
- # Copyright © 2018, 2019 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ set( LIBDB_FILES
 
 include_directories(../../src)
 add_library(databroker SHARED ${LIBDB_FILES} )
-add_dependencies(databroker databroker_int ${TRANSPORT_LIBS} ${BACKEND_LIST})
-target_link_libraries(databroker databroker_int) 
+add_dependencies(databroker databroker_int )
+target_link_libraries(databroker PRIVATE databroker_int)
 
 install( TARGETS databroker
 	LIBRARY

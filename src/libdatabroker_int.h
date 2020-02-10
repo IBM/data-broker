@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018, 2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include "util/lock_tools.h"
 #include "common/dbbe_api.h"
 #include "dbrda_api.h"
+#include "lib/backend.h"
 
 #define dbrMAX_TAGS ( 1024 )
 #define dbrNUM_DB_MAX ( 1024 )
@@ -71,7 +72,7 @@ typedef struct
   uint32_t _idx;                     ///< index into name space table
   int _ref_count;                    ///< local reference counter
   DBR_Name_t _db_name;               ///< name of the name space
-  void *_be_ctx;                     ///< back end access context
+  dbrBackend_t *_be_ctx;             ///< back end access context
   dbBE_NS_Handle_t _be_ns_hdl;       ///< back end namespace handle
   dbrName_space_status_t _status;    ///< status of the name space for local status tracking
 } dbrName_space_t;
@@ -130,10 +131,10 @@ typedef struct dbrConfig
 // global context data
 typedef struct dbrMain_context
 {
-  dbrConfig_t _config;                       ///< configuration data
-  void *_be_ctx;                            ///< back-end context/plugin handle
-  dbrName_space_t *_cs_list[dbrNUM_DB_MAX];        ///< CS handles array keeping track of all name spaces locally
-  dbrRequestContext_t *_cs_wq[ dbrMAX_TAGS ];   ///< request queue by tag
+  dbrConfig_t _config;                        ///< configuration data
+  dbrBackend_t *_be_ctx;                      ///< back-end context/plugin handle
+  dbrName_space_t *_cs_list[dbrNUM_DB_MAX];   ///< CS handles array keeping track of all name spaces locally
+  dbrRequestContext_t *_cs_wq[ dbrMAX_TAGS ]; ///< request queue by tag
 
   // todo: we'll need an array of head/tail tags to track responses from each node in a cluster
   uint64_t _tag_head;                     ///< tag for the next request

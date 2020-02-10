@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -183,7 +183,7 @@ DBR_Errorcode_t dbrCancel_request( dbrName_space_t *cs, dbrRequestContext_t *req
 {
   if(( cs == NULL ) || ( req_rctx == NULL ))
     return DBR_ERR_INVALID;
-  return g_dbBE.cancel( cs->_be_ctx, req_rctx->_be_request_hdl );
+  return cs->_be_ctx->_api->cancel( cs->_be_ctx->_context, req_rctx->_be_request_hdl );
 }
 
 /*
@@ -204,7 +204,7 @@ DBR_Errorcode_t dbrTest_request( dbrName_space_t *cs, dbrRequestContext_t *req_r
   DBR_Errorcode_t ret = DBR_ERR_INPROGRESS;
 
   // first, try to drive the backend and see if we can complete anything (else)
-  dbBE_Completion_t *compl = g_dbBE.test_any( cs->_be_ctx );
+  dbBE_Completion_t *compl = cs->_be_ctx->_api->test_any( cs->_be_ctx->_context );
   if( compl != NULL )
   {
     dbrRequestContext_t *cmpl_rctx = (dbrRequestContext_t*)compl->_user;

@@ -39,7 +39,7 @@
 #include "result.h"
 #include "cluster_info.h"
 
-const dbBE_api_t g_dbBE =
+const dbBE_api_t dbBE =
     { .initialize = Redis_initialize,
       .exit = Redis_exit,
       .post = Redis_post,

@@ -1,5 +1,5 @@
  #
- # Copyright © 2018,2019 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -39,11 +39,11 @@ set(DBR_TEST_SOURCES
 foreach(_test ${DBR_TEST_SOURCES})
   get_filename_component(TEST_NAME ${_test} NAME_WE)
   add_executable(${TEST_NAME} ${_test})
-  add_dependencies(${TEST_NAME} ${DATABROKER_LIB} ${TEST_BACKEND} ${TRANSPORT_LIBS})
-  target_link_libraries(${TEST_NAME} ${DATABROKER_LIB} ${TEST_BACKEND} ${TRANSPORT_LIBS} -lm ${BACKEND_DEPS} ${DL_LIB} )
-  target_include_directories(${TEST_NAME} PRIVATE ${LIBEVENT_INCLUDE_DIR})
-  add_test(DBR_${TEST_NAME} ${TEST_NAME} )
+  add_dependencies(${TEST_NAME} ${DATABROKER_LIB})
+  target_link_libraries(${TEST_NAME} ${DATABROKER_LIB} ${EXTRA_LIB} )
+  add_test(NAME DBR_${TEST_NAME}
+           COMMAND ${TEST_NAME}
+          WORKING_DIRECTORY "$<TARGET_LINKER_FILE_DIR:dbbe_${DEFAULT_BE}>" )
   install(TARGETS ${TEST_NAME} RUNTIME
           DESTINATION test )
 endforeach()
-

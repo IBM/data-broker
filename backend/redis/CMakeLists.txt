@@ -14,7 +14,7 @@
  # limitations under the License.
  #
 
-include(${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake)
+find_package( libevent )
 
 include_directories(/usr/local/include)
 set( LIBDBBE_REDIS_SOURCE
@@ -39,8 +39,8 @@ set( LIBDBBE_REDIS_SOURCE
 
 add_library(dbbe_redis SHARED ${LIBDBBE_REDIS_SOURCE})
 add_dependencies(dbbe_redis ${TRANSPORT_LIBS})
-target_link_libraries(dbbe_redis  ${TRANSPORT_LIBS} ${LIBEVENT_LIBRARIES})
-target_include_directories(dbbe_redis PRIVATE ${LIBEVENT_INCLUDE_DIR})
+target_link_libraries(dbbe_redis PRIVATE ${TRANSPORT_LIBS} ${libevent_LIBRARY} )
+#target_include_directories(dbbe_redis PRIVATE ${LIBEVENT_INCLUDE_DIR})
 
 install( TARGETS dbbe_redis
 	LIBRARY

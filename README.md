@@ -116,6 +116,11 @@ variables:
       the current work dir). To make sure it picks the right file, it
       is suggested to specify this with an absolute path.
 
+- `DBR_BACKEND`
+      Name of dynamic library of the backend. The default is `libdbbe_redis.so`
+      Either use relative or absolute path+file depending on your ldconfig
+      or `LD_LIBRARY_PATH`.
+
 - `DBR_TIMEOUT`
       Specifies the timeout in seconds for blocking get and read API
       calls. If not set, it defaults to 5 seconds.
@@ -148,7 +153,6 @@ see the issue tracking.
 - The size for namespace names is limited to 1023 characters
 - The number of namespaces that can be attached to a single process
   at a time is limited to 1024
-
 
 ## 5 Bindings:
 

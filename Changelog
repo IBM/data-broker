@@ -1,4 +1,7 @@
 version 0.7.0
+ * build system review
+ * runtime loading and selection of backend library via DBR_BACKEND env variable
+ * performance problem fixed; almost doubled IOPS
  * allow to disable Redis authentication via DBR_AUTHFILE=NONE
  * iterator API implementation including binding for C and python
  * removing the 128MB limit for value size
