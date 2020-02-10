@@ -44,8 +44,7 @@ set( LIBDBINT_FILES
 include_directories(./)
 link_directories(/usr/local/lib)
 add_library(databroker_int SHARED ${LIBDBINT_FILES})
-add_dependencies(databroker_int ${BACKEND_LIST} ${TRANSPORT_LIBS} )
-target_link_libraries(databroker_int ${BACKEND_LIST} ${TRANSPORT_LIBS} ${EXTRA_LIB} )
+target_link_libraries(databroker_int ${EXTRA_LIB} )
 
 install( TARGETS databroker_int
 	LIBRARY

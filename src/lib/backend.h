@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,17 @@
 #ifndef SRC_LIB_BACKEND_H_
 #define SRC_LIB_BACKEND_H_
 
-#include "libdatabroker.h"
-#include "libdatabroker_int.h"
+#include "common/dbbe_api.h"
 
-dbBE_Handle_t* dbrlib_backend_get_handle(void);
-int dbrlib_backend_delete( dbBE_Handle_t* handle );
+typedef struct dbrBackend
+{
+  void *_library;               ///< library handle to the backend lib
+  dbBE_api_t *_api;             ///< if there's a backend library loaded, it's referenced here
+  dbBE_Handle_t *_context;      ///< context handle for backend status to be passed into backend API calls
+} dbrBackend_t;
+
+
+dbrBackend_t* dbrlib_backend_get_handle(void);
+int dbrlib_backend_delete( dbrBackend_t* be );
 
 #endif /* SRC_LIB_BACKEND_H_ */

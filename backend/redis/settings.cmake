@@ -1,5 +1,5 @@
  #
- # Copyright © 2018 IBM Corporation
+ # Copyright © 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
  # limitations under the License.
  #
 
-include( ${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake )
+find_package(libevent REQUIRED)
 
 set( BE_NAME redis )
-set( BACKEND_LIBS dbbe_${BE_NAME} )
-set( BACKEND_DEPS ${LIBEVENT_LIBRARIES} )
+set( BACKEND_DEPS libevent )

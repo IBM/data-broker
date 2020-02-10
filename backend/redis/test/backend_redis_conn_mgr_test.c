@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 #include <sys/time.h>      // rlimit
 #include <sys/resource.h>  // rlimit
 
-#include "../backend/redis/utility.h"
+#include <common/utility.h>
 #include "../backend/redis/request.h"
 #include "../backend/redis/conn_mgr.h"
 #include "test_utils.h"
@@ -86,11 +86,11 @@ int main( int argc, char ** argv )
   dbBE_Redis_cluster_info_t *cluster = NULL;
   dbBE_Redis_result_t *result = NULL;
 
-  char *host = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+  char *host = dbBE_Extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
   rc += TEST_NOT( host, NULL );
   TEST_BREAK( rc, "host env failed");
 
-  char *auth = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
+  char *auth = dbBE_Extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   rc += TEST_NOT( auth, NULL );
   if( rc != 0 )
   {

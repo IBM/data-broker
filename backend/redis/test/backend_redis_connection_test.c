@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
  *
  */
 
+#include <common/utility.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "../backend/redis/redis.h"
-#include "../backend/redis/utility.h"
 #include "../backend/redis/connection.h"
 #include "test_utils.h"
 
@@ -42,9 +42,9 @@ int main( int argc, char ** argv )
   fprintf(stderr,"0. rc=%d\n", rc);
 
 
-  char *url = dbBE_Redis_extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
+  char *url = dbBE_Extract_env( DBR_SERVER_HOST_ENV, DBR_SERVER_DEFAULT_HOST );
   rc += TEST_NOT( url, NULL );
-  char *auth = dbBE_Redis_extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
+  char *auth = dbBE_Extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
   rc += TEST_NOT( auth, NULL );
 
   fprintf(stderr,"url=%s, auth=%s\n", url, auth);
