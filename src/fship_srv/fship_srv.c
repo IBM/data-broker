@@ -242,7 +242,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
     rctx = dbrFShip_find_request( cctx, req );
     if( rctx != NULL )
     {
-      g_dbBE.cancel( context->_mctx->_be_ctx, rctx->_req );
+      context->_mctx->_be_ctx->_api->cancel( context->_mctx->_be_ctx->_context, rctx->_req );
       LOG( DBG_TRACE, stderr, "canceling %d\n", rctx->_req->_opcode );
     }
     return 0;
@@ -250,7 +250,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
   else
   {
     rctx = dbrFShip_create_request( req, cctx );
-    dbBE_Request_handle_t be_req = g_dbBE.post( context->_mctx->_be_ctx, req, 0 );
+    dbBE_Request_handle_t be_req = context->_mctx->_be_ctx->_api->post( context->_mctx->_be_ctx->_context, req, 0 );
     LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
     if( be_req == NULL )
     {
@@ -266,7 +266,7 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   // check for completions
 
   dbBE_Completion_t *comp = NULL;
-  if( (comp = g_dbBE.test_any( context->_mctx->_be_ctx )) == NULL )
+  if( (comp = context->_mctx->_be_ctx->_api->test_any( context->_mctx->_be_ctx->_context )) == NULL )
     return 0;
 
   dbrFShip_request_ctx_t *rctx = (dbrFShip_request_ctx_t*)comp->_user;
