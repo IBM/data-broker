@@ -14,14 +14,15 @@
  # limitations under the License.
  #
 
-include( ../../backend/redis/libevent.cmake )
+find_package( libevent REQUIRED )
 
 set( FSHIP_SRV_SOURCE
 	fship_srv.c
 )
 
 add_executable( fship_srv ${FSHIP_SRV_SOURCE} )
-target_link_libraries( fship_srv ${DATABROKER_LIB} ${TRANSPORT_LIBS} m ${LIBEVENT_LIBRARIES} pthread )
+add_dependencies( fship_srv libevent_pthreads libevent )
+target_link_libraries( fship_srv PRIVATE ${DATABROKER_LIB} ${TRANSPORT_LIBS} ${libevent_pthreads_LIBRARY} ${libevent_LIBRARY} pthread )
 
 install(TARGETS fship_srv RUNTIME
 	    DESTINATION bin )

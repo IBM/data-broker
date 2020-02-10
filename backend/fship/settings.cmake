@@ -14,8 +14,7 @@
  # limitations under the License.
  #
 
-include( ${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake )
+find_package(libevent REQUIRED)
 
 set( BE_NAME fship )
-set( BACKEND_LIBS dbbe_${BE_NAME} )
-set( BACKEND_DEPS ${LIBEVENT_LIBRARIES} )
+set( BACKEND_DEPS libevent )

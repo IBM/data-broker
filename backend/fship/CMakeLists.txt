@@ -14,7 +14,7 @@
  # limitations under the License.
  #
 
-include(${PROJECT_SOURCE_DIR}/backend/redis/libevent.cmake)
+find_package( libevent REQUIRED )
 
 include_directories(/usr/local/include)
 set( LIBDBBE_FSHIP_SOURCE
