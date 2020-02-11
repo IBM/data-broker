@@ -421,8 +421,8 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
   else if(( ev_type & EV_TIMEOUT ) != 0 )
   {
     char buf[2];
-    LOG( DBG_VERBOSE, stderr, "FShip_event: Event timeout detected (sock=%d).\n", conn->_socket );
     ssize_t rcvd = recv( conn->_socket, buf, 1, MSG_PEEK | MSG_DONTWAIT );
+    LOG( DBG_VERBOSE, stderr, "FShip_event: Event timeout detected (sock=%d, data=%"PRId64".\n", conn->_socket, rcvd );
     switch( rcvd )
     {
       case 0:
@@ -498,18 +498,28 @@ void* dbrFShip_listen_start( void *arg )
     if( nes > 0 )
     {
       dbBE_Connection_t *connection = dbBE_Connection_create();
+      if( connection == NULL )
+      {
+        close( nes );
+        continue;
+      }
+
       connection->_socket = nes;
       connection->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
       connection->_address = dbBE_Network_address_copy( &naddr, naddrlen );
       if( dbBE_Network_address_to_string( connection->_address, connection->_url, DBBE_URL_MAX_LENGTH ) == NULL )
       {
         LOG( DBG_ERR, stderr, "Network address translation to URL failed.\n" );
-        break;
+        close( nes );
+        continue;
       }
 
       dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)calloc( 1, sizeof( dbrFShip_client_context_t ));
       if( cctx == NULL )
-        break;
+      {
+        close( nes );
+        continue;
+      }
 
       // bidirectional linking between connection and its context
       cctx->_conn = connection;
@@ -519,7 +529,11 @@ void* dbrFShip_listen_start( void *arg )
 
       dbrFShip_event_info_t *evinfo = (dbrFShip_event_info_t*)malloc( sizeof( dbrFShip_event_info_t ));
       if( evinfo == NULL )
-        break;
+      {
+        close( nes );
+        free( cctx );
+        continue;
+      }
       evinfo->_cctx = cctx;
       evinfo->_queue = tio->_conn_queue;
       cctx->_event = evinfo;
@@ -527,16 +541,21 @@ void* dbrFShip_listen_start( void *arg )
       // add to libevent socket polling
       struct event* ev = event_new( evbase, nes, EV_READ | EV_PERSIST | EV_ET, dbrFShip_connection_wakeup, evinfo );
       if( ev == NULL )
-        break;
+      {
+        close( nes );
+        free( cctx );
+        free( evinfo );
+        continue;
+      }
 
       evinfo->_event = ev;
 
       struct timeval timeout;
-      timeout.tv_sec = 1;
+      timeout.tv_sec = 5;
       timeout.tv_usec = 0;
       event_add( ev, &timeout );
 
-      LOG( DBG_INFO, stderr, "New client connection on socket=%d\n", connection->_socket );
+      LOG( DBG_INFO, stderr, "New client connection to %s on socket=%d\n", connection->_url, connection->_socket );
     }
   }
 
