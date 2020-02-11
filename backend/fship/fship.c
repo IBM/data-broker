@@ -310,7 +310,7 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
     dbBE_sge_t *sge = NULL;
     int sge_count = 0;
     parsed = dbBE_Completion_deserialize( dbBE_Transport_sr_buffer_get_processed_position( fctx->_rbuf ),
-                                          dbBE_Transport_sr_buffer_available( fctx->_rbuf ),
+                                          dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ),
                                           &cmpl, &sge, &sge_count );
     if( parsed > 0 )
     {
