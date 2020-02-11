@@ -100,6 +100,8 @@ dbrFShip_main_context_t* dbrFShip_main_context_create( dbrFShip_config_t *cfg )
     dbrFShip_main_context_destroy( ctx, -ENOMEM );
     return NULL;
   }
+
+  ctx->_last_cctx = NULL;
   return ctx;
 }
 
@@ -269,6 +271,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
         {
           context->_mctx->_be_ctx->_api->cancel( context->_mctx->_be_ctx->_context, rctx->_req );
           LOG( DBG_TRACE, stderr, "canceling %d\n", rctx->_req->_opcode );
+          --context->_total_pending; // cancellations are not queued and thus can't be accounted for as pending requests
         }
       }
       else
@@ -289,13 +292,57 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
         }
         LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
         rc = dbrFShip_request_ctx_queue_push( cctx->_pending, rctx );
-      }
+        ++cctx->_pending_requests;
+    }
     }
 
     if( buffer_threshold )
       dbBE_Transport_sr_buffer_consolidate( context->_r_buf );
   }
   return rc;
+}
+
+int dbrFShip_flushbuffer( dbrFShip_main_context_t *context,
+                          dbrFShip_client_context_t *cctx,
+                          const int forced )
+{
+  if(( cctx == 0 ) || ( cctx->_pending_responses == 0 ))
+    return 0;
+
+  int send_trigger = forced;
+  send_trigger |= (cctx->_pending_responses > 0 ) && ( cctx->_pending_requests < 1);
+  send_trigger |= ( cctx->_pending_responses > cctx->_pending_requests );
+  send_trigger |= ( dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > ( dbBE_Transport_sr_buffer_get_size( context->_s_buf ) >> 1 ) );
+  if( send_trigger )
+  {
+    LOG( DBG_TRACE, stderr, "Coalesced %d/%d\n", cctx->_pending_responses, cctx->_pending_requests );
+    ssize_t sent = 0;
+    while(( sent >= 0 ) && ( (ssize_t)dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > 0) )
+    {
+      sent = send( cctx->_conn->_socket,
+                   dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ),
+                   dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
+                   0 );
+      if( sent < 0 )
+      {
+        if( errno == EAGAIN )
+          continue;
+        LOG( DBG_ERR, stderr, "Send error. Incomplete response rc=%"PRId64": %s\n", sent, strerror( errno ) );
+        // make sure the connection is no longer part of the connection queue
+        dbrFShip_client_remove( context->_conn_queue, &cctx );
+        dbBE_Transport_sr_buffer_reset( context->_s_buf );
+        break;
+      }
+      dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
+      LOG( DBG_TRACE, stderr, "sent %"PRId64"/%"PRId64"/%"PRId64"\n",
+           sent, dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
+           dbBE_Transport_sr_buffer_available( context->_s_buf ));
+    }
+
+    dbBE_Transport_sr_buffer_reset( context->_s_buf );
+    cctx->_pending_responses = 0;
+  }
+  return 0;
 }
 
 int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context )
@@ -312,6 +359,11 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
 
   // restore user ptr
   comp->_user = rctx->_user_in;
+
+  if( rctx->_cctx != context->_last_cctx )
+    dbrFShip_flushbuffer( context, context->_last_cctx, 1 );
+  context->_last_cctx = rctx->_cctx;
+  dbrFShip_client_context_t *cctx = context->_last_cctx;
 
   // adjust the response SGE to prevent returning more data than available
   if( comp->_rc >= 0 )
@@ -350,38 +402,17 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
     return (int)serlen;
 
   dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 0 );
+  ++cctx->_pending_responses;
+  --cctx->_pending_requests;
 
   LOG( DBG_TRACE, stderr, "Sending %ld %s\n", dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
        (dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) < 100 ? dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ) : "long" ) );
 
-  ssize_t sent = 0;
-  while(( sent >= 0 ) && ( (ssize_t)dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > 0) )
-  {
-    sent = send( rctx->_cctx->_conn->_socket,
-                 dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ),
-                 dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
-                 0 );
-    if( sent < 0 )
-    {
-      if( errno == EAGAIN )
-        continue;
-      LOG( DBG_ERR, stderr, "Send error. Incomplete response rc=%"PRId64": %s\n", sent, strerror( errno ) );
-      // make sure the connection is no longer part of the connection queue
-      dbrFShip_client_remove( context->_conn_queue, &rctx->_cctx );
-      dbBE_Transport_sr_buffer_reset( context->_s_buf );
-      break;
-    }
-    dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
-    LOG( DBG_TRACE, stderr, "sent %"PRId64"/%"PRId64"/%"PRId64"\n",
-         sent, dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
-         dbBE_Transport_sr_buffer_available( context->_s_buf ));
-  }
-
-  dbBE_Transport_sr_buffer_reset( context->_s_buf );
-
   // clean Request from rctx-queue (note: out-of-order completion possible, therefore assume we can't just q_pop())
   dbrFShip_completion_cleanup( rctx );
   --context->_total_pending;
+
+  dbrFShip_flushbuffer( context, cctx, 0 );
 
   return 0;
 }

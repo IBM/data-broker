@@ -49,6 +49,8 @@ typedef struct dbrFShip_client_context
 {
   dbBE_Connection_t *_conn;
   dbrFShip_request_ctx_queue_t *_pending;
+  int _pending_requests;
+  int _pending_responses;
   struct dbrFShip_event_info *_event;
 } dbrFShip_client_context_t;
 
@@ -57,6 +59,7 @@ typedef struct dbrFShip_main_context
   dbrFShip_config_t _cfg;
   dbrMain_context_t *_mctx;
   dbrFShip_client_context_t **_cctx;
+  dbrFShip_client_context_t *_last_cctx;
   dbBE_Connection_queue_t *_conn_queue;
   dbBE_Redis_sr_buffer_t *_r_buf;
   dbBE_Redis_sr_buffer_t *_s_buf;
