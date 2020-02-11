@@ -40,6 +40,7 @@ dbBE_Completion_t* dbBE_FShip_complete_error( dbBE_Request_t *req,
                                               dbBE_Completion_t *cmpl,
                                               DBR_Errorcode_t err )
 {
+  LOG( DBG_ERR, stderr, "Completion with error: op=%d; err=%d\n", req->_opcode, err );
   cmpl->_status = err;
   return cmpl;
 }
@@ -277,78 +278,89 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
   dbBE_Completion_t *cmpl = NULL;
   ssize_t parsed = -EAGAIN;
   ssize_t total = 0;
+  int old_data = (dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ) > 0 );
 
   // receive any potential replies
   ssize_t rcvd = dbBE_Socket_recv( fctx->_connection->_socket, fctx->_rbuf );
-  if(( rcvd == 0 ) && ( errno == EAGAIN ))
-    return NULL;
+  int new_data = (rcvd > 0);
 
-  if( rcvd == 0 )
+  if(( new_data | old_data ) == 0 )
   {
-    dbBE_Connection_unlink( fctx->_connection );
-    return NULL;
+    if(( rcvd < 0 ) && ( errno == EAGAIN ))
+      return dbBE_Completion_queue_pop( fctx->_compl_q );
+    if( rcvd <= 0 )
+    {
+      LOG( DBG_ERR, stderr, "Failed to receive responses: rc = %"PRId64" (%s)\n", rcvd, rcvd < 0 ? strerror( errno ) : "" );
+      dbBE_Connection_unlink( fctx->_connection );
+      return dbBE_Completion_queue_pop( fctx->_compl_q );;
+    }
   }
 
-  if( rcvd < 0 )
-    return NULL;
-
-  dbBE_Transport_sr_buffer_add_data( fctx->_rbuf, rcvd, 0 );
-  dbBE_Transport_sr_buffer_get_available_position( fctx->_rbuf )[0] = '\0'; // terminate just in case there's old stuff
-  LOG( DBG_TRACE, stderr, "received: %"PRId64"/%"PRId64": %s\n", rcvd, dbBE_Transport_sr_buffer_available( fctx->_rbuf ),
-       (dbBE_Transport_sr_buffer_available( fctx->_rbuf ) < 100 ? dbBE_Transport_sr_buffer_get_start( fctx->_rbuf ) : "long" ) );
+  if( new_data )
+  {
+    dbBE_Transport_sr_buffer_add_data( fctx->_rbuf, rcvd, 0 );
+    dbBE_Transport_sr_buffer_get_available_position( fctx->_rbuf )[0] = '\0'; // terminate just in case there's old stuff
+    LOG( DBG_TRACE, stderr, "received: %"PRId64"/%"PRId64": %s\n", rcvd, dbBE_Transport_sr_buffer_available( fctx->_rbuf ),
+         (dbBE_Transport_sr_buffer_available( fctx->_rbuf ) < 100 ? dbBE_Transport_sr_buffer_get_start( fctx->_rbuf ) : "long" ) );
+  }
 
   // deserialize
-  dbBE_sge_t *sge = NULL;
-  int sge_count = 0;
-  parsed = dbBE_Completion_deserialize( dbBE_Transport_sr_buffer_get_processed_position( fctx->_rbuf ),
-                                        dbBE_Transport_sr_buffer_available( fctx->_rbuf ),
-                                        &cmpl, &sge, &sge_count );
-  if( parsed > 0 )
+  while( dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ) > 0 )
   {
-    total += parsed;
-    dbBE_Transport_sr_buffer_advance( fctx->_rbuf, parsed );
-    if( dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ) == 0 )
-      dbBE_Transport_sr_buffer_reset( fctx->_rbuf );
-  }
-  else
-    return NULL;
-
-  // restore request reference and upper layer user ptr
-  dbBE_FShip_request_context_t *rctx = (dbBE_FShip_request_context_t*)cmpl->_user;
-  if( rctx == NULL )
-  {
-    LOG( DBG_ERR, stderr, "Found completion with NULL-ptr request context\n" );
-    return NULL;
-  }
-
-  dbBE_Request_t *req = (dbBE_Request_t*)rctx->_request;
-  if( req == NULL )
-  {
-    LOG( DBG_ERR, stderr, "Found completion with NULL-ptr request\n" );
-    return NULL;
-  }
-  req->_user = rctx->_ulp_user;
-  cmpl->_user = rctx->_ulp_user;
-
-  // process (SGE placements)
-  if( sge_count < 0 )
-    dbBE_FShip_complete_error( req, cmpl, DBR_ERR_BE_GENERAL );
-
-  if( sge_count > req->_sge_count )
-    dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
-
-  int i;
-  for( i=0; i<sge_count; ++i)
-  {
-    if( sge[i].iov_len <= req->_sge[i].iov_len )
-      memcpy( req->_sge[i].iov_base, sge[i].iov_base, sge[i].iov_len );
+    dbBE_sge_t *sge = NULL;
+    int sge_count = 0;
+    parsed = dbBE_Completion_deserialize( dbBE_Transport_sr_buffer_get_processed_position( fctx->_rbuf ),
+                                          dbBE_Transport_sr_buffer_available( fctx->_rbuf ),
+                                          &cmpl, &sge, &sge_count );
+    if( parsed > 0 )
+    {
+      total += parsed;
+      dbBE_Transport_sr_buffer_advance( fctx->_rbuf, parsed );
+      if( dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ) == 0 )
+        dbBE_Transport_sr_buffer_reset( fctx->_rbuf );
+    }
     else
+      break;
+
+    // restore request reference and upper layer user ptr
+    dbBE_FShip_request_context_t *rctx = (dbBE_FShip_request_context_t*)cmpl->_user;
+    if( rctx == NULL )
+    {
+      LOG( DBG_ERR, stderr, "Found completion with NULL-ptr request context\n" );
+      break;
+    }
+
+    dbBE_Request_t *req = (dbBE_Request_t*)rctx->_request;
+    if( req == NULL )
+    {
+      LOG( DBG_ERR, stderr, "Found completion with NULL-ptr request\n" );
+      break;
+    }
+    req->_user = rctx->_ulp_user;
+    cmpl->_user = rctx->_ulp_user;
+
+    // process (SGE placements)
+    if( sge_count < 0 )
+      dbBE_FShip_complete_error( req, cmpl, DBR_ERR_BE_GENERAL );
+
+    if( sge_count > req->_sge_count )
       dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
-    if( sge[i].iov_len < req->_sge[i].iov_len )
-      ((char*)req->_sge[i].iov_base)[ sge[i].iov_len ] = '\0'; // do some kind of termination because there are some APIs that expect strings in this place
+
+    int i;
+    for( i=0; i<sge_count; ++i)
+    {
+      if( sge[i].iov_len <= req->_sge[i].iov_len )
+        memcpy( req->_sge[i].iov_base, sge[i].iov_base, sge[i].iov_len );
+      else
+        dbBE_FShip_complete_error( req, cmpl, DBR_ERR_UBUFFER );
+      if( sge[i].iov_len < req->_sge[i].iov_len )
+        ((char*)req->_sge[i].iov_base)[ sge[i].iov_len ] = '\0'; // do some kind of termination because there are some APIs that expect strings in this place
+    }
+
+    dbBE_Completion_queue_push( fctx->_compl_q, cmpl );
   }
 
-  return cmpl;
+  return dbBE_Completion_queue_pop( fctx->_compl_q );
 }
 
 
