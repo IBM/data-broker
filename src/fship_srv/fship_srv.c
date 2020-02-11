@@ -173,6 +173,7 @@ int main( int argc, char **argv )
 
 int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context )
 {
+  int rc = 0;
   // check for new inbound requests
   //
   if( context->_total_pending > 0 )
@@ -192,73 +193,109 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
     return -1;
   }
 
-
-  // recv() +  deserialize()
-  dbBE_Request_t *req = NULL;
-  ssize_t parsed = -EAGAIN;
-  ssize_t total = 0;
-  while( parsed == -EAGAIN )
+  // now we have an active context, we need to process it completely (except for EAGAIN)
+  int has_data = ( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > 0 );
+  int need_receive = ( active != NULL );
+  while( has_data | need_receive )
   {
-    LOG( DBG_TRACE, stderr, "BUF: avail=%"PRId64"; rem=%"PRId64"; size=%"PRId64"\n", dbBE_Transport_sr_buffer_available( context->_r_buf ),
-         dbBE_Transport_sr_buffer_remaining( context->_r_buf ),
-         dbBE_Transport_sr_buffer_get_size( context->_r_buf ) );
-    ssize_t rcvd = dbBE_Socket_recv( cctx->_conn->_socket, context->_r_buf );
-    if( rcvd <= 0 )
+    int buffer_threshold = 0;
+    int request_parsed = 0;
+    if( need_receive )
     {
-      LOG( DBG_INFO, stderr, "Connection shutdown detected for socket %d; rc=%"PRId64"\n", cctx->_conn->_socket, rcvd );
-      // make sure the connection is no longer part of the connection queue
-      dbrFShip_client_remove( context->_conn_queue, &cctx );
-      return 0;
+      ssize_t rcvd = dbBE_Socket_recv( cctx->_conn->_socket, context->_r_buf );
+      if(( rcvd == 0 ) || (( rcvd < 0 ) && ( errno != EAGAIN )))
+      {
+        LOG( DBG_INFO, stderr, "Connection error/shutdown detected for socket %d; rc=%"PRId64"\n", cctx->_conn->_socket, rcvd );
+        // make sure the connection is no longer part of the connection queue
+        dbrFShip_client_remove( context->_conn_queue, &cctx );
+        dbBE_Transport_sr_buffer_reset( context->_r_buf );
+        break;
+      }
+      else
+        need_receive = 0; // assume we're done receiving, let parsing decide whether that stays true or not
+
+      if( rcvd > 0 )
+      {
+        dbBE_Transport_sr_buffer_add_data( context->_r_buf, rcvd, 0 );
+        dbBE_Transport_sr_buffer_get_available_position( context->_r_buf )[0] = '\0'; // terminate to avoid contamination from previous serializations
+        has_data = 1;
+      }
     }
 
-    if( rcvd > 0 )
+    dbBE_Request_t *req = NULL;
+    if( has_data )
     {
-      dbBE_Transport_sr_buffer_add_data( context->_r_buf, rcvd, 0 );
-      dbBE_Transport_sr_buffer_get_available_position( context->_r_buf )[0] = '\0'; // terminate to avoid contamination from previous serializations
+      ssize_t parsed = -EAGAIN;
       parsed = dbBE_Request_deserialize( dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ),
                                          dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
                                          &req );
       LOG( DBG_TRACE, stderr, "Received %ld %s _ deserialzed=%ld\n", dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ),
            (dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) < 100 ? dbBE_Transport_sr_buffer_get_processed_position( context->_r_buf ) : "long" ),
            parsed );
-      ++context->_total_pending; // as soon as there's anything received, assume a pending request
+
+//      if(( parsed > 0 ) || ( (parsed == -EAGAIN ) && ( context->_total_pending == 0 )) )
+
       if( parsed > 0 )
       {
-        total += parsed;
+        ++context->_total_pending; // as soon as there's anything received, assume a pending request
+        request_parsed = 1;
         dbBE_Transport_sr_buffer_advance( context->_r_buf, parsed );
         if( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) == 0 )
           dbBE_Transport_sr_buffer_reset( context->_r_buf );
+        else
+          buffer_threshold = ( (float)dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > (float)dbBE_Transport_sr_buffer_get_size( context->_r_buf ) * 0.75 );
+        has_data = ( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > 0 );
+      }
+      else if( parsed == -EAGAIN ) // need more data
+      {
+        has_data = ( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > 0 );
+        need_receive = 1;
+      }
+      else
+      {
+        LOG( DBG_ERR, stderr, "Bad message in recv buffer: rc=%"PRId64"(%s)\n", parsed, strerror( -parsed ) );
+        dbBE_Transport_sr_buffer_reset( context->_r_buf );
+        break;
       }
     }
-    if(( parsed < 0 ) && ( parsed != -EAGAIN ))
-      return -1;
-  }
 
-  //   create request()
-//    int64_t rc;
-  dbrFShip_request_ctx_t *rctx = NULL;
-  if( req->_opcode == DBBE_OPCODE_CANCEL )
-  {
-    rctx = dbrFShip_find_request( cctx, req );
-    if( rctx != NULL )
+    if( request_parsed )
     {
-      context->_mctx->_be_ctx->_api->cancel( context->_mctx->_be_ctx->_context, rctx->_req );
-      LOG( DBG_TRACE, stderr, "canceling %d\n", rctx->_req->_opcode );
+      dbrFShip_request_ctx_t *rctx = NULL;
+      if( req->_opcode == DBBE_OPCODE_CANCEL )
+      {
+        rctx = dbrFShip_find_request( cctx, req );
+        if( rctx != NULL )
+        {
+          context->_mctx->_be_ctx->_api->cancel( context->_mctx->_be_ctx->_context, rctx->_req );
+          LOG( DBG_TRACE, stderr, "canceling %d\n", rctx->_req->_opcode );
+        }
+      }
+      else
+      {
+        rctx = dbrFShip_create_request( req, cctx );
+        dbBE_Request_handle_t be_req = NULL;
+        errno = 0;
+        while( be_req == NULL )
+        {
+          be_req = context->_mctx->_be_ctx->_api->post( context->_mctx->_be_ctx->_context, req, 0 );
+          if( be_req != NULL )
+            break;
+          else
+            if( errno != EAGAIN )
+            {
+              // todo: create an error completion showing DBR_ERR_BE_POST
+            }
+        }
+        LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
+        rc = dbrFShip_request_ctx_queue_push( cctx->_pending, rctx );
+      }
     }
-    return 0;
+
+    if( buffer_threshold )
+      dbBE_Transport_sr_buffer_consolidate( context->_r_buf );
   }
-  else
-  {
-    rctx = dbrFShip_create_request( req, cctx );
-    dbBE_Request_handle_t be_req = context->_mctx->_be_ctx->_api->post( context->_mctx->_be_ctx->_context, req, 0 );
-    LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
-    if( be_req == NULL )
-    {
-      // todo: create error response with DBR_ERR_BE_POST
-      return -1;
-    }
-  }
-  return dbrFShip_request_ctx_queue_push( cctx->_pending, rctx );
+  return rc;
 }
 
 int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context )
@@ -326,8 +363,13 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
                  0 );
     if( sent < 0 )
     {
+      if( errno == EAGAIN )
+        continue;
       LOG( DBG_ERR, stderr, "Send error. Incomplete response rc=%"PRId64": %s\n", sent, strerror( errno ) );
-      // don't break or exit here; buffer cleanup suggested
+      // make sure the connection is no longer part of the connection queue
+      dbrFShip_client_remove( context->_conn_queue, &rctx->_cctx );
+      dbBE_Transport_sr_buffer_reset( context->_s_buf );
+      break;
     }
     dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
     LOG( DBG_TRACE, stderr, "sent %"PRId64"/%"PRId64"/%"PRId64"\n",
@@ -513,6 +555,7 @@ void* dbrFShip_listen_start( void *arg )
         close( nes );
         continue;
       }
+      dbBE_Connection_noblock( connection );
 
       dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)calloc( 1, sizeof( dbrFShip_client_context_t ));
       if( cctx == NULL )
