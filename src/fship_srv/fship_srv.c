@@ -470,7 +470,17 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
     LOG( DBG_ERR, stderr, "Triggered callback with NULL ptr argument.\n" );
     return;
   }
+  if(( info->_cctx == NULL ) && (info->_queue == NULL))
+  {
+    LOG( DBG_INFO, stderr, "Triggered the listener socket\n" );
+    return;
+  }
 
+  if( info->_cctx == NULL )
+  {
+    LOG( DBG_ERR, stderr, "Found event info without client context\n" );
+    return;
+  }
   dbBE_Connection_t *conn = info->_cctx->_conn;
   dbBE_Connection_queue_t *queue = info->_queue;
 
@@ -562,6 +572,18 @@ void* dbrFShip_listen_start( void *arg )
     return tio;
   }
 
+  dbrFShip_event_info_t *mevinfo = (dbrFShip_event_info_t*)malloc( sizeof( dbrFShip_event_info_t ));
+  mevinfo->_cctx = NULL;
+  mevinfo->_queue = NULL;
+  struct event* mev = event_new( evbase, s, EV_READ | EV_PERSIST, dbrFShip_connection_wakeup, mevinfo );
+  mevinfo->_event = mev;
+
+  struct timeval timeout;
+  timeout.tv_sec = 10;
+  timeout.tv_usec = 0;
+  event_add( mev, &timeout );
+
+
   while( tio->_keep_running )
   {
     struct sockaddr naddr;
@@ -624,7 +646,6 @@ void* dbrFShip_listen_start( void *arg )
 
       evinfo->_event = ev;
 
-      struct timeval timeout;
       timeout.tv_sec = 5;
       timeout.tv_usec = 0;
       event_add( ev, &timeout );
@@ -632,6 +653,10 @@ void* dbrFShip_listen_start( void *arg )
       LOG( DBG_INFO, stderr, "New client connection to %s on socket=%d\n", connection->_url, connection->_socket );
     }
   }
+
+  event_del( mev );
+  event_free( mev );
+  free( mevinfo );
 
   LOG( DBG_INFO, stderr, "Closing listener\n" );
   close( s );
