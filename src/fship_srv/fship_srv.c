@@ -19,6 +19,8 @@
 #define DEBUG_LEVEL DBG_INFO
 #endif
 
+//#define WIPED_BUFFER
+
 #include "logutil.h"
 #include "common/utility.h"
 #include <libdatabroker.h>
@@ -101,7 +103,9 @@ dbrFShip_main_context_t* dbrFShip_main_context_create( dbrFShip_config_t *cfg )
     return NULL;
   }
 
-  ctx->_last_cctx = NULL;
+  // remember the last client context in use to enable response coalescing and prevent mixed partial message retrieval
+  ctx->_last_S_cctx = NULL;
+  ctx->_last_R_cctx = NULL;
   return ctx;
 }
 
@@ -178,12 +182,19 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
   int rc = 0;
   // check for new inbound requests
   //
-  if( context->_total_pending > 0 )
-    event_base_loop( tio->_evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
+  dbrFShip_client_context_t *locked_client = context->_last_R_cctx;
+  dbBE_Connection_t *active = NULL;
+  if( locked_client == NULL )
+  {
+    if( context->_total_pending > 0 )
+      event_base_loop( tio->_evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
+    else
+      event_base_loop( tio->_evbase, EVLOOP_ONCE );
+    active = dbBE_Connection_queue_pop( tio->_conn_queue );
+  }
   else
-    event_base_loop( tio->_evbase, EVLOOP_ONCE );
+    active = locked_client->_conn;
 
-  dbBE_Connection_t *active = dbBE_Connection_queue_pop( tio->_conn_queue );
   if( active == NULL )
     return 0;
 
@@ -191,7 +202,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
   dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)active->_context;
   if( cctx == NULL ) // unknown connection context
   {
-    LOG( DBG_ERR, stderr, "FATAL: Found active connection without valid connection context.\n" )
+    LOG( DBG_ERR, stderr, "FATAL: BUG Found active connection without valid connection context.\n" )
     return -1;
   }
 
@@ -220,6 +231,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
       {
         dbBE_Transport_sr_buffer_add_data( context->_r_buf, rcvd, 0 );
         dbBE_Transport_sr_buffer_get_available_position( context->_r_buf )[0] = '\0'; // terminate to avoid contamination from previous serializations
+//        dbBE_Transport_sr_buffer_get_available_position( context->_r_buf )[1] = '\0'; // terminate to avoid contamination from previous serializations
         has_data = 1;
       }
     }
@@ -247,11 +259,15 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
         else
           buffer_threshold = ( (float)dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > (float)dbBE_Transport_sr_buffer_get_size( context->_r_buf ) * 0.75 );
         has_data = ( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > 0 );
+
+        if( ! has_data )
+          locked_client = NULL;
       }
       else if( parsed == -EAGAIN ) // need more data
       {
         has_data = ( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > 0 );
         need_receive = 1;
+        locked_client = cctx; // lock down client context to prevent mixed messages
       }
       else
       {
@@ -299,6 +315,8 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
     if( buffer_threshold )
       dbBE_Transport_sr_buffer_consolidate( context->_r_buf );
   }
+
+  context->_last_R_cctx = locked_client;
   return rc;
 }
 
@@ -360,10 +378,10 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   // restore user ptr
   comp->_user = rctx->_user_in;
 
-  if( rctx->_cctx != context->_last_cctx )
-    dbrFShip_flushbuffer( context, context->_last_cctx, 1 );
-  context->_last_cctx = rctx->_cctx;
-  dbrFShip_client_context_t *cctx = context->_last_cctx;
+  if( rctx->_cctx != context->_last_S_cctx )
+    dbrFShip_flushbuffer( context, context->_last_S_cctx, 1 );
+  context->_last_S_cctx = rctx->_cctx;
+  dbrFShip_client_context_t *cctx = context->_last_S_cctx;
 
   // adjust the response SGE to prevent returning more data than available
   if( comp->_rc >= 0 )
@@ -402,6 +420,7 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
     return (int)serlen;
 
   dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 0 );
+  dbBE_Transport_sr_buffer_get_available_position( context->_s_buf )[0] = '\0'; // terminate just in case there's old stuff
   ++cctx->_pending_responses;
   --cctx->_pending_requests;
 
@@ -472,7 +491,7 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
   }
   if(( info->_cctx == NULL ) && (info->_queue == NULL))
   {
-    LOG( DBG_INFO, stderr, "Triggered the listener socket\n" );
+    LOG( DBG_TRACE, stderr, "Triggered the listener socket\n" );
     return;
   }
 
@@ -504,17 +523,20 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
   else if(( ev_type & EV_TIMEOUT ) != 0 )
   {
     char buf[2];
-    ssize_t rcvd = recv( conn->_socket, buf, 1, MSG_PEEK | MSG_DONTWAIT );
+    ssize_t rcvd = recv( conn->_socket, buf, 1, MSG_PEEK );
     LOG( DBG_VERBOSE, stderr, "FShip_event: Event timeout detected (sock=%d, data=%"PRId64".\n", conn->_socket, rcvd );
     switch( rcvd )
     {
-      case 0:
-        dbrFShip_client_remove( info->_queue, &info->_cctx );
-        break;
       case 1:
         dbBE_Connection_queue_push( queue, conn );
         break;
       default:
+        if( errno == EAGAIN )
+          break;
+        // otherwise no break;
+      case 0:
+        LOG( DBG_INFO, stderr, "Detected connection error/shutdown after timeout on socket %d rc=%d\n", conn->_socket, errno );
+        dbrFShip_client_remove( info->_queue, &info->_cctx );
         break;
     }
   }
@@ -579,7 +601,7 @@ void* dbrFShip_listen_start( void *arg )
   mevinfo->_event = mev;
 
   struct timeval timeout;
-  timeout.tv_sec = 10;
+  timeout.tv_sec = DBR_FSHIP_CONNECTION_WAKEUP_INTERVAL * 5;
   timeout.tv_usec = 0;
   event_add( mev, &timeout );
 
@@ -646,9 +668,17 @@ void* dbrFShip_listen_start( void *arg )
 
       evinfo->_event = ev;
 
-      timeout.tv_sec = 5;
+      timeout.tv_sec = DBR_FSHIP_CONNECTION_WAKEUP_INTERVAL;
       timeout.tv_usec = 0;
-      event_add( ev, &timeout );
+      if( event_add( ev, &timeout ) != 0 )
+      {
+        close( nes );
+        event_free( ev );
+        evinfo->_event = NULL;
+        free( cctx );
+        free( evinfo );
+        continue;
+      }
 
       LOG( DBG_INFO, stderr, "New client connection to %s on socket=%d\n", connection->_url, connection->_socket );
     }
@@ -682,9 +712,39 @@ dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_c
       // since these requests come with an SGE header, we need to create space to store the data
       if( req->_sge_count > 0 )
       {
+#ifdef WIPED_BUFFER
+        char *req_buf = (char*)calloc( 1, dbBE_SGE_get_len( req->_sge, req->_sge_count ) );
+#else
         char *req_buf = (char*)malloc( dbBE_SGE_get_len( req->_sge, req->_sge_count ) );
+#endif
         if( req_buf == NULL )
           goto error;
+        int i;
+        size_t offset = 0;
+        for( i = 0; i < req->_sge_count; ++i )
+        {
+          req->_sge[i].iov_base = &req_buf[ offset ];
+          offset += req->_sge[i].iov_len;
+        }
+      }
+      break;
+    case DBBE_OPCODE_PUT:
+      // put operation might be performed much later than the incoming request stream, need to make a copy
+      if( req->_sge_count > 0 )
+      {
+        size_t data_size = dbBE_SGE_get_len( req->_sge, req->_sge_count );
+#ifdef WIPED_BUFFER
+        char *req_buf = (char*)calloc( 1, data_size );
+#else
+        char *req_buf = (char*)malloc( data_size );
+#endif
+        if( req_buf == NULL )
+          goto error;
+        if( req_buf == NULL )
+          goto error;
+
+        memmove( req_buf, req->_sge[0].iov_base, data_size );
+
         int i;
         size_t offset = 0;
         for( i = 0; i < req->_sge_count; ++i )
@@ -724,6 +784,7 @@ int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx )
 
   switch( req->_opcode )
   {
+    case DBBE_OPCODE_PUT:
     case DBBE_OPCODE_GET:
     case DBBE_OPCODE_READ:
     case DBBE_OPCODE_NSQUERY:
@@ -766,7 +827,9 @@ int dbrFShip_client_remove( dbBE_Connection_queue_t *queue,
   {
     event_del( cctx->_event->_event );
     event_free( cctx->_event->_event );
+    cctx->_event->_event = NULL;
     free( cctx->_event );
+    cctx->_event = NULL;
   }
   dbBE_Connection_queue_remove_connection( queue, cctx->_conn );
   dbBE_Connection_destroy( cctx->_conn );

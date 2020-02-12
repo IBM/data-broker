@@ -25,6 +25,8 @@
 
 #define DBR_FSHIP_CONNECTIONS_LIMIT ( 1024 )
 
+#define DBR_FSHIP_CONNECTION_WAKEUP_INTERVAL ( 1 )
+
 typedef struct dbrFShip_config
 {
   char *_listenaddr;
@@ -59,7 +61,8 @@ typedef struct dbrFShip_main_context
   dbrFShip_config_t _cfg;
   dbrMain_context_t *_mctx;
   dbrFShip_client_context_t **_cctx;
-  dbrFShip_client_context_t *_last_cctx;
+  dbrFShip_client_context_t *_last_S_cctx;
+  dbrFShip_client_context_t *_last_R_cctx;
   dbBE_Connection_queue_t *_conn_queue;
   dbBE_Redis_sr_buffer_t *_r_buf;
   dbBE_Redis_sr_buffer_t *_s_buf;
