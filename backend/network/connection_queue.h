@@ -138,6 +138,8 @@ deleted_slot_retry:
   if( conn == NULL )
     goto deleted_slot_retry;
 
+  dbBE_Connection_set_inactivate( conn );
+
   pthread_mutex_unlock( &queue->_mutex );
 
   return conn;
@@ -174,6 +176,7 @@ int dbBE_Connection_queue_push( dbBE_Connection_queue_t *queue,
     return -ENOMEM;
   }
 
+  dbBE_Connection_set_active( conn );
   queue->_connections[ head % queue->_queue_size ] = conn;
   ++dbBE_Connection_queue_head( queue );
 

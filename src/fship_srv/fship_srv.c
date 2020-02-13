@@ -528,7 +528,8 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
     switch( rcvd )
     {
       case 1:
-        dbBE_Connection_queue_push( queue, conn );
+        if( ! dbBE_Connection_is_active( conn ))
+          dbBE_Connection_queue_push( queue, conn );
         break;
       default:
         if( errno == EAGAIN )
@@ -557,7 +558,7 @@ void* dbrFShip_listen_start( void *arg )
   if( evbase == NULL )
     return NULL;
 
-  int s;
+  int s = 0;
 
   char *url = tio->_cfg->_listenaddr;
   struct addrinfo *addrs = dbBE_Common_resolve_address( url, 0 );

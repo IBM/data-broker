@@ -62,12 +62,20 @@ typedef struct dbBE_Connection
 
 
 /*
- * set connection status to reflect ready to recv (i.e. pending data)
+ * connection status to reflect ready to recv (i.e. pending data)
  */
+#define dbBE_Connection_is_active( conn ) ( (conn)->_status == DBBE_CONNECTION_STATUS_PENDING_DATA )
+
 #define dbBE_Connection_set_active( conn ) \
     { \
       if( (conn)->_status == DBBE_CONNECTION_STATUS_AUTHORIZED ) \
         (conn)->_status = DBBE_CONNECTION_STATUS_PENDING_DATA; \
+    }
+
+#define dbBE_Connection_set_inactivate( conn ) \
+    { \
+      if( (conn)->_status == DBBE_CONNECTION_STATUS_PENDING_DATA ) \
+        (conn)->_status = DBBE_CONNECTION_STATUS_AUTHORIZED; \
     }
 
 #define dbBE_Connection_RTR_nocheck( conn ) \
