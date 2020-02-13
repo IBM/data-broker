@@ -182,9 +182,8 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
   int rc = 0;
   // check for new inbound requests
   //
-  dbrFShip_client_context_t *locked_client = context->_last_R_cctx;
   dbBE_Connection_t *active = NULL;
-  if( locked_client == NULL )
+  if( context->_last_R_cctx == NULL )
   {
     if( context->_total_pending > 0 )
       event_base_loop( tio->_evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK );
@@ -193,7 +192,7 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
     active = dbBE_Connection_queue_pop( tio->_conn_queue );
   }
   else
-    active = locked_client->_conn;
+    active = context->_last_R_cctx->_conn;
 
   if( active == NULL )
     return 0;
@@ -215,12 +214,20 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
     int request_parsed = 0;
     if( need_receive )
     {
-      ssize_t rcvd = dbBE_Socket_recv( cctx->_conn->_socket, context->_r_buf );
+      ssize_t rcvd = dbBE_Socket_recv( active->_socket, context->_r_buf );
       if(( rcvd == 0 ) || (( rcvd < 0 ) && ( errno != EAGAIN )))
       {
-        LOG( DBG_INFO, stderr, "Connection error/shutdown detected for socket %d; rc=%"PRId64"\n", cctx->_conn->_socket, rcvd );
+        LOG( DBG_INFO, stderr, "Connection error/shutdown detected for socket %d; rc=%"PRId64"\n", active->_socket, rcvd );
         // make sure the connection is no longer part of the connection queue
-        dbrFShip_client_remove( context->_conn_queue, &cctx );
+        if( cctx == context->_last_S_cctx )
+        {
+          dbBE_Transport_sr_buffer_reset( context->_s_buf );
+          context->_last_S_cctx = NULL;
+        }
+        dbrFShip_client_ctx_remove( context->_conn_queue, &cctx );
+        context->_last_R_cctx = NULL;
+        cctx = NULL;
+        active = NULL;
         dbBE_Transport_sr_buffer_reset( context->_r_buf );
         break;
       }
@@ -261,13 +268,13 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
         has_data = ( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > 0 );
 
         if( ! has_data )
-          locked_client = NULL;
+          context->_last_R_cctx = NULL;
       }
       else if( parsed == -EAGAIN ) // need more data
       {
         has_data = ( dbBE_Transport_sr_buffer_unprocessed( context->_r_buf ) > 0 );
         need_receive = 1;
-        locked_client = cctx; // lock down client context to prevent mixed messages
+        context->_last_R_cctx = cctx; // lock down client context to prevent mixed messages
       }
       else
       {
@@ -308,58 +315,63 @@ int dbrFShip_inbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *context
         }
         LOG( DBG_TRACE, stderr, "posted %d\n", req->_opcode );
         rc = dbrFShip_request_ctx_queue_push( cctx->_pending, rctx );
-        ++cctx->_pending_requests;
+        dbrFShip_client_ctx_add_request( cctx );
+      }
     }
-    }
-
     if( buffer_threshold )
       dbBE_Transport_sr_buffer_consolidate( context->_r_buf );
   }
+  // re-enable queueing via events
+  dbBE_Connection_set_inactivate( active );
 
-  context->_last_R_cctx = locked_client;
   return rc;
 }
 
-int dbrFShip_flushbuffer( dbrFShip_main_context_t *context,
-                          dbrFShip_client_context_t *cctx,
+static
+int dbrFShip_flushbuffer( dbBE_Redis_sr_buffer_t *buf,
+                          volatile dbrFShip_client_context_t *v_cctx,
                           const int forced )
 {
-  if(( cctx == 0 ) || ( cctx->_pending_responses == 0 ))
+  if(( v_cctx == NULL ) || ( v_cctx->_pending_responses == 0 ))
     return 0;
+
+  dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)v_cctx;
+  pthread_mutex_lock( &cctx->_lock );
 
   int send_trigger = forced;
   send_trigger |= (cctx->_pending_responses > 0 ) && ( cctx->_pending_requests < 1);
   send_trigger |= ( cctx->_pending_responses > cctx->_pending_requests );
-  send_trigger |= ( dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > ( dbBE_Transport_sr_buffer_get_size( context->_s_buf ) >> 1 ) );
+  send_trigger |= ( dbBE_Transport_sr_buffer_unprocessed( buf ) > ( dbBE_Transport_sr_buffer_get_size( buf ) >> 1 ) );
   if( send_trigger )
   {
     LOG( DBG_TRACE, stderr, "Coalesced %d/%d\n", cctx->_pending_responses, cctx->_pending_requests );
     ssize_t sent = 0;
-    while(( sent >= 0 ) && ( (ssize_t)dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) > 0) )
+    while(( sent >= 0 ) && ( (ssize_t)dbBE_Transport_sr_buffer_unprocessed( buf ) > 0) )
     {
       sent = send( cctx->_conn->_socket,
-                   dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ),
-                   dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
+                   dbBE_Transport_sr_buffer_get_processed_position( buf ),
+                   dbBE_Transport_sr_buffer_unprocessed( buf ),
                    0 );
       if( sent < 0 )
       {
         if( errno == EAGAIN )
           continue;
         LOG( DBG_ERR, stderr, "Send error. Incomplete response rc=%"PRId64": %s\n", sent, strerror( errno ) );
-        // make sure the connection is no longer part of the connection queue
-        dbrFShip_client_remove( context->_conn_queue, &cctx );
-        dbBE_Transport_sr_buffer_reset( context->_s_buf );
-        break;
+        dbBE_Transport_sr_buffer_reset( buf );
+        dbrFShip_client_ctx_flush_responses( cctx );
+        pthread_mutex_unlock( &cctx->_lock );
+        return -1;
       }
-      dbBE_Transport_sr_buffer_advance( context->_s_buf, sent );
+      dbBE_Transport_sr_buffer_advance( buf, sent );
       LOG( DBG_TRACE, stderr, "sent %"PRId64"/%"PRId64"/%"PRId64"\n",
-           sent, dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
-           dbBE_Transport_sr_buffer_available( context->_s_buf ));
+           sent, dbBE_Transport_sr_buffer_unprocessed( buf ),
+           dbBE_Transport_sr_buffer_available( buf ));
     }
 
-    dbBE_Transport_sr_buffer_reset( context->_s_buf );
-    cctx->_pending_responses = 0;
+    dbBE_Transport_sr_buffer_reset( buf );
+    dbrFShip_client_ctx_flush_responses( cctx );
   }
+  pthread_mutex_unlock( &cctx->_lock );
   return 0;
 }
 
@@ -378,10 +390,20 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   // restore user ptr
   comp->_user = rctx->_user_in;
 
-  if( rctx->_cctx != context->_last_S_cctx )
-    dbrFShip_flushbuffer( context, context->_last_S_cctx, 1 );
+  if(( rctx->_cctx != context->_last_S_cctx ) && ( context->_last_S_cctx != NULL ))
+  {
+    if( dbrFShip_flushbuffer( context->_s_buf, context->_last_S_cctx, 1 ) != 0 )
+    {
+      // make sure the connection is no longer part of the connection queue
+      if( context->_last_S_cctx == context->_last_R_cctx )
+        context->_last_R_cctx = NULL;
+
+      dbrFShip_client_ctx_remove( context->_conn_queue, (dbrFShip_client_context_t**)&context->_last_S_cctx );
+      context->_last_S_cctx = NULL;
+    }
+  }
+
   context->_last_S_cctx = rctx->_cctx;
-  dbrFShip_client_context_t *cctx = context->_last_S_cctx;
 
   // adjust the response SGE to prevent returning more data than available
   if( comp->_rc >= 0 )
@@ -421,8 +443,12 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
 
   dbBE_Transport_sr_buffer_add_data( context->_s_buf, serlen, 0 );
   dbBE_Transport_sr_buffer_get_available_position( context->_s_buf )[0] = '\0'; // terminate just in case there's old stuff
-  ++cctx->_pending_responses;
-  --cctx->_pending_requests;
+
+  if( dbrFShip_client_ctx_add_response( context->_last_S_cctx ) )
+  {
+    dbBE_Transport_sr_buffer_reset( context->_s_buf );
+    return 0;
+  }
 
   LOG( DBG_TRACE, stderr, "Sending %ld %s\n", dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ),
        (dbBE_Transport_sr_buffer_unprocessed( context->_s_buf ) < 100 ? dbBE_Transport_sr_buffer_get_processed_position( context->_s_buf ) : "long" ) );
@@ -431,7 +457,15 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
   dbrFShip_completion_cleanup( rctx );
   --context->_total_pending;
 
-  dbrFShip_flushbuffer( context, cctx, 0 );
+  if( dbrFShip_flushbuffer( context->_s_buf, context->_last_S_cctx, 0 ) != 0 )
+  {
+    // make sure the connection is no longer part of the connection queue
+    if( context->_last_S_cctx == context->_last_R_cctx )
+      context->_last_R_cctx = NULL;
+
+    dbrFShip_client_ctx_remove( context->_conn_queue, (dbrFShip_client_context_t**)&context->_last_S_cctx );
+    context->_last_S_cctx = NULL;
+  }
 
   return 0;
 }
@@ -529,7 +563,10 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
     {
       case 1:
         if( ! dbBE_Connection_is_active( conn ))
+        {
+          dbBE_Connection_set_active( conn );
           dbBE_Connection_queue_push( queue, conn );
+        }
         break;
       default:
         if( errno == EAGAIN )
@@ -537,7 +574,7 @@ void dbrFShip_connection_wakeup( evutil_socket_t socket, short ev_type, void *ar
         // otherwise no break;
       case 0:
         LOG( DBG_INFO, stderr, "Detected connection error/shutdown after timeout on socket %d rc=%d\n", conn->_socket, errno );
-        dbrFShip_client_remove( info->_queue, &info->_cctx );
+        dbrFShip_client_ctx_remove( info->_queue, &info->_cctx );
         break;
     }
   }
@@ -633,51 +670,41 @@ void* dbrFShip_listen_start( void *arg )
       }
       dbBE_Connection_noblock( connection );
 
-      dbrFShip_client_context_t *cctx = (dbrFShip_client_context_t*)calloc( 1, sizeof( dbrFShip_client_context_t ));
+      dbrFShip_request_ctx_queue_t *rq = dbrFShip_request_ctx_queue_create();
+      if( rq == NULL )
+      {
+        close( nes );
+        continue;
+      }
+      dbrFShip_client_context_t *cctx = dbrFShip_client_ctx_create( rq,
+                                                                    connection,
+                                                                    tio->_conn_queue );
       if( cctx == NULL )
       {
+        dbrFShip_request_ctx_queue_destroy( rq );
         close( nes );
         continue;
       }
-
-      // bidirectional linking between connection and its context
-      cctx->_conn = connection;
-      cctx->_pending = dbrFShip_request_ctx_queue_create();
-      connection->_context = (void*)cctx;
-      gettimeofday( &connection->_last_alive, NULL );
-
-      dbrFShip_event_info_t *evinfo = (dbrFShip_event_info_t*)malloc( sizeof( dbrFShip_event_info_t ));
-      if( evinfo == NULL )
-      {
-        close( nes );
-        free( cctx );
-        continue;
-      }
-      evinfo->_cctx = cctx;
-      evinfo->_queue = tio->_conn_queue;
-      cctx->_event = evinfo;
 
       // add to libevent socket polling
-      struct event* ev = event_new( evbase, nes, EV_READ | EV_PERSIST | EV_ET, dbrFShip_connection_wakeup, evinfo );
+      struct event* ev = event_new( evbase, nes, EV_READ | EV_PERSIST | EV_ET, dbrFShip_connection_wakeup, cctx->_event );
       if( ev == NULL )
       {
+        dbrFShip_request_ctx_queue_destroy( cctx->_pending );
+        dbrFShip_client_ctx_delete( cctx );
         close( nes );
-        free( cctx );
-        free( evinfo );
         continue;
       }
 
-      evinfo->_event = ev;
+      cctx->_event->_event = ev;
 
       timeout.tv_sec = DBR_FSHIP_CONNECTION_WAKEUP_INTERVAL;
       timeout.tv_usec = 0;
       if( event_add( ev, &timeout ) != 0 )
       {
+        dbrFShip_request_ctx_queue_destroy( cctx->_pending );
+        dbrFShip_client_ctx_remove( tio->_conn_queue, &cctx );
         close( nes );
-        event_free( ev );
-        evinfo->_event = NULL;
-        free( cctx );
-        free( evinfo );
         continue;
       }
 
@@ -814,31 +841,6 @@ int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx )
   }
   return 0;
 }
-
-// clean up and free client context
-int dbrFShip_client_remove( dbBE_Connection_queue_t *queue,
-                            dbrFShip_client_context_t **in_out_cctx )
-{
-  if(( queue == NULL ) || ( in_out_cctx == NULL ) || ( *in_out_cctx == NULL ))
-    return -EINVAL;
-
-  dbrFShip_client_context_t *cctx = *in_out_cctx;
-
-  if( cctx->_event != NULL )
-  {
-    event_del( cctx->_event->_event );
-    event_free( cctx->_event->_event );
-    cctx->_event->_event = NULL;
-    free( cctx->_event );
-    cctx->_event = NULL;
-  }
-  dbBE_Connection_queue_remove_connection( queue, cctx->_conn );
-  dbBE_Connection_destroy( cctx->_conn );
-  free( cctx );
-  *in_out_cctx = NULL;
-  return 0;
-}
-
 
 dbrFShip_request_ctx_t* dbrFShip_find_request( dbrFShip_client_context_t *cctx,
                                                dbBE_Request_t *req )

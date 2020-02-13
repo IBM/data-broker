@@ -22,6 +22,7 @@
 #include "network/connection.h"
 #include "network/connection_queue.h"
 #include "transports/sr_buffer.h"
+#include "client_context.h"
 
 #define DBR_FSHIP_CONNECTIONS_LIMIT ( 1024 )
 
@@ -34,8 +35,6 @@ typedef struct dbrFShip_config
   size_t _max_mem;
 } dbrFShip_config_t;
 
-struct dbrFShip_client_context;
-
 typedef struct dbrFShip_request_ctx
 {
   struct dbrFShip_request_ctx *_next; // queueing
@@ -46,23 +45,13 @@ typedef struct dbrFShip_request_ctx
 
 #include "fship_request_queue.h"
 
-struct dbrFShip_event_info;
-typedef struct dbrFShip_client_context
-{
-  dbBE_Connection_t *_conn;
-  dbrFShip_request_ctx_queue_t *_pending;
-  int _pending_requests;
-  int _pending_responses;
-  struct dbrFShip_event_info *_event;
-} dbrFShip_client_context_t;
-
 typedef struct dbrFShip_main_context
 {
   dbrFShip_config_t _cfg;
   dbrMain_context_t *_mctx;
   dbrFShip_client_context_t **_cctx;
-  dbrFShip_client_context_t *_last_S_cctx;
-  dbrFShip_client_context_t *_last_R_cctx;
+  volatile dbrFShip_client_context_t *_last_S_cctx;
+  volatile dbrFShip_client_context_t *_last_R_cctx;
   dbBE_Connection_queue_t *_conn_queue;
   dbBE_Redis_sr_buffer_t *_r_buf;
   dbBE_Redis_sr_buffer_t *_s_buf;
@@ -79,13 +68,6 @@ typedef struct dbrFShip_threadio
   int _threadrc; // return value of accept thread
 } dbrFShip_threadio_t;
 
-typedef struct dbrFShip_event_info
-{
-  dbrFShip_client_context_t *_cctx;
-  dbBE_Connection_queue_t *_queue;
-  struct event *_event;
-} dbrFShip_event_info_t;
-
 void* dbrFShip_listen_start( void *arg );
 int dbrFShip_parse_cmdline( int argc, char **argv, dbrFShip_config_t *cfg );
 
@@ -94,7 +76,7 @@ int dbrFShip_outbound( dbrFShip_threadio_t *tio, dbrFShip_main_context_t *contex
 
 dbrFShip_request_ctx_t* dbrFShip_create_request( dbBE_Request_t *req, dbrFShip_client_context_t *cctx );
 int dbrFShip_completion_cleanup( dbrFShip_request_ctx_t *rctx );
-int dbrFShip_client_remove( dbBE_Connection_queue_t *queue,
+int dbrFShip_client_ctx_remove( dbBE_Connection_queue_t *queue,
                             dbrFShip_client_context_t **in_out_cctx );
 dbrFShip_request_ctx_t* dbrFShip_find_request( dbrFShip_client_context_t *cctx,
                                                dbBE_Request_t *req );
