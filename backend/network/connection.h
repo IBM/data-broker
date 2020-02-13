@@ -74,7 +74,7 @@ typedef struct dbBE_Connection
 
 #define dbBE_Connection_set_inactivate( conn ) \
     { \
-      if( (conn)->_status == DBBE_CONNECTION_STATUS_PENDING_DATA ) \
+      if(( (conn) != NULL ) && ( (conn)->_status == DBBE_CONNECTION_STATUS_PENDING_DATA )) \
         (conn)->_status = DBBE_CONNECTION_STATUS_AUTHORIZED; \
     }
 

@@ -255,6 +255,8 @@ int dbBE_Connection_destroy( dbBE_Connection_t *conn )
   if( conn == NULL )
     return -EINVAL;
 
+  dbBE_Connection_unlink( conn );
+
   if( conn->_address )
     dbBE_Network_address_destroy( conn->_address );
 
