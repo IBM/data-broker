@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018, 2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,8 @@ dbrGetA (DBR_Handle_t cs_handle,
          int64_t *size,
          DBR_Tuple_name_t tuple_name,
          DBR_Tuple_template_t match_template,
-         DBR_Group_t group)
+         DBR_Group_t group,
+         int flags )
 {
   dbrDA_Request_chain_t *req = (dbrDA_Request_chain_t*)calloc( 1, sizeof( dbrDA_Request_chain_t ) + sizeof( dbBE_sge_t ) );;
   req->_key = tuple_name;
@@ -68,7 +69,7 @@ dbrGetA (DBR_Handle_t cs_handle,
                      req,
                      match_template,
                      group,
-                     DBR_FLAGS_NONE,
+                     flags,
                      size );
   // no free of req here, since it's needed for dbrTest()
 }
