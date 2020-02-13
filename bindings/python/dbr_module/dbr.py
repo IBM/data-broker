@@ -1,5 +1,5 @@
  #
- # Copyright (C) 2018, 2019 IBM Corporation
+ # Copyright (C) 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -158,13 +158,13 @@ def get(dbr_hdl, tuple_name, match_template, group, flag, buffer_size=None):
     return result, retval
     #return pickle.loads(out_buffer[:]), retval
 
-def readA(dbr_hdl, tuple_name, match_template, group, buffer_size=None):
+def readA(dbr_hdl, tuple_name, match_template, group, flag=DBR_FLAGS_NONE, buffer_size=None):
     out_size = ffi.new('int64_t*')
     if buffer_size is None :
         buffer_size=[128]
     out_size[0] = buffer_size[0]
     out_buffer = createBuf('char[]', out_size[0])
-    tag = libdatabroker.dbrReadA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode())
+    tag = libdatabroker.dbrReadA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode(), flags)
     buffer_size[0] = out_size[0]
     return tag, out_buffer 
 
@@ -179,13 +179,13 @@ def putA(dbr_hdl, tuple_val, tuple_name, group):
     tag = libdatabroker.dbrPutA(dbr_hdl, dumpedtuple, size, tuple_name.encode(), group.encode())
     return tag
 
-def getA(dbr_hdl, tuple_name, match_template, group, buffer_size=None):
+def getA(dbr_hdl, tuple_name, match_template, group, flag=DBR_FLAGS_NONE, buffer_size=None):
     out_size = ffi.new('int64_t*')
     if buffer_size is None :
         buffer_size=[128]
     out_size[0] = buffer_size[0]
     out_buffer = createBuf('char[]', out_size[0])
-    tag = libdatabroker.dbrGetA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode())
+    tag = libdatabroker.dbrGetA(dbr_hdl, ffi.from_buffer(out_buffer), out_size, tuple_name.encode(), match_template.encode(), group.encode(), flags)
     buffer_size[0] = out_size[0]
     return tag, out_buffer # pickle.loads(out_buffer[:]) 
 

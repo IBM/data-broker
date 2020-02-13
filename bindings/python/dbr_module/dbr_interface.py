@@ -1,5 +1,5 @@
  #
- # Copyright (C) 2018, 2019 IBM Corporation
+ # Copyright (C) 2018-2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -151,7 +151,8 @@ DBR_Tag_t dbrGetA( DBR_Handle_t cs_handle,
                    int64_t *size,
                    DBR_Tuple_name_t tuple_name,
                    DBR_Tuple_template_t match_template,
-                   DBR_Group_t group );
+                   DBR_Group_t group,
+                   int flags );
 
 DBR_Errorcode_t dbrRead( DBR_Handle_t cs_handle,
                          void *va_ptr,
@@ -166,7 +167,8 @@ DBR_Tag_t dbrReadA( DBR_Handle_t cs_handle,
                     int64_t *size,
                     DBR_Tuple_name_t tuple_name,
                     DBR_Tuple_template_t match_template,
-                    DBR_Group_t group );
+                    DBR_Group_t group,
+                    int flags );
 
 DBR_Errorcode_t dbrTestKey( DBR_Handle_t cs_handle, DBR_Tuple_name_t tuple_name );
 
