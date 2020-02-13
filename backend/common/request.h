@@ -165,7 +165,7 @@ ssize_t dbBE_Request_deserialize( char *data, size_t space, dbBE_Request_t **req
   DBR_Group_t group, dstgroup;
   unsigned keylen, matchlen;
   int64_t flags;
-  int sge_count;
+  int sge_count = 0;
   dbBE_sge_t *sge_out = NULL;
 
   int items = sscanf( data, "%d\n%p\n%p\n%p\n%p\n%d\n%d\n%"PRId64"\n%n",

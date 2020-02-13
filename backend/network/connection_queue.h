@@ -101,8 +101,9 @@ deleted_slot_retry:
   tail = dbBE_Connection_queue_tail( queue );
   if( head == tail )
   {
-    head = 0;  // use the empty queue status to reset the counters
-    tail = 0;
+    // use the empty queue status to reset the counters
+    dbBE_Connection_queue_head( queue ) = 0;
+    dbBE_Connection_queue_tail( queue ) = 0;
 
     // if blocking operation is requested, then this will wait for conditional var signalled by push()
     if( blocking )
@@ -124,6 +125,7 @@ deleted_slot_retry:
     ++tail;
   }
 
+  // update actual queue tail
   dbBE_Connection_queue_tail( queue ) = tail;
 
   // reset counters if queue is empty now
@@ -165,14 +167,14 @@ int dbBE_Connection_queue_push( dbBE_Connection_queue_t *queue,
   volatile uint64_t head = dbBE_Connection_queue_head( queue );
   volatile uint64_t tail = dbBE_Connection_queue_tail( queue );
 
-  if(( head - tail >= queue->_queue_size ) || ( queue->_connections[ head ] != NULL ))
+  if(( head - tail >= queue->_queue_size ) || ( queue->_connections[ head % queue->_queue_size ] != NULL ))
   {
-    LOG( DBG_WARN, stderr, "connection queue full or inconsistent\n" )
+    LOG( DBG_WARN, stderr, "connection queue full or inconsistent %ld:%ld\n", head, tail )
     pthread_mutex_unlock( &queue->_mutex );
     return -ENOMEM;
   }
 
-  queue->_connections[ head ] = conn;
+  queue->_connections[ head % queue->_queue_size ] = conn;
   ++dbBE_Connection_queue_head( queue );
 
   pthread_cond_signal( &queue->_wakeup );

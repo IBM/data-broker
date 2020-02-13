@@ -179,9 +179,9 @@ ssize_t dbBE_Completion_deserialize( char *data,
   if( sge_total > 0 )
   {
     if( (size_t)sge_total == space )
-      dbBE_Completion_deserialize_error( -EAGAIN, sge_out );
+      dbBE_Completion_deserialize_error( -EAGAIN, *sge_out );
     if( data[ sge_total ] != '\n' )
-      dbBE_Completion_deserialize_error( -EBADMSG, sge_out );
+      dbBE_Completion_deserialize_error( -EBADMSG, *sge_out );
     data[ sge_total ] = '\0';  // separator was \n
     ++sge_total;
   }
