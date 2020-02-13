@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ int main( int argc, char ** argv )
   int64_t out_size = 1024;
 
   memset( out, 0, out_size );
-  tag = dbrReadA( cs_hdl, out, &out_size, "testTup", "", 0 );
+  tag = dbrReadA( cs_hdl, out, &out_size, "testTup", "", 0, DBR_FLAGS_NONE );
   rc += TEST_NOT( DB_TAG_ERROR, tag );
 
   struct timeval start_time, now;
@@ -124,7 +124,7 @@ int main( int argc, char ** argv )
 
   memset( out, 0, out_size );
   out_size = 1024;
-  tag = dbrGetA( cs_hdl, out, &out_size, "testTup", "", 0 );
+  tag = dbrGetA( cs_hdl, out, &out_size, "testTup", "", 0, DBR_FLAGS_NONE );
   rc += TEST_NOT( DB_TAG_ERROR, tag );
 
   state = 0;
@@ -161,7 +161,7 @@ int main( int argc, char ** argv )
   out_size = 1024;
   gettimeofday( &start_time, NULL );
 
-  tag = dbrGetA( cs_hdl, out, &out_size, "testTuple", "", 0 ); // post the get for non-existing tuple
+  tag = dbrGetA( cs_hdl, out, &out_size, "testTuple", "", 0, DBR_FLAGS_NONE ); // post the get for non-existing tuple
   rc += TEST_NOT( DB_TAG_ERROR, tag );
 
   if( tag != DB_TAG_ERROR )
