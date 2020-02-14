@@ -41,6 +41,7 @@
 #include <event2/event.h> // libevent
 #include <event2/thread.h> // evthread_use_pthreads
 #include <string.h> // strncmp
+#include <signal.h> // signal/raise
 
 #define DBR_MCTX_RC( a, rc ) ( (rc) == 0 ? (a) : (rc) )
 
@@ -109,6 +110,20 @@ dbrFShip_main_context_t* dbrFShip_main_context_create( dbrFShip_config_t *cfg )
   return ctx;
 }
 
+static dbrFShip_threadio_t *g_tio = NULL;
+
+void dbrFShip_termination_handler( int sig )
+{
+  if( g_tio != NULL )
+  {
+    LOG( DBG_INFO, stderr, "Received TERM signal.\n" );
+    g_tio->_keep_running = 0;
+  }
+  else
+    raise( sig );
+}
+
+
 int main( int argc, char **argv )
 {
   dbrFShip_config_t cfg;
@@ -132,6 +147,8 @@ int main( int argc, char **argv )
   if( context == NULL )
     return ENOMEM;
 
+  signal( SIGTERM, dbrFShip_termination_handler );
+  signal( SIGINT, dbrFShip_termination_handler );
 
   evthread_use_pthreads();
   struct event_base *evbase = event_base_new();
@@ -147,6 +164,7 @@ int main( int argc, char **argv )
   tio._cfg = &context->_cfg;
   tio._conn_queue = context->_conn_queue;
   tio._keep_running = 1;
+  g_tio = &tio;
 
   if( pthread_create( &listener, NULL, dbrFShip_listen_start, &tio ) != 0 )
   {
@@ -156,7 +174,7 @@ int main( int argc, char **argv )
 
   // loop
   int rc = 0;
-  while( 1 )
+  while( tio._keep_running )
   {
     rc = dbrFShip_inbound( &tio, context );
     if( rc < 0 )
@@ -168,12 +186,16 @@ int main( int argc, char **argv )
   }
 
   tio._keep_running = 0;
+  LOG( DBG_INFO, stderr, "Waiting for listener thread to join\n" );
   pthread_cancel( listener );
   pthread_join( listener, NULL );
 
   if( tio._threadrc != 0 )
     LOG( DBG_ERR, stderr, "Listener thread exited with rc=%d\n", tio._threadrc );
 
+  event_base_free( evbase );
+
+  LOG( DBG_INFO, stderr, "Exiting...\n" );
   return dbrFShip_main_context_destroy( context, rc );
 }
 
