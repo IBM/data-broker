@@ -86,9 +86,9 @@ sys.path.insert(0, os.path.abspath('path/to/dbr_module'))
 | put(dbr_hdl, tuple_val, tuple_name, group):exitstatus      | Insert a tuple in the Data Broker|
 | read(dbr_hdl, tuple_name, match_template, group, flag[, buffer_size=None]):(tuple, exitstatus)     | Read a tuple from the Data Broker|
 | get(dbr_hdl, tuple_name, match_template, group, flag[, buffer_size=None]):(tuple, exitstatus)      | Pop a tuple from the Data Broker |
-| readA(dbr_hdl, tuple_name, match_template, group[, buffer_size=None]):(tag, futuretuple)    | Read a tuple from the Data Broker, non blocking|
+| readA(dbr_hdl, tuple_name, match_template, group[, flag=DBR_FLAGS_NONE, buffer_size=None]):(tag, futuretuple)    | Read a tuple from the Data Broker, non blocking|
 | putA(dbr_hdl, tuple_val, tuple_name, group):tag    | Put a tuple in the Data Broker, non blocking|
-| getA(dbr_hdl, tuple_name, match_template, group[, buffer_size=None]):(tag, futuretuple)     | Pop a tuple from the Data Broker, non blocking|
+| getA(dbr_hdl, tuple_name, match_template, group[, flag=DBR_FLAGS_NONE, buffer_size=None]):(tag, futuretuple)     | Pop a tuple from the Data Broker, non blocking|
 | move(src_DBRHandle, src_group, tuple_name, match_template, dest_DBRHandle, dest_group):exitstatus     | Move a tuple from a source namespace to a destination namespace|
 | testKey(dbr_hdl, tuple_name):exitstatus | Checks if a tuple, identified by its name/key, exists in the namespace|
 | directory(dbr_hdl, match_template, group, count, size):(keyslist, size, exitstatus)| Get a list of available tuple names of a namespace filtered by the user-provided pattern|

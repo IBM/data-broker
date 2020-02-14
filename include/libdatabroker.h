@@ -536,6 +536,7 @@ DBR_Errorcode_t dbrGet( DBR_Handle_t dbr_handle,
  * @param [in] tuple_name 	Name/key identifying the tuple to be searched.
  * @param [in] match_template Template identifying a set of tuple names.
  * @param [in] group 		Group to which the namespace belongs.
+ * @param [in] flags    DBR_FLAGS_NONE or DBR_FLAGS_NOWAIT for immediate return option.
  *
  * @return A tag identifying the call.
  *
@@ -547,7 +548,8 @@ DBR_Tag_t dbrGetA( DBR_Handle_t dbr_handle,
                    int64_t *size,
                    DBR_Tuple_name_t tuple_name,
                    DBR_Tuple_template_t match_template,
-                   DBR_Group_t group );
+                   DBR_Group_t group,
+                   int flags );
 
 
 /**
@@ -619,6 +621,7 @@ DBR_Errorcode_t dbrRead( DBR_Handle_t dbr_handle,
  * @param [in] tuple_name 	Name/key identifying the tuple to be searched.
  * @param [in] match_template Template identifying a set of tuple names.
  * @param [in] group 		Group to which the namespace belongs.
+ * @param [in] flags   DBR_FLAGS_NONE or DBR_FLAGS_NOWAIT for immediate return option.
  *
  * @return A tag identifying the call.
  *
@@ -630,7 +633,8 @@ DBR_Tag_t dbrReadA( DBR_Handle_t dbr_handle,
                     int64_t *size,
                     DBR_Tuple_name_t tuple_name,
                     DBR_Tuple_template_t match_template,
-                    DBR_Group_t group );
+                    DBR_Group_t group,
+                    int flags );
 
 /**
  * @brief Check the existence of a tuple.
