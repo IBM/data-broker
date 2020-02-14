@@ -38,8 +38,8 @@ requestdata* InitializeRequest( config *cfg )
   rd->_start = new struct timeval[ cfg->_iterations ];
   rd->_tags = new DBR_Tag_t[ cfg->_iterations ];
   rd->_names = new DBR_Tuple_name_t[ cfg->_iterations ];
-  for(int i = 0; i < cfg->_iterations; ++i)
-       rd->_names[i] = NULL;
+  for(size_t i = 0; i < cfg->_iterations; ++i)
+    rd->_names[i] = NULL;
  return rd;
 }
 
@@ -54,7 +54,7 @@ char* generateLongMsg( const uint64_t size )
   return msg;
 }
 
-static
+static inline
 char* generateLongMsgValidate( const char *key,
                                const uint64_t keylen,
                                const char *data,
@@ -78,7 +78,7 @@ char* generateLongMsgValidate( const char *key,
   return msg;
 }
 
-static
+static inline
 bool validateMsg( const char *key,
                   const uint64_t keylen,
                   const char *data,

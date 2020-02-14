@@ -14,9 +14,5 @@
  # limitations under the License.
  #
 
-project( databroker_tests )
-
-cmake_minimum_required(VERSION 2.8)
-
-add_subdirectory( perftest )
+add_subdirectory( perftests )
 add_subdirectory( data_adapter )

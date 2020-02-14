@@ -82,7 +82,6 @@ int splitInput(char *data)
     int index = 0;
     char *pos = data;
     char *line[MAX_HEADER_LINES];
-    int x;
 
 	// split data into semicolon delimited strings per MuMMI posn.* file header
     for (i=0; i<MAX_HEADER_LINES; i++) {
@@ -139,7 +138,7 @@ dbrDA_Request_chain_t* dbrDA_MUMMI_prewrite( dbrDA_Request_chain_t *input_req )
     return NULL;
 
   char *data = (char*)input_req->_value_sge[0].iov_base;
-  int64_t data_len = input_req->_value_sge[0].iov_len;
+  //  int64_t data_len = input_req->_value_sge[0].iov_len;
 
   dbrDA_Request_chain_t *custom = NULL;
   dbrDA_Request_chain_t *prev = NULL;
@@ -147,7 +146,6 @@ dbrDA_Request_chain_t* dbrDA_MUMMI_prewrite( dbrDA_Request_chain_t *input_req )
   int i = 0;
   int rc = 0;
   char fname[MAX_FILELENGTH];
-  int keylen = 0;
 
   /*
    * consider:
@@ -164,10 +162,8 @@ dbrDA_Request_chain_t* dbrDA_MUMMI_prewrite( dbrDA_Request_chain_t *input_req )
   prev = tail;
   custom = tail;
 
-  char *basekey = basename( input_req->_key );
-  keylen = strlen( basekey ) + 20;
-
-  int sn = 0;
+  // char *basekey = basename( input_req->_key );
+  // int keylen = strlen( basekey ) + 20;
 
   // split data into relevant key-value pairs
   if ((rc=splitInput(data)) != 0) {

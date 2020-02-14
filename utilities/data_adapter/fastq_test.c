@@ -119,6 +119,8 @@ int main( int argc, char **argv )
 
   // detach, not delete
   ret = dbrDelete( name );
+  if( ret != 0 )
+    rc = ret;
 
   close( input );
   free( fqout );

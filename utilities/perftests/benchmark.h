@@ -40,7 +40,7 @@ double benchmark( config *config,
                   DBR_Handle_t h,
                   char *data )
 {
-  int n;
+  size_t n;
   int64_t retsize[ config->_inflight ];
   char match[] = "";
 
@@ -60,11 +60,11 @@ double benchmark( config *config,
         break;
       case dbr::TEST_CASE_GET:
         retsize[n % config->_inflight ] = config->_datasize;
-        reqd->_tags[n] = dbrGetA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY );
+        reqd->_tags[n] = dbrGetA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY, DBR_FLAGS_NONE );
         break;
       case dbr::TEST_CASE_READ:
         retsize[n % config->_inflight ] = config->_datasize;
-        reqd->_tags[n] = dbrReadA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY );
+        reqd->_tags[n] = dbrReadA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY, DBR_FLAGS_NONE );
         break;
       default:
         std::cerr << "Undefined test case: " << testcase << std::endl;
@@ -87,7 +87,6 @@ double benchmark( config *config,
     int waitidx = n - config->_inflight;
   //    std::cout << "Waiting : " << waitidx << ":" << reqd->_names[ waitidx ] << std::endl;
     while( dbrTest( reqd->_tags[ waitidx ] ) == DBR_ERR_INPROGRESS );
-    double reqtime = resd->_latency[ waitidx ];
     resd->_latency[ waitidx ] += dbr::myTime();
 
     if(( validation_needed ) && ( strncmp( data, base_data, config->_datasize ) != 0 ))
@@ -104,11 +103,11 @@ double benchmark( config *config,
         break;
       case dbr::TEST_CASE_GET:
         retsize[n % config->_inflight ] = config->_datasize;
-        reqd->_tags[n] = dbrGetA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY );
+        reqd->_tags[n] = dbrGetA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY, DBR_FLAGS_NONE );
         break;
       case dbr::TEST_CASE_READ:
         retsize[n % config->_inflight ] = config->_datasize;
-        reqd->_tags[n] = dbrReadA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY );
+        reqd->_tags[n] = dbrReadA( h, data, &retsize[n % config->_inflight ], reqd->_names[n], match, DBR_GROUP_EMPTY, DBR_FLAGS_NONE );
         break;
       default:
         std::cerr << "Undefined test case: " << testcase << std::endl;

@@ -14,8 +14,6 @@
  # limitations under the License.
  #
 
-include( ../libdatabroker.cmake )
-
 # user provided tests
 set(DB_USER_TEST_SOURCES
    single.cc
@@ -25,15 +23,11 @@ foreach(_test ${DB_USER_TEST_SOURCES})
   get_filename_component(TEST_NAME ${_test} NAME_WE)
   add_executable(${TEST_NAME} ${_test})
 
-  target_link_libraries(${TEST_NAME}
-    ${LIBDATABROKER_LIBRARIES}
-    ${LIBEVENT_LIBRARIES}
-    -lm )
+  add_dependencies(${TEST_NAME} ${DATABROKER_LIB} )
 
-  target_include_directories(${TEST_NAME}
-    PRIVATE
-    ${LIBDATABROKER_INCLUDE_PATH}
-    ${LIBEVENT_INCLUDE_DIR} )
+  target_link_libraries( ${TEST_NAME}
+    ${DATABROKER_LIB}
+  )
 
   install(TARGETS ${TEST_NAME} RUNTIME
           DESTINATION test )
@@ -44,24 +38,20 @@ find_package(MPI)
 
 if( MPI_FOUND )
   message( "Found MPI lib at: " ${MPI_INCLUDE_PATH} )
-endif( MPI_FOUND )
 
+  set(DB_USER_CC_TEST_SOURCES
+    parallel.cc
+    long_random_parallel.cc
+  )
 
+  foreach(_test ${DB_USER_CC_TEST_SOURCES})
+    get_filename_component(TEST_NAME ${_test} NAME_WE)
+    add_executable(${TEST_NAME} ${_test})
 
-set(DB_USER_CC_TEST_SOURCES
-   parallel.cc
-   long_random_parallel.cc
-)
-
-foreach(_test ${DB_USER_CC_TEST_SOURCES})
-  get_filename_component(TEST_NAME ${_test} NAME_WE)
-  add_executable(${TEST_NAME} ${_test})
-
-  target_link_libraries(${TEST_NAME}
-    ${LIBDATABROKER_LIBRARIES}
-    ${LIBEVENT_LIBRARIES}
-    ${MPI_CXX_LIBRARIES}
-    -lm )
+    target_link_libraries(${TEST_NAME}
+      ${LIBDATABROKER_LIB}
+      ${MPI_CXX_LIBRARIES}
+      -lm )
 
   target_include_directories(${TEST_NAME}
     PRIVATE
@@ -72,4 +62,6 @@ foreach(_test ${DB_USER_CC_TEST_SOURCES})
 
   install(TARGETS ${TEST_NAME} RUNTIME
           DESTINATION test )
-endforeach()
+  endforeach()
+
+endif( MPI_FOUND )

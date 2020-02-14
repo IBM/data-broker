@@ -62,9 +62,10 @@ int main( int argc, char **argv )
 
   char *data = dbr::generateLongMsg( config->_datasize );
 
+  size_t n = 0;
   if( config->_iterations * config->_keylen < MAX_TEST_MEMORY_USE )
   {
-    for( int n=0; n<config->_iterations; ++n )
+    for( n=0; n<config->_iterations; ++n )
       dbr::RandomizeData( reqd, n, (config->_variable_key * random() % config->_keylen ) + config->_keylen );
   }
 
@@ -74,8 +75,6 @@ int main( int argc, char **argv )
     std::cerr << "Failed to create namespace" << std::endl;
     exit( -1 );
   }
-
-  int n = 0;
 
   // populate backend with data
   double put_actual_time = 0.0;

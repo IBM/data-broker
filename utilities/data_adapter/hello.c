@@ -154,7 +154,7 @@ DBR_Errorcode_t dbrDA_Hello_postread( dbrDA_Request_chain_t* custom,
                custom->_size );
 
     ret_size += custom->_size;
-    if( custom->_size != custom->_value_sge[0].iov_len )
+    if( (size_t)custom->_size != custom->_value_sge[0].iov_len )
       data_shift += ( custom->_value_sge[0].iov_len - custom->_size );
 
     // cleanup of request chain

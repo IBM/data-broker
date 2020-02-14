@@ -72,7 +72,6 @@ dbrDA_Request_chain_t* dbrDA_FASTQ_prewrite( dbrDA_Request_chain_t *input_req )
   dbrDA_Request_chain_t *custom = NULL;
   dbrDA_Request_chain_t *prev = NULL;
   dbrDA_Request_chain_t *tail = NULL;
-  int i = 0;
   int keylen = 0;
 
   /*
@@ -198,7 +197,7 @@ dbrDA_Request_chain_t* dbrDA_FASTQ_preread( dbrDA_Request_chain_t *input_req  )
   if(( input_req == NULL ) || ( input_req->_next != NULL ) || ( input_req->_sge_count > 1 ))
     return NULL;
 
-  char *data = (char*)input_req->_value_sge[0].iov_base;
+//  char *data = (char*)input_req->_value_sge[0].iov_base;
   int64_t data_len = input_req->_value_sge[0].iov_len;
 
   /*
@@ -284,7 +283,6 @@ dbrDA_Request_chain_t* dbrDA_FASTQ_preread( dbrDA_Request_chain_t *input_req  )
      * can be regenerated from the key alone; otherwise retrieval is not possible
      */
     tail->_key = generate_key( basekey, keylen, start );
-    int64_t record_len = 0;
 
     /*
      * TODO: this needs optimization:

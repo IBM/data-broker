@@ -14,12 +14,7 @@
  # limitations under the License.
  #
 
-include( ../libdatabroker.cmake )
-
 add_library(dbrda_hello SHARED hello.c)
-target_include_directories(dbrda_hello
-    PRIVATE
-    ${LIBDATABROKER_INCLUDE_PATH} )
 
 install( TARGETS dbrda_hello
 	LIBRARY
@@ -28,9 +23,6 @@ install( TARGETS dbrda_hello
 
 
 add_library(dbrda_fastq SHARED fastq_splitter.c)
-target_include_directories(dbrda_fastq
-    PRIVATE
-    ${LIBDATABROKER_INCLUDE_PATH} )
 
 install( TARGETS dbrda_fastq
 	LIBRARY
@@ -38,21 +30,14 @@ install( TARGETS dbrda_fastq
 )
 
 add_executable( fastq_test fastq_test.c )
-  target_include_directories(fastq_test
-    PRIVATE
-    ${LIBDATABROKER_INCLUDE_PATH} )
 
-  target_link_libraries( fastq_test
-    ${LIBDATABROKER_LIBRARIES}
-    ${LIBEVENT_LIBRARIES}
-    -lm )
+target_link_libraries( fastq_test
+  ${DATABROKER_LIB}
+)
 
 install( TARGETS fastq_test RUNTIME DESTINATION test )
 
 add_library(dbrda_mummi SHARED mummi_postprocess.c)
-target_include_directories(dbrda_mummi
-    PRIVATE
-    ${LIBDATABROKER_INCLUDE_PATH} )
 
 install( TARGETS dbrda_mummi
 	LIBRARY

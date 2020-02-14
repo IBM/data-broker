@@ -103,3 +103,5 @@ install(FILES include/libdatabroker.h
     include/dbrda_api.h
     DESTINATION include
 )
+
+add_subdirectory(utilities)

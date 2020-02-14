@@ -97,7 +97,7 @@ void PrintResultLine( config *cfg,
   double maxlat = 0.0;
   double total = 0.0;
   size_t count = 0;
-  for( int n=cfg->_inflight; n<cfg->_iterations-cfg->_inflight; ++n )
+  for( size_t n=cfg->_inflight; n<cfg->_iterations-cfg->_inflight; ++n )
   {
     minlat = std::min( minlat, resd->_latency[ n ] );
     maxlat = std::max( maxlat, resd->_latency[ n ] );
