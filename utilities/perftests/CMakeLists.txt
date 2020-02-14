@@ -48,15 +48,14 @@ if( MPI_FOUND )
     get_filename_component(TEST_NAME ${_test} NAME_WE)
     add_executable(${TEST_NAME} ${_test})
 
-    target_link_libraries(${TEST_NAME}
-      ${LIBDATABROKER_LIB}
+  add_dependencies(${TEST_NAME} ${DATABROKER_LIB} )
+  target_link_libraries(${TEST_NAME}
+      ${DATABROKER_LIB}
       ${MPI_CXX_LIBRARIES}
       -lm )
 
   target_include_directories(${TEST_NAME}
     PRIVATE
-    ${LIBDATABROKER_INCLUDE_PATH}
-    ${LIBEVENT_INCLUDE_DIR}
     ${MPI_INCLUDE_PATH}
     ./ )
 

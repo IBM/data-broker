@@ -57,7 +57,7 @@ void PrintParallelResultLine( dbr::config *cfg,
   double maxlat = 0.0;
   double total = 0.0;
   size_t count = 0;
-  for( int n=cfg->_inflight; n<cfg->_iterations-cfg->_inflight; ++n )
+  for( size_t n=cfg->_inflight; n<cfg->_iterations-cfg->_inflight; ++n )
   {
     minlat = std::min( minlat, resd->_latency[ n ] );
     maxlat = std::max( maxlat, resd->_latency[ n ] );
@@ -123,7 +123,7 @@ int main( int argc, char **argv )
 
   if( config->_iterations * config->_keylen < MAX_TEST_MEMORY_USE )
   {
-    for( int n=0; n<config->_iterations; ++n )
+    for( size_t n=0; n<config->_iterations; ++n )
       dbr::RandomizeData( reqd, n, (config->_variable_key * random() % config->_keylen ) + config->_keylen );
   }
 
@@ -155,7 +155,7 @@ int main( int argc, char **argv )
   else
   {
     if( pid == 0 ) { std::cout << "."; std::flush( std::cout ); }
-    int n;
+    size_t n;
     for( n=0; n<config->_iterations; ++n )
       dbrPut( h, data, config->_datasize, reqd->_names[n], DBR_GROUP_EMPTY );
   }
@@ -185,7 +185,7 @@ int main( int argc, char **argv )
   {
     std::cout << "."; std::flush( std::cout );
     int64_t size;
-    for( int n=0; n<config->_iterations; ++n )
+    for( size_t n=0; n<config->_iterations; ++n )
     {
       size = config->_datasize;
       dbrGet( h, data, &size, reqd->_names[n], NULL, DBR_GROUP_EMPTY, DBR_FLAGS_NONE );

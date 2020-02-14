@@ -58,6 +58,7 @@ int main( int argc, char **argv )
   cs_hdl = dbrCreate ( name, level, groups);
   if( cs_hdl == NULL )
     {
+      fprintf(stdout, "Attaching to %s\n", name );
       cs_hdl = dbrAttach( name );
     }
 
