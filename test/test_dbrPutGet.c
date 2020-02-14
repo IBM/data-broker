@@ -97,6 +97,37 @@ int ReadTest_index( DBR_Handle_t cs_hdl,
   return rc;
 }
 
+int ReadATest_index( DBR_Handle_t cs_hdl,
+                     DBR_Tuple_name_t tupname,
+                     int rindex,
+                     const char *instr,
+                     const size_t len,
+                     DBR_Errorcode_t expect )
+{
+  int rc = 0;
+  DBR_Errorcode_t ret = DBR_SUCCESS;
+
+  char *out = (char*)malloc( len + 16 );
+  int64_t out_size = len + 16;
+
+  memset( out, 0, out_size );
+
+  DBR_Tag_t tag;
+  rc += TEST_NOT_RC( dbrReadA( cs_hdl, out, &out_size, tupname, "", 0, DBR_FLAGS_NOWAIT + (rindex << DBR_READ_FLAGS_INDEX_SHIFT) ), DB_TAG_ERROR, tag );
+  while( (ret = dbrTest( tag )) == DBR_ERR_INPROGRESS );
+  rc += TEST( ret, expect );
+
+  if( expect == DBR_SUCCESS )
+  {
+    rc += TEST( out_size, (int64_t)len );
+    rc += TEST( memcmp( instr, out, len ), 0 );
+  }
+  free( out );
+
+  return rc;
+}
+
+
 
 #define ReadTest( a, b, c, d ) ReadTest_e( a, b, c, d, DBR_SUCCESS )
 
@@ -162,38 +193,48 @@ int main( int argc, char ** argv )
 
   TEST_BREAK( rc, "Create/Query")
 
-  rc += KeyTest( cs_hdl, "testTup", DBR_ERR_UNAVAIL );
+  char *maintup = "Test/Tup:key";
+
+  rc += KeyTest( cs_hdl, maintup, DBR_ERR_UNAVAIL );
 
   // put success test
-  rc += PutTest( cs_hdl, "testTup", "HelloWorld1", 11 );
-  rc += PutTest( cs_hdl, "testTup", "HelloWorld2", 11 );
+  rc += PutTest( cs_hdl, maintup, "HelloWorld1", 11 );
+  rc += PutTest( cs_hdl, maintup, "HelloWorld2", 11 );
   rc += PutTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
-  rc += PutTest( cs_hdl, "testTup", "HelloWorld3", 11 );
-  rc += PutTest( cs_hdl, "testTup", "HelloWorld4", 11 );
+  rc += PutTest( cs_hdl, maintup, "HelloWorld3", 11 );
+  rc += PutTest( cs_hdl, maintup, "HelloWorld4", 11 );
   rc += PutTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "012345678901234567890", 21 );
   rc += PutTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.WithEnter", "0123456\r\n78901234567890", 23 );
 
-  rc += KeyTest( cs_hdl, "testTup", DBR_SUCCESS );
+  rc += KeyTest( cs_hdl, maintup, DBR_SUCCESS );
 
   TEST_LOG( rc, "PUT " );
 
-  rc += ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 );
-  rc += ReadTest_index( cs_hdl, "testTup", 1, "HelloWorld2", 11, DBR_SUCCESS );
-  rc += ReadTest_index( cs_hdl, "testTup", 5, "", 11, DBR_ERR_UNAVAIL );
-  rc += ReadTest( cs_hdl, "testTup", "HelloWorld1", 11 );
+  rc += ReadTest( cs_hdl, maintup, "HelloWorld1", 11 );
+  rc += ReadTest_index( cs_hdl, maintup, 0, "HelloWorld1", 11, DBR_SUCCESS );
+  rc += ReadTest_index( cs_hdl, maintup, 1, "HelloWorld2", 11, DBR_SUCCESS );
+  rc += ReadTest_index( cs_hdl, maintup, 2, "HelloWorld3", 11, DBR_SUCCESS );
+  rc += ReadTest_index( cs_hdl, maintup, 3, "HelloWorld4", 11, DBR_SUCCESS );
+  rc += ReadTest_index( cs_hdl, maintup, 4, "", 11, DBR_ERR_UNAVAIL );
+  rc += ReadATest_index( cs_hdl, maintup, 0, "HelloWorld1", 11, DBR_SUCCESS );
+  rc += ReadATest_index( cs_hdl, maintup, 1, "HelloWorld2", 11, DBR_SUCCESS );
+  rc += ReadATest_index( cs_hdl, maintup, 2, "HelloWorld3", 11, DBR_SUCCESS );
+  rc += ReadATest_index( cs_hdl, maintup, 3, "HelloWorld4", 11, DBR_SUCCESS );
+  rc += ReadATest_index( cs_hdl, maintup, 4, "", 11, DBR_ERR_UNAVAIL );
+  rc += ReadTest( cs_hdl, maintup, "HelloWorld1", 11 );
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.WithEnter", "0123456\r\n78901234567890", 23 );
 
-  rc += GetTest( cs_hdl, "testTup", "HelloWorld1", 11 );
+  rc += GetTest( cs_hdl, maintup, "HelloWorld1", 11 );
   TEST_LOG( rc, "First Get" );
 
   rc += ReadTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
-  rc += ReadTest( cs_hdl, "testTup", "HelloWorld2", 11 );
-  rc += ReadTest( cs_hdl, "testTup", "HelloWorld2", 11 );
+  rc += ReadTest( cs_hdl, maintup, "HelloWorld2", 11 );
+  rc += ReadTest( cs_hdl, maintup, "HelloWorld2", 11 );
 
-  rc += GetTest( cs_hdl, "testTup", "HelloWorld2", 11 );
-  rc += GetTest( cs_hdl, "testTup", "HelloWorld3", 11 );
-  rc += GetTest( cs_hdl, "testTup", "HelloWorld4", 11 );
+  rc += GetTest( cs_hdl, maintup, "HelloWorld2", 11 );
+  rc += GetTest( cs_hdl, maintup, "HelloWorld3", 11 );
+  rc += GetTest( cs_hdl, maintup, "HelloWorld4", 11 );
   rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "01234567890123456789", 20 );
   rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.", "012345678901234567890", 21 );
   rc += GetTest( cs_hdl, "AlongishKeyWithMorechars_andsome-Other;characters:inside.WithEnter", "0123456\r\n78901234567890", 23 );
