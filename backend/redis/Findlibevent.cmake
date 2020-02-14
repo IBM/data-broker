@@ -51,3 +51,35 @@ if(libevent_FOUND AND NOT TARGET libevent)
         INTERFACE_LIBRARY "${libevent_LIBRARY}"
     )
 endif()
+
+
+get_filename_component( libevent_LIBRARY_PATH ${libevent_LIBRARY} DIRECTORY CACHE )
+
+# Additonal component libevent_pthreads
+find_library( LIBEVENT_PTHREADS NAMES event_pthreads
+	PATHS ${libevent_LIBRARY_PATH}
+)
+
+mark_as_advanced(LIBEVENT_PTHREADS_FOUND LIBEVENT_PTHREADS)
+message( "LIBEVENT_PTHREADS_LIBRARIES=${LIBEVENT_PTHREADS}")
+
+find_package_handle_standard_args(libevent_pthreads
+    REQUIRED_VARS LIBEVENT_INCLUDE_DIR LIBEVENT_PTHREADS
+)
+
+if(libevent_pthreads_FOUND)
+    set(libevent_pthreads_LIBRARY ${LIBEVENT_PTHREADS})
+else()
+	message(FATAL_ERROR "Libevent_pthreads[${LIBEVENT_PTHREADS}] is not part of your libevent installation in ${libevent_LIBRARY}")
+endif()
+
+
+if( libevent_FOUND AND NOT TARGET libevent_pthreads)
+	add_library( libevent_pthreads INTERFACE IMPORTED)
+	set_target_properties( libevent_pthreads PROPERTIES
+		INTERFACE_INCLUDE_DIRECTORIES "${libevent_INCLUDE_DIR}"
+		INTERFACE_LIBRARY "${libevent_pthreads_LIBRARY}"
+	)
+endif()
+
+message( "Found libevent in: ${libevent_pthreads_LIBRARY}" )

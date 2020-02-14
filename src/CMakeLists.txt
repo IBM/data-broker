@@ -52,3 +52,4 @@ install( TARGETS databroker_int
 )
 
 add_subdirectory( test )
+add_subdirectory( fship_srv )

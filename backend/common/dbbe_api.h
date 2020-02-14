@@ -27,11 +27,12 @@
  * @{
  */
 
+#include "common/sge.h"
+
 #include <inttypes.h>
 #include <stddef.h> // size_t
 #include <stdlib.h> // calloc
 #include <libdatabroker.h>
-#include <sys/uio.h>
 
 #define DBR_BACKEND_ENV "DBR_BACKEND"
 
@@ -54,21 +55,6 @@ typedef void* dbBE_Handle_t;
  * subsequent API calls when accessing a namespace.
  */
 typedef void* dbBE_NS_Handle_t;
-
-/*
- * max number of SGEs in assembled redis commands (IOV_MAX replacement)
- */
-#define DBBE_SGE_MAX ( 256 )
-
-/**
- *  @struct dbBE_sge_t dbbe_api.h "backend/common/dbbe_api.h"
- *
- *  @brief Scatter-Gather-Element structure
- *
- *  The scatter-gather-element defines one entry in a scatter-gather list
- *  and specifies one contiguous memory region in main memory.
- */
-typedef struct iovec dbBE_sge_t;
 
 /**
  * @brief Back-end operation code
@@ -254,8 +240,9 @@ typedef enum
    * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to string with tuple name
    * *  param[in] @ref DBR_Tuple_template_t _match = pattern to match when looking for the key
    * *  param[in]      int64_t              _flags ignored
-   * *  param[in]      int                  _sge_count = 1
-   * *  param[in] @ref dbBE_sge_t[]         _sge[] = memory region to receive a comma-separated list of available tuple names
+   * *  param[in]      int                  _sge_count = 2
+   * *  param[in] @ref dbBE_sge_t[]         _sge[0] = memory region to receive a comma-separated list of available tuple names
+   *                                        _sge[1].iov_len = count limiter
    *
    * The specs for the completion are:
    * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
@@ -278,8 +265,8 @@ typedef enum
    * *  param[in] @ref DBR_Tuple_name_t     _key = pointer to name of new namespace
    * *  param[in] @ref DBR_Tuple_template_t _match = NULL (ignored)
    * *  param[in]      int64_t              _flags ignored
-   * *  param[in]      int                  _sge_count = 0 (potentially used for grouplist spec if more than single storage group used)
-   * *  param[in] @ref dbBE_sge_t[]         _sge[] = empty (potentially used for grouplist spec if more than single storage group used)
+   * *  param[in]      int                  _sge_count = 1
+   * *  param[in] @ref dbBE_sge_t[]         _sge[] = grouplist spec if more than single storage group used
    *
    * The specs for the completion are:
    * *  param[out] _status = @ref DBR_SUCCESS or error code indicating issues:
@@ -460,6 +447,8 @@ typedef struct dbBE_Request
   dbBE_sge_t _sge[];           /**< SGE's */
 } dbBE_Request_t;
 
+#include "common/request.h"
+
 /**
  * @typedef dbBE_Request_handle_t
  * @brief Back-end request handle
@@ -587,46 +576,6 @@ typedef struct dbBE_api
  *       an option to use multiple back-ends concurrently.
  */
 extern const dbBE_api_t dbBE;
-
-/**********************************************************************
- * A set of helper functions to handle requests, completions, or SGEs
- */
-
-
-/**
- * @brief calculate the total size of an SGE list
- *
- * Browses the SGEs of an input list and returns the total size in bytes.
- *
- * @param [in] sge       pointer to the first entry of an SGE list (array)
- * @param [in] sge_count number of elements in the SGE list
- *
- * @return size of the SGE in bytes
- */
-static inline
-size_t dbBE_SGE_get_len( const dbBE_sge_t *sge, const int sge_count )
-{
-  if( sge == NULL )
-    return 0;
-  int i;
-  size_t len = 0;
-  for( i = sge_count-1; i>=0; --i )
-    len += sge[ i ].iov_len;
-  return len;
-}
-
-/**
- * @brief allocate a new request struct including SGE-space
- *
- * @param [in] sge_count  number of SGEs to allocate at the end of the structure
- *
- * @return pointer to new allocated struct or NULL in case of failure
- */
-static inline
-dbBE_Request_t* dbBE_Request_allocate( const int sge_count )
-{
-  return (dbBE_Request_t*)calloc( 1, sizeof( dbBE_Request_t) + sge_count * sizeof( dbBE_sge_t ) );
-}
 
 /**
  *@}

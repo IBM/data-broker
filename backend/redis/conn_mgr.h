@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ typedef struct
   // connection list
   dbBE_Redis_connection_t *_connections[ DBBE_REDIS_MAX_CONNECTIONS ];
   dbBE_Redis_connection_t *_broken[ DBBE_REDIS_MAX_CONNECTIONS ];
-  dbBE_Redis_address_t *_local; // used to determine local vs. remote connections
+  dbBE_Network_address_t *_local; // used to determine local vs. remote connections
   const dbBE_Redis_conn_mgr_config_t *_config;
   //  pthread_mutex_lock_t _lock;
 

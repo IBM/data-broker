@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#include <errno.h>
+#include <string.h>
 
 /*
  * Send/Recv buffer for interaction with Redis
@@ -252,6 +254,26 @@ static inline char* dbBE_Transport_sr_buffer_rewind_processed_to( dbBE_Redis_sr_
   return ret;
 }
 
+
+// shift/move the unproccessed content of the buffer to the beginning of the buffer
+static inline
+int dbBE_Transport_sr_buffer_consolidate( dbBE_Redis_sr_buffer_t *sr_buf )
+{
+  if( sr_buf == NULL )
+    return -EINVAL;
+
+  // anything to do at all?
+  if( dbBE_Transport_sr_buffer_unprocessed( sr_buf ) == 0 )
+    return 0;
+
+  size_t shift = dbBE_Transport_sr_buffer_unprocessed( sr_buf );
+  memmove( dbBE_Transport_sr_buffer_get_start( sr_buf ),
+           dbBE_Transport_sr_buffer_get_processed_position( sr_buf ),
+           shift );
+  sr_buf->_available -= shift;
+  sr_buf->_processed -= shift;
+  return shift;
+}
 
 
 #endif /* BACKEND_TRANSPORTS_SR_BUFFER_H_ */

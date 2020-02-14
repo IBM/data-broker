@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef BACKEND_REDIS_ADDRESS_H_
-#define BACKEND_REDIS_ADDRESS_H_
+#ifndef BACKEND_NETWORK_ADDRESS_H_
+#define BACKEND_NETWORK_ADDRESS_H_
 
 #include <string.h>
 #include <netinet/in.h>
@@ -24,37 +24,37 @@
 typedef struct
 {
   struct sockaddr_in _address;
-} dbBE_Redis_address_t;
+} dbBE_Network_address_t;
 
 
 /*
  * allocate and reset the memory for an address
  */
-dbBE_Redis_address_t* dbBE_Redis_address_allocate();
+dbBE_Network_address_t* dbBE_Network_address_allocate();
 
 /*
- * create a redis address from host and port
+ * create a network address from host and port
  */
-dbBE_Redis_address_t* dbBE_Redis_address_create( const char *host,
-                                                 const char *port );
+dbBE_Network_address_t* dbBE_Network_address_create( const char *host,
+                                                     const char *port );
 
 /*
- * copy the content of a socket address into the Redis address
+ * copy the content of a socket address into the address
  */
-dbBE_Redis_address_t* dbBE_Redis_address_copy( struct sockaddr *in_addr,
-                                               int in_addr_len );
+dbBE_Network_address_t* dbBE_Network_address_copy( struct sockaddr *in_addr,
+                                                   int in_addr_len );
 
 
 /*
  * convert a sockaddr into a string addr:port
  */
-const char* dbBE_Redis_address_to_string( dbBE_Redis_address_t *addr, char *str, int strmaxlen );
+const char* dbBE_Network_address_to_string( dbBE_Network_address_t *addr, char *str, int strmaxlen );
 
 
 /*
  * convert a string into a sockaddr
  */
-dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str );
+dbBE_Network_address_t* dbBE_Network_address_from_string( const char *str );
 
 
 /*
@@ -62,7 +62,7 @@ dbBE_Redis_address_t* dbBE_Redis_address_from_string( const char *str );
  * The returned string points to the port, the original string is terminated at ':' and points to the IP
  */
 static inline
-char* dbBE_Redis_address_split( char *input )
+char* dbBE_Network_address_split( char *input )
 {
   if( input == NULL )
     return NULL;
@@ -81,15 +81,15 @@ char* dbBE_Redis_address_split( char *input )
  * compare 2 input addresses and return 0 if equal; 1 otherwise
  * compare the IP address only
  */
-int dbBE_Redis_address_compare_ip( struct sockaddr_in *a,
-                                   struct sockaddr_in *b );
+int dbBE_Network_address_compare_ip( struct sockaddr_in *a,
+                                     struct sockaddr_in *b );
 /* include the port in the comparison too */
-int dbBE_Redis_address_compare( dbBE_Redis_address_t *a,
-                                dbBE_Redis_address_t *b );
+int dbBE_Network_address_compare( dbBE_Network_address_t *a,
+                                  dbBE_Network_address_t *b );
 
 /*
  * destroy the address and clean up memory
  */
-void dbBE_Redis_address_destroy( dbBE_Redis_address_t *addr );
+void dbBE_Network_address_destroy( dbBE_Network_address_t *addr );
 
-#endif /* BACKEND_REDIS_ADDRESS_H_ */
+#endif /* BACKEND_NETWORK_ADDRESS_H_ */

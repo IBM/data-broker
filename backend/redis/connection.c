@@ -33,7 +33,7 @@
 #include <netdb.h>
 
 #include "logutil.h"
-#include <common/utility.h>
+#include "common/utility.h"
 #include "definitions.h"
 #include "connection.h"
 #include "common/resolve_addr.h"
@@ -170,7 +170,7 @@ int dbBE_Redis_connection_assign_slot_range( dbBE_Redis_connection_t *conn,
 /*
  * connect to a Redis instance given by the address
  */
-dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
+dbBE_Network_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
                                                   const char *url,
                                                   const char *authfile )
 {
@@ -186,7 +186,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
 
   int s;
   int rc = ENOTCONN;
-  struct addrinfo *addrs = dbBE_Common_resolve_address( url );
+  struct addrinfo *addrs = dbBE_Common_resolve_address( url, 0 );
 
   if( addrs == NULL )
   {
@@ -222,9 +222,9 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
     if( rc == 0 )
     {
       conn->_socket = s;
-      conn->_address = dbBE_Redis_address_copy( iface->ai_addr, iface->ai_addrlen );
+      conn->_address = dbBE_Network_address_copy( iface->ai_addr, iface->ai_addrlen );
       conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
-      dbBE_Redis_address_to_string( conn->_address, conn->_url, DBR_SERVER_URL_MAX_LENGTH );
+      dbBE_Network_address_to_string( conn->_address, conn->_url, DBR_SERVER_URL_MAX_LENGTH );
       LOG( DBG_VERBOSE, stdout, "Connected to %s\n", url );
       break;
     }
@@ -239,7 +239,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
 
   if( conn->_status != DBBE_CONNECTION_STATUS_CONNECTED )
   {
-    dbBE_Redis_address_destroy( conn->_address );
+    dbBE_Network_address_destroy( conn->_address );
     memset( conn->_url, 0, DBR_SERVER_URL_MAX_LENGTH );
     conn->_status = DBBE_CONNECTION_STATUS_DISCONNECTED;
     errno = ENOTCONN;
@@ -250,7 +250,7 @@ dbBE_Redis_address_t* dbBE_Redis_connection_link( dbBE_Redis_connection_t *conn,
   if( rc != 0 )
   {
     dbBE_Redis_connection_unlink( conn );
-    dbBE_Redis_address_destroy( conn->_address );
+    dbBE_Network_address_destroy( conn->_address );
     return NULL;
   }
 
@@ -753,7 +753,7 @@ void dbBE_Redis_connection_destroy( dbBE_Redis_connection_t *conn )
   dbBE_Redis_slot_bitmap_destroy( conn->_slots );
   dbBE_Redis_s2r_queue_destroy( conn->_posted_q );
   dbBE_Transport_dbuffer_free( conn->_recvbuf );
-  dbBE_Redis_address_destroy( conn->_address );
+  dbBE_Network_address_destroy( conn->_address );
   dbBE_Transport_sge_buffer_destroy( conn->_cmd );
 
   // wipe memory

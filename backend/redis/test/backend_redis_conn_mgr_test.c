@@ -26,7 +26,7 @@
 #include <sys/time.h>      // rlimit
 #include <sys/resource.h>  // rlimit
 
-#include <common/utility.h>
+#include "common/utility.h"
 #include "../backend/redis/request.h"
 #include "../backend/redis/conn_mgr.h"
 #include "test_utils.h"

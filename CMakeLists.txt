@@ -25,6 +25,7 @@ endif()
 
 project (DataBroker NONE)
 enable_language( C CXX )
+add_definitions( -fPIC )
 
 if(NOT DEFINED APPLE)
   add_definitions(-Werror)
@@ -82,7 +83,7 @@ foreach( subdir ${dirlist} )
 
 endforeach( subdir ${dirlist})
 
-set(TRANSPORT_LIBS dbbe_transport )
+set(TRANSPORT_LIBS dbbe_transport dbbe_network)
 set(DATABROKER_LIB databroker databroker_int)
 
 include_directories(src/util)

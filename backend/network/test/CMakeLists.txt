@@ -1,5 +1,5 @@
  #
- # Copyright © 2018-2020 IBM Corporation
+ # Copyright © 2020 IBM Corporation
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 # prepare this RPATH stuff in case we need rpath in the test executables
 # SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
-# SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
+# SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 # SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 
@@ -24,18 +24,15 @@
 
 # test backend first
 set(DB_BACKEND_TEST_SOURCES
-	backend_common_request_queue_test.c
-	backend_common_completion_queue_test.c
-	backend_common_request_set_test.c
-	backend_common_sge_test.c
-	backend_common_request_test.c
-	backend_common_completion_test.c
+	network_connection_test.c
 )
 
 foreach(_test ${DB_BACKEND_TEST_SOURCES})
   get_filename_component(TEST_NAME ${_test} NAME_WE)
   add_executable(${TEST_NAME} ${_test})
-  target_include_directories(${TEST_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/test)
+  add_dependencies(${TEST_NAME} dbbe_network ${TRANSPORT_LIBS})
+  target_link_libraries(${TEST_NAME} dbbe_network ${TRANSPORT_LIBS} -lm )
+  target_include_directories(${TEST_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/test )
   add_test(DBBE_${TEST_NAME} ${TEST_NAME} )
   install(TARGETS ${TEST_NAME} RUNTIME
           DESTINATION test )

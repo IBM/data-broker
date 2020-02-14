@@ -15,9 +15,9 @@
  *
  */
 
-#include <common/utility.h>
 #include "logutil.h"
 #include "definitions.h"
+#include "common/utility.h"
 #include "conn_mgr.h"
 #include "parse.h"
 #include "libdatabroker.h"
@@ -106,7 +106,7 @@ void dbBE_Redis_connection_mgr_exit( dbBE_Redis_connection_mgr_t *conn_mgr )
   dbBE_Redis_event_mgr_exit( conn_mgr->_ev_mgr );
 
   if( conn_mgr->_local )
-    dbBE_Redis_address_destroy( conn_mgr->_local );
+    dbBE_Network_address_destroy( conn_mgr->_local );
 
   if( conn_mgr->_config )
     free( (dbBE_Redis_conn_mgr_config_t*)conn_mgr->_config );
@@ -196,7 +196,7 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_newlink( dbBE_Redis_connectio
     goto exit_connect;
   }
 
-  dbBE_Redis_address_t *srv_addr = dbBE_Redis_connection_link( new_conn, url, authfile );
+  dbBE_Network_address_t *srv_addr = dbBE_Redis_connection_link( new_conn, url, authfile );
   if( srv_addr == NULL )
   {
     rc = -ENOTCONN;
@@ -823,7 +823,7 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_get_connection_to( dbBE_Redis
   if( dest == NULL )
     return NULL;
 
-  dbBE_Redis_address_t *d_addr = dbBE_Redis_address_from_string( dest );
+  dbBE_Network_address_t *d_addr = dbBE_Network_address_from_string( dest );
   if( d_addr == NULL )
     return NULL;
 
@@ -831,10 +831,10 @@ dbBE_Redis_connection_t* dbBE_Redis_connection_mgr_get_connection_to( dbBE_Redis
   for( i = 0; (i < DBBE_REDIS_MAX_CONNECTIONS); ++i )
   {
     conn = conn_mgr->_connections[ i ];
-    if(( conn  != NULL ) && ( dbBE_Redis_address_compare( conn->_address, d_addr ) == 0 ))
+    if(( conn  != NULL ) && ( dbBE_Network_address_compare( conn->_address, d_addr ) == 0 ))
       break;
   }
-  dbBE_Redis_address_destroy( d_addr );
+  dbBE_Network_address_destroy( d_addr );
   return conn;
 }
 
@@ -865,7 +865,7 @@ dbBE_Redis_request_t* dbBE_Redis_connection_mgr_request_each( dbBE_Redis_connect
     {
       // if local-directory is requested, skip any non-local Redis servers
       if(( template_request->_user->_group == DBR_GROUP_LOCAL ) &&
-          ( dbBE_Redis_address_compare_ip( &conn_mgr->_connections[ i ]->_address->_address, &conn_mgr->_local->_address ) != 0))
+          ( dbBE_Network_address_compare_ip( &conn_mgr->_connections[ i ]->_address->_address, &conn_mgr->_local->_address ) != 0))
           continue;
 
       dbBE_Redis_request_t *req = dbBE_Redis_request_allocate( template_request->_user );
@@ -1025,12 +1025,12 @@ DBR_Errorcode_t dbBE_Redis_connection_mgr_set_local_address( dbBE_Redis_connecti
         freeifaddrs( ifs );
         return DBR_ERR_NOFILE;
       }
-      dbBE_Redis_address_t *addr = dbBE_Redis_address_from_string( url );
+      dbBE_Network_address_t *addr = dbBE_Network_address_from_string( url );
 
       it = ifs;
       while( it != NULL )
       {
-        if( dbBE_Redis_address_compare_ip( (struct sockaddr_in*)it->ifa_addr, &addr->_address ) == 0 )
+        if( dbBE_Network_address_compare_ip( (struct sockaddr_in*)it->ifa_addr, &addr->_address ) == 0 )
         {
           conn_mgr->_local = addr;
           freeifaddrs( ifs );
@@ -1038,7 +1038,7 @@ DBR_Errorcode_t dbBE_Redis_connection_mgr_set_local_address( dbBE_Redis_connecti
         }
         it = it->ifa_next;
       }
-      dbBE_Redis_address_destroy( addr );
+      dbBE_Network_address_destroy( addr );
     }
   }
 

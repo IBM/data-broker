@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 IBM Corporation
+ * Copyright © 2018-2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,10 +91,15 @@ dbBE_Completion_t* dbBE_Completion_queue_pop( dbBE_Completion_queue_t *queue )
   dbBE_Completion_t *ret = queue->_head;
 
   if( queue->_head != NULL )
-    queue->_head = ret->_next;
+  {
+    // tail needs to be adjusted in case there's only one element
+    if( queue->_tail == queue->_head)
+      queue->_tail = queue->_head->_next;
 
-  if(( queue->_tail != NULL ) && ( queue->_tail == ret ))
-    queue->_tail = ret->_next;
+    queue->_head = ret->_next;
+  }
+  else
+    return NULL;
 
   // detach from queue
   if( ret != NULL )

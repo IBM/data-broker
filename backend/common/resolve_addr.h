@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 IBM Corporation
+ * Copyright © 2019,2020 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,11 +33,13 @@
 
 #define DBBE_PROTO_SOCKET "sock:"
 
-static inline
-struct addrinfo* dbBE_Common_resolve_address_socket( const char *server_string )
+static
+struct addrinfo* dbBE_Common_resolve_address_socket( const char *server_string, const int passive )
 {
   struct addrinfo hints, *addrs;
   memset( &hints, 0, sizeof( struct addrinfo ) );
+  if( passive )
+    hints.ai_flags = AI_PASSIVE;
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
 
@@ -85,7 +87,8 @@ struct addrinfo* dbBE_Common_resolve_address_socket( const char *server_string )
 
 }
 
-struct addrinfo* dbBE_Common_resolve_address( const char *server_string )
+static
+struct addrinfo* dbBE_Common_resolve_address( const char *server_string, const int passive )
 {
   if( server_string == NULL )
     return NULL;
@@ -109,13 +112,14 @@ struct addrinfo* dbBE_Common_resolve_address( const char *server_string )
   int sock = strncmp( proto, DBBE_PROTO_SOCKET, DBBE_MAX_PROTO_CHAR );
   if( sock == 0 )
   {
-    return dbBE_Common_resolve_address_socket( destination );
+    return dbBE_Common_resolve_address_socket( destination, passive );
   }
   // todo: additional address resolvers go here ...
 
   return NULL;
 }
 
+static
 void dbBE_Common_release_addrinfo( struct addrinfo **addrs )
 {
   if(( addrs ) && ( *addrs ))

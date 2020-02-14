@@ -34,7 +34,7 @@
 
 
 #include "definitions.h"
-#include <common/utility.h>
+#include "common/utility.h"
 #include "redis.h"
 #include "result.h"
 #include "cluster_info.h"
