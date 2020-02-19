@@ -22,8 +22,8 @@ set( LIBDBBE_NETWORK_SOURCE
 add_library(dbbe_network STATIC ${LIBDBBE_NETWORK_SOURCE})
 
 install( TARGETS dbbe_network
-	LIBRARY
-	DESTINATION lib
+	LIBRARY	DESTINATION lib
+	ARCHIVE DESTINATION lib
 )
 
 add_subdirectory(test)
