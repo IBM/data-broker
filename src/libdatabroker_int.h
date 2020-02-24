@@ -26,7 +26,7 @@
 #include "dbrda_api.h"
 #include "lib/backend.h"
 
-#define dbrMAX_TAGS ( 1024 )
+#define dbrMAX_TAGS ( DBR_POSTED_QUEUE_DEPTH )
 #define dbrNUM_DB_MAX ( 1024 )
 #define dbrERROR_INDEX ( (uint32_t)-1)
 #define DBR_TMP_BUFFER_LEN ( 128 * 1024 * 1024 )

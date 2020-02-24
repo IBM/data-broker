@@ -259,6 +259,12 @@ typedef void* DBR_Iterator_t;
  */
 #define DBR_MAX_KEY_LEN ( 1023 )
 
+
+/**
+ * @brief Maximum number of in-flight non-blocking commands
+ */
+#define DBR_POSTED_QUEUE_DEPTH ( 1024 )
+
 /**
  * @brief Initializer for an empty group
  */
