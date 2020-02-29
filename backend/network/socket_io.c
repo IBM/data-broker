@@ -95,6 +95,28 @@ ssize_t dbBE_Socket_send( const int socket,
   return ssize;
 }
 
+ssize_t dbBE_Socket_send_simple( const int socket,
+                                 dbBE_Redis_sr_buffer_t *sbuf )
+{
+  if(( socket < 0 ) || ( sbuf == NULL ))
+    return -EINVAL;
+
+  ssize_t slen = 0;
+  while(( dbBE_Transport_sr_buffer_unprocessed( sbuf ) > 0 ) && ( slen >= 0 ))
+  {
+    slen = send( socket,
+                 dbBE_Transport_sr_buffer_get_processed_position( sbuf ),
+                 dbBE_Transport_sr_buffer_unprocessed( sbuf ),
+                 0 );
+    if( slen < 0 )
+      return slen;
+    dbBE_Transport_sr_buffer_advance( sbuf, slen );
+  }
+  slen = dbBE_Transport_sr_buffer_available( sbuf ) - dbBE_Transport_sr_buffer_unprocessed( sbuf );
+  dbBE_Transport_sr_buffer_reset( sbuf );
+  return slen;
+}
+
 ssize_t dbBE_Socket_recv( const int socket,
                           dbBE_Redis_sr_buffer_t *buf )
 {

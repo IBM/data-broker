@@ -27,6 +27,9 @@
 ssize_t dbBE_Socket_send( const int socket,
                           dbBE_Transport_sge_buffer_t *sge_buf );
 
+ssize_t dbBE_Socket_send_simple( const int socket,
+                                 dbBE_Redis_sr_buffer_t *sbuf );
+
 ssize_t dbBE_Socket_recv( const int socket,
                           dbBE_Redis_sr_buffer_t *sge_buf );
 
