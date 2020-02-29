@@ -16,9 +16,11 @@
  */
 #include "logutil.h"
 #include "definitions.h"
-#include "network/connection.h"
 #include "common/resolve_addr.h"
 #include "common/utility.h"
+#include "transports/sr_buffer.h"
+#include "network/connection.h"
+#include "network/socket_io.h"
 
 #include <stdlib.h> // calloc
 #include <errno.h> // errno
@@ -122,6 +124,7 @@ dbBE_Network_address_t* dbBE_Connection_link( dbBE_Connection_t *conn,
   {
     dbBE_Connection_unlink( conn );
     dbBE_Network_address_destroy( conn->_address );
+    conn->_address = NULL;
     return NULL;
   }
 
@@ -235,6 +238,8 @@ int dbBE_Connection_auth( dbBE_Connection_t *conn, const char *authfile )
     return 0;
   }
 
+  int auth_error = 0;
+
   // open the file
   int auth_fd = open( authfile, O_RDONLY );
   if( auth_fd < 0 )
@@ -243,10 +248,88 @@ int dbBE_Connection_auth( dbBE_Connection_t *conn, const char *authfile )
     return -1;
   }
 
-  close( auth_fd );
+  struct stat auth_file_stat;
+  dbBE_Redis_sr_buffer_t *sbuf = NULL;
 
-  conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED;
-  return 0;
+  // get the file size to determine the buffer size
+  int rc = fstat( auth_fd, &auth_file_stat );
+  if( rc == 0 )
+  {
+    // allocate and reset the buffer
+    sbuf = dbBE_Transport_sr_buffer_allocate( auth_file_stat.st_size + 128 );
+
+    if( sbuf == NULL )
+    {
+      LOG( DBG_ERR, stderr, "connection_auth: unable to allocate auth buffer.\n" );
+      close( auth_fd );
+      dbBE_Transport_sr_buffer_free( sbuf );
+      return -1;
+    }
+
+    // read the file data
+    ssize_t rlen = read( auth_fd,
+                         dbBE_Transport_sr_buffer_get_start( sbuf ),
+                         dbBE_Transport_sr_buffer_remaining( sbuf ) );
+    if( rlen <= 0 )
+      perror( "Read authfile" );  // no exit needed because rc is 0
+    else
+    {
+      rc = strcspn( dbBE_Transport_sr_buffer_get_start( sbuf ), "\r\n" );  // strip the auth-string and update rc to enter the processing
+      if( dbBE_Transport_sr_buffer_get_start( sbuf )[ rc - 1 ] == ' ' )
+      {
+        LOG( DBG_WARN, stderr, "Warning, password in file ends with white space. Double check if you have authentication problems.\n" );
+      }
+
+      dbBE_Transport_sr_buffer_add_data( sbuf, rc, 0 );
+      dbBE_Transport_sr_buffer_get_available_position(sbuf)[0] = '\0'; // terminate the authbuf and remove and newlines
+      snprintf( dbBE_Transport_sr_buffer_get_available_position(sbuf),
+                dbBE_Transport_sr_buffer_remaining(sbuf), "\r\n" );
+      dbBE_Transport_sr_buffer_add_data( sbuf, 3, 0 );
+    }
+
+    if( rc > 0 )
+    {
+      conn->_status = DBBE_CONNECTION_STATUS_AUTHORIZED; // assume authorized for a brief moment to allow using the send/recv functions
+      rc = dbBE_Socket_send_simple( conn->_socket, sbuf );
+      memset( dbBE_Transport_sr_buffer_get_start( sbuf ), 0, dbBE_Transport_sr_buffer_get_size( sbuf ) );
+      if( rc > 0 )
+      {
+        rc = 0;
+        while( rc == 0 )
+        {
+          rc = dbBE_Socket_recv( conn->_socket, sbuf );
+          if(( rc == -1 ) && ( errno == EAGAIN ))
+            rc = 0;
+        }
+        if( rc > 0 )
+        {
+          dbBE_Transport_sr_buffer_add_data( sbuf, rc, 0 );
+          dbBE_Transport_sr_buffer_get_available_position(sbuf)[0] = '\0';
+          if( strncmp( dbBE_Transport_sr_buffer_get_start( sbuf ), "OK\r\n", 4 ) != 0 )
+          {
+            LOG( DBG_ERR, stderr, "Peer authentication error: %s\n", dbBE_Transport_sr_buffer_get_start( sbuf ) );
+            conn->_status = DBBE_CONNECTION_STATUS_CONNECTED;
+            auth_error = EPERM;
+          }
+        }
+        else
+          auth_error = errno;
+      }
+      else
+        auth_error = errno;
+    }
+    else
+      auth_error = errno;
+  }
+  else
+    auth_error = errno;
+
+  close( auth_fd );
+  dbBE_Transport_sr_buffer_free( sbuf );
+
+  if( auth_error != 0 )
+    LOG( DBG_INFO, stderr, "completing authentication rc=%d\n", auth_error );
+  return auth_error;
 }
 
 
