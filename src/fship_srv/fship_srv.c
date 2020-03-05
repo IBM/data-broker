@@ -37,6 +37,9 @@
 #include <unistd.h> // fork
 #include <stdlib.h> // exit
 #include <sys/socket.h> // socket
+#include <sys/types.h> // ..
+#include <sys/stat.h> // ..
+#include <fcntl.h> // ..open
 #include <pthread.h> // pthread_create/join/...
 #include <event2/event.h> // libevent
 #include <event2/thread.h> // evthread_use_pthreads
@@ -665,6 +668,65 @@ void* dbrFShip_listen_start( void *arg )
   timeout.tv_usec = 0;
   event_add( mev, &timeout );
 
+  // open the file
+  char *authfname = dbBE_Extract_env( DBR_SERVER_AUTHFILE_ENV, DBR_SERVER_DEFAULT_AUTHFILE );
+  int authorization_required = (strncmp( authfname, "NONE", 5 ) != 0);
+
+  int auth_fd = 0;
+  int rc = 0;
+  dbBE_Redis_sr_buffer_t *authbuf = NULL;
+  dbBE_Redis_sr_buffer_t *refbuf = NULL;
+
+  if( authorization_required )
+  {
+    auth_fd = open( authfname, O_RDONLY );
+    if( auth_fd < 0 )
+    {
+      perror( authfname );
+      tio->_threadrc = -ENOMEM;
+      close( s );
+      return tio;
+    }
+
+    struct stat auth_file_stat;
+
+    // get the file size to determine the buffer size
+    rc = fstat( auth_fd, &auth_file_stat );
+    if( rc == 0 )
+    {
+      // allocate and reset the buffer
+      authbuf = dbBE_Transport_sr_buffer_allocate( auth_file_stat.st_size + 128 );
+      refbuf = dbBE_Transport_sr_buffer_allocate( auth_file_stat.st_size + 128 );
+    }
+
+    if(( authbuf == NULL ) || ( refbuf == NULL ))
+    {
+      tio->_threadrc = -ENOMEM;
+      close( s );
+      close( auth_fd );
+      return tio;
+    }
+    ssize_t rlen = read( auth_fd,
+                         dbBE_Transport_sr_buffer_get_start( refbuf ),
+                         dbBE_Transport_sr_buffer_remaining( refbuf ) );
+    if( rlen < 0 )
+    {
+      tio->_threadrc = -errno;
+      LOG( DBG_ERR, stderr, "Failed to read from authfile.\n" );
+      close( s );
+      close( auth_fd );
+      return tio;
+    }
+    rc = strcspn( dbBE_Transport_sr_buffer_get_start( refbuf ), "\r\n" );  // strip the auth-string and update rc to enter the processing
+    if( dbBE_Transport_sr_buffer_get_start( refbuf )[ rc - 1 ] == ' ' )
+    {
+      LOG( DBG_WARN, stderr, "Warning, password in file ends with white space. Double check if you have authentication problems.\n" );
+    }
+
+    dbBE_Transport_sr_buffer_add_data( refbuf, rc, 0 );
+    dbBE_Transport_sr_buffer_get_available_position( refbuf )[0] = '\0'; // terminate the authbuf and remove and newlines
+  }
+  free( authfname );
 
   while( tio->_keep_running )
   {
@@ -687,11 +749,101 @@ void* dbrFShip_listen_start( void *arg )
       if( dbBE_Network_address_to_string( connection->_address, connection->_url, DBBE_URL_MAX_LENGTH ) == NULL )
       {
         LOG( DBG_ERR, stderr, "Network address translation to URL failed.\n" );
-        close( nes );
+        dbBE_Connection_destroy( connection );
         continue;
       }
       dbBE_Connection_noblock( connection );
 
+      // check authorization
+      int e_o_p = 0;
+      if( authorization_required )
+      {
+        dbBE_Transport_sr_buffer_reset( authbuf );
+        memset( dbBE_Transport_sr_buffer_get_start( authbuf ), 0, dbBE_Transport_sr_buffer_get_size( authbuf ) );
+        while(( dbBE_Transport_sr_buffer_available( authbuf ) == 0 ) ||
+              (( ! e_o_p ) && ( dbBE_Transport_sr_buffer_remaining( authbuf ) > 10 )))
+        {
+          ssize_t rlen = dbBE_Socket_recv( connection->_socket, authbuf );
+          if(( rlen == 0 ) || (( rlen < 0 ) && (errno != EAGAIN )) )
+          {
+            LOG( DBG_ERR, stderr, "Reading auth from new connection failed: %s.\n", connection->_url );
+            break;
+          }
+          if(( rlen < 0) && ( errno == EAGAIN))
+            continue;
+
+          if( rlen > 0 )
+            dbBE_Transport_sr_buffer_add_data( authbuf, rlen, 0 );
+
+          // end of meaningful authorization as soon as inbound data exceeds pw
+          // start comparing the available chars to know when the first arriving bytes are not a matching authorization string at all
+          if(( dbBE_Transport_sr_buffer_available( refbuf ) < dbBE_Transport_sr_buffer_available( authbuf )-3 ) ||
+              (strncmp( dbBE_Transport_sr_buffer_get_start( refbuf ),
+                        dbBE_Transport_sr_buffer_get_start( authbuf ),
+                        dbBE_Transport_sr_buffer_available( authbuf )-3 ) != 0 ) )
+            break;
+
+          // check actual termination if we're good up to this point
+          e_o_p = ( dbBE_Transport_sr_buffer_get_available_position( authbuf )[-1] == '\0' );
+          e_o_p &= ( dbBE_Transport_sr_buffer_get_available_position( authbuf )[-2] == '\n' );
+          e_o_p &= ( dbBE_Transport_sr_buffer_get_available_position( authbuf )[-3] == '\r' );
+
+        }
+        int pass = ( e_o_p );  // false if exited loop without reaching the end of the pw?
+        if( pass )
+        {
+          // remove the \r\n termination from inbound pw
+          dbBE_Transport_sr_buffer_rewind_available_by( authbuf, 3 );
+          dbBE_Transport_sr_buffer_get_available_position( authbuf )[0] = '\0';
+          dbBE_Transport_sr_buffer_get_available_position( authbuf )[1] = '\0';
+
+          size_t pwlen = dbBE_Transport_sr_buffer_available( refbuf );
+          pass = ( pwlen == dbBE_Transport_sr_buffer_available( authbuf ) );
+          if( pass )
+            pass &= (strncmp( dbBE_Transport_sr_buffer_get_start( refbuf ),
+                            dbBE_Transport_sr_buffer_get_start( authbuf ),
+                            pwlen ) == 0 );
+        }
+        memset( dbBE_Transport_sr_buffer_get_start( authbuf ), 0,
+                dbBE_Transport_sr_buffer_available( authbuf ) );
+        dbBE_Transport_sr_buffer_reset( authbuf );
+
+        ssize_t slen = 0;
+        if( ! pass )
+        {
+          slen = snprintf( dbBE_Transport_sr_buffer_get_start( authbuf ),
+                           dbBE_Transport_sr_buffer_get_size( authbuf ),
+                           "ERR Permission Denied\r\n" );
+          LOG( DBG_INFO, stderr, "Rejecting connection from %s\n", connection->_url );
+          if( slen < 0 )
+          {
+            dbBE_Connection_destroy( connection );
+            continue;
+          }
+        }
+        else
+          slen = snprintf( dbBE_Transport_sr_buffer_get_start( authbuf ),
+                           dbBE_Transport_sr_buffer_get_size( authbuf ),
+                           "OK\r\n" );
+
+        dbBE_Transport_sr_buffer_add_data( authbuf, slen, 0 );
+        if( dbBE_Socket_send_simple( connection->_socket, authbuf ) < 0 )
+        {
+          LOG( DBG_ERR, stderr, "Failed to send AUTH-OK response to: %s.\n", connection->_url );
+          dbBE_Connection_destroy( connection );
+          continue;
+        }
+        memset( dbBE_Transport_sr_buffer_get_start( authbuf ), 0, dbBE_Transport_sr_buffer_get_size( authbuf ) );
+
+        // terminate connection if we didn't pass
+        if( ! pass )
+        {
+          dbBE_Connection_destroy( connection );
+          continue;
+        }
+      }
+
+      // create request queue and event
       dbrFShip_request_ctx_queue_t *rq = dbrFShip_request_ctx_queue_create();
       if( rq == NULL )
       {
@@ -738,8 +890,12 @@ void* dbrFShip_listen_start( void *arg )
   event_free( mev );
   free( mevinfo );
 
+  dbBE_Transport_sr_buffer_free( authbuf );
+  dbBE_Transport_sr_buffer_free( refbuf );
+
   LOG( DBG_INFO, stderr, "Closing listener\n" );
   close( s );
+  close( auth_fd );
   return tio;
 }
 

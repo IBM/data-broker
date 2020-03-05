@@ -292,7 +292,7 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
     {
       LOG( DBG_ERR, stderr, "Failed to receive responses: rc = %"PRId64" (%s)\n", rcvd, rcvd < 0 ? strerror( errno ) : "" );
       dbBE_Connection_unlink( fctx->_connection );
-      return dbBE_Completion_queue_pop( fctx->_compl_q );;
+      return dbBE_Completion_queue_pop( fctx->_compl_q );
     }
   }
 
@@ -309,6 +309,13 @@ dbBE_Completion_t* FShip_test_any( dbBE_Handle_t be )
   {
     dbBE_sge_t *sge = NULL;
     int sge_count = 0;
+    if(( dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ) > 4 ) && ( strncmp( dbBE_Transport_sr_buffer_get_processed_position( fctx->_rbuf ), "ERR ", 4 ) == 0 ))
+    {
+      LOG( DBG_ERR, stderr, "Received error from FSHIP_SRV: %s\n", dbBE_Transport_sr_buffer_get_processed_position( fctx->_rbuf ) );
+      dbBE_Connection_unlink( fctx->_connection );
+      return dbBE_Completion_queue_pop( fctx->_compl_q );
+    }
+
     parsed = dbBE_Completion_deserialize( dbBE_Transport_sr_buffer_get_processed_position( fctx->_rbuf ),
                                           dbBE_Transport_sr_buffer_unprocessed( fctx->_rbuf ),
                                           &cmpl, &sge, &sge_count );

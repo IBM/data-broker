@@ -139,7 +139,7 @@ ssize_t dbBE_Completion_deserialize( char *data,
             &user,
             &next,
             &parsed );
-  if( items < 0 )
+  if(( items < 0 ) || (( items == 0 ) && ( space > 4 )))
     return -EBADMSG;
 
   if(( items < 5 ) || ( data[ parsed - 1 ] != '\n') || ( space < (size_t)parsed ))
