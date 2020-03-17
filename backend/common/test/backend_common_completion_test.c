@@ -26,7 +26,8 @@ int test_serialize()
   char *rdata = generateLongMsg( 150 );
   char *data = (char*)malloc( 1000 );
   char *user = (char*)calloc( 20, sizeof( char ) );
-  rc += TEST( snprintf( user, 20, "%p\n", user ), (ssize_t)strnlen( user, 20 ) );
+  rc += TEST( snprintf( data, 20, "%p\n", user ), (ssize_t)strnlen( data, 20 ) );
+  memcpy( user, data, strnlen( data, 20 ) );
 
   // setup an SGE with response data
   dbBE_sge_t sge[3];
