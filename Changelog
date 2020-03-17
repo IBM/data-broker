@@ -1,4 +1,5 @@
 version 0.7.0
+ * authorization of fship server connections implemented
  * build system review
  * runtime loading and selection of backend library via DBR_BACKEND env variable
  * performance problem fixed; almost doubled IOPS
