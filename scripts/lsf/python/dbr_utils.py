@@ -186,8 +186,7 @@ def startservers(options):
 	print('hosts: %s' % hosts)
 #
 	cmd = ['jsrun']
-	args = ['--rs_per_host=%d' % rs_per,
-	'./dbr_utils.py',
+	args = ['./dbr_utils.py',
 	'startserver',
 	'-m %s' % hosts,
 	'-d %s' % rdir]
