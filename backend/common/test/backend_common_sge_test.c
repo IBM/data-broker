@@ -60,7 +60,7 @@ int test_header_extract()
   dbBE_sge_t *sge = NULL;
   dbBE_sge_t ssge;
   char *data = "150\n5\n10\n20\n30\n40\n50\n";
-  size_t parsed;
+  size_t parsed = 0;
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( NULL, 0, NULL, 0, NULL, NULL ));
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 0, NULL, 0, NULL, NULL ));
   rc += TEST( -EINVAL, dbBE_SGE_extract_header( &ssge, 1, NULL, 0, NULL, NULL ));
