@@ -80,6 +80,9 @@ ssize_t dbBE_SGE_serialize_header( const dbBE_sge_t *sge, const int sge_count, c
   if(( data == NULL ) || ( sge == NULL ) || ( sge_count < 1 ) || ( sge_count > DBBE_SGE_MAX ))
     return -EINVAL;
 
+  if( space < 3 )
+    return -ENOSPC;
+
   int i;
 
   // create header
