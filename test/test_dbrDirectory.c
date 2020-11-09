@@ -127,6 +127,7 @@ int main( int argc, char ** argv )
 
   // limit the directory to half the number of keys
   memset( tbuf, 0, DBR_SCAN_TEST_ITER * 64 );
+  rsize = 0;
   rc += TEST( dbrDirectory( cs_hdl, "*", DBR_GROUP_EMPTY, DBR_SCAN_TEST_ITER >> 1,
                             tbuf, DBR_SCAN_TEST_ITER * 32, &rsize ), DBR_SUCCESS );
   n = 0;
@@ -141,6 +142,14 @@ int main( int argc, char ** argv )
   rc += TEST_NOT( n == DBR_SCAN_TEST_ITER >> 1, 0 );
   if( rc )
     LOG( DBG_ALL, stderr, "Returned %d/%d, expected %d\n", n, DBR_SCAN_TEST_ITER, DBR_SCAN_TEST_ITER >> 1 );
+
+  // test the directory command with a pattern mismatch (nothing to return)
+  memset( tbuf, 0, DBR_SCAN_TEST_ITER * 64 );
+  rsize = 10;  // set to a non-zero val to test if it's changed to 0 after the call
+  rc += TEST( dbrDirectory( cs_hdl, "abcdef1234567abcdef", DBR_GROUP_EMPTY, DBR_SCAN_TEST_ITER + 10,
+                            tbuf, DBR_SCAN_TEST_ITER * 32, &rsize ), DBR_SUCCESS );
+  rc += TEST( rsize, 0 );
+
 
 
   // delete the name space
