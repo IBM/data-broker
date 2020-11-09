@@ -139,7 +139,7 @@ dbBE_Completion_t* dbBE_Redis_complete_command( dbBE_Redis_request_t *request,
       switch( rc )
       {
         case 0:
-          if( ! result->_data._integer ) // ToDo: check for < 0 instead of !0
+          if( result->_data._integer < 0 ) // if no match the number of results could be 0
             status = DBR_ERR_INPROGRESS;
           else
           {
