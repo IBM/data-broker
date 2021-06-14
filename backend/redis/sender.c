@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018,2019 IBM Corporation
+ * Copyright © 2018-2021 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -380,7 +380,7 @@ void* dbBE_Redis_sender( void *args )
     }
 
     // update cmd buffer status for this connection
-    if( dbBE_Transport_sge_buffer_add( conn->_cmd, rc ) > ( (DBBE_SGE_MAX << 4) * 3 ))
+    if( dbBE_Transport_sge_buffer_add( conn->_cmd, rc ) > ( (DBBE_SGE_MAX >> 2) * 3 ))
       request_limit = 1; // if we exceed 75% of the SGE space, we better stop to avoid blowing the limit with the next request
 
     // instead of sending, add connection to a pending connections list
