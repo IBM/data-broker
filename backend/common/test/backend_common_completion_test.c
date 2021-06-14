@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020 IBM Corporation
+ * Copyright © 2020-2021 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@ int test_deserialize()
   rc += TEST( comp->_user, (void*)0x35450673ull );
   rc += TEST( sge, NULL );
   rc += TEST( sge_count, 0 );
+  free( comp );
 
   free( data );
   printf( "Deserialize test exiting with rc=%d\n", rc );
